@@ -89,9 +89,9 @@ Tests use local fixtures and mocked transports; they do not call the live MFL AP
 
 ## Deploy on Railway
 
-Railway's pip builder installs production dependencies from the committed `requirements.txt`.
-If deployment logs say `No module named uvicorn`, confirm that file is present in the GitHub
-repository and redeploy without the previous build cache.
+Railway installs production dependencies from the committed `requirements.txt`; `railway.toml`
+also runs that installation explicitly for deterministic Railpack builds. If deployment logs say
+`No module named uvicorn`, confirm both files are present in the deployed GitHub commit.
 
 1. Push this project to a private GitHub repository and create a Railway service from that repo.
    Railway reads `railway.toml`, starts Uvicorn on the provided `PORT`, and checks `/health` before
