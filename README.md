@@ -109,7 +109,7 @@ also runs that installation explicitly for deterministic Railpack builds. If dep
    MFL_SEASON=2026
    MFL_KEEPER_LEAGUE_ID=<ADFL league id>
    MFL_AUCTION_LEAGUE_ID=<TMFL league id>
-   ALLOWED_HOSTS=*.up.railway.app
+ALLOWED_HOSTS=*.up.railway.app,healthcheck.railway.app
    ```
 
    Generate `SESSION_SECRET` locally with `python -c "import secrets;

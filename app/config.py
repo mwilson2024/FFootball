@@ -23,7 +23,9 @@ class Settings(BaseSettings):
     auth_required: bool = True
     session_secret: str = ""
     session_max_age_days: int = 30
-    allowed_hosts: str = "localhost,127.0.0.1,testserver,*.up.railway.app"
+    allowed_hosts: str = (
+        "localhost,127.0.0.1,testserver,*.up.railway.app,healthcheck.railway.app"
+    )
     auction_default_budget: Decimal = Decimal("200")
     auction_min_bid: Decimal = Decimal("1")
     export_directory: Path = Field(default=Path("exports"))

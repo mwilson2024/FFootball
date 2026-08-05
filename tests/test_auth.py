@@ -42,3 +42,12 @@ def test_protected_routes_require_session_and_csrf():
         assert (
             client.post("/logout", headers={"X-CSRF-Token": session.csrf_token}).status_code == 204
         )
+
+
+def test_railway_healthcheck_host_is_allowed_but_unknown_hosts_are_rejected():
+    with TestClient(app) as client:
+        response = client.get("/health", headers={"Host": "healthcheck.railway.app"})
+        assert response.status_code == 200
+        assert response.json() == {"status": "ok"}
+
+        assert client.get("/health", headers={"Host": "untrusted.example"}).status_code == 400
