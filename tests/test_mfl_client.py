@@ -112,3 +112,23 @@ async def test_login_cookie_and_auth_failure():
     async with MFLClient(settings, transport=httpx.MockTransport(denied)) as client:
         with pytest.raises(MFLAuthenticationError):
             await client.export("rosters", league_id="0001")
+
+
+@pytest.mark.asyncio
+async def test_authenticated_myleagues_export_uses_central_host_and_login_cookie():
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.path.endswith("/login"):
+            return httpx.Response(
+                200, text='<status MFL_USER_ID="private-cookie"/>', request=request
+            )
+        return httpx.Response(200, json={"leagues": {"league": {"id": "59885"}}}, request=request)
+
+    async with MFLClient(Settings(), transport=httpx.MockTransport(handler)) as client:
+        await client.authenticate("manager", "password")
+        await client.export("myleagues", force=True)
+
+    assert requests[1].url.host == "api.myfantasyleague.com"
+    assert "MFL_USER_ID=private-cookie" in requests[1].headers["cookie"]

@@ -61,3 +61,9 @@ def test_unranked_defense_does_not_outrank_unranked_offense():
     )
 
     assert [row.player_id for row in rows] == ["rb", "def"]
+
+
+def test_auction_pool_is_allocated_across_roster_capacity_not_entire_catalog():
+    rows = run({"QB": 1, "WR": 1, "TE": 1})
+    assert rows[0].baseline_value > Decimal("1")
+    assert sum(row.baseline_value for row in rows) <= Decimal("40.01")

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="login-shell">
+  <form class="login-card" method="post" action="/login" autocomplete="on">
+    <p class="eyebrow">PRIVATE LEAGUE ACCESS</p>
+    <h1>Sign in with MFL</h1>
+    <p>Your MyFantasyLeague login verifies that you belong to both configured leagues. DraftDesk never stores your MFL password or login cookie.</p>
+    {% if error %}<div class="notice login-error" role="alert">{{ error }}</div>{% endif %}
+    <input type="hidden" name="next" value="{{ next }}">
+    <label>MFL username
+      <input name="username" autocomplete="username" required autofocus>
+    </label>
+    <label>MFL password
+      <input name="password" type="password" autocomplete="current-password" required>
+    </label>
+    <button class="primary" type="submit">Sign in securely</button>
+    <small>You will remain signed in on this device for 30 days unless you sign out.</small>
+  </form>
+</section>
+{% endblock %}

@@ -148,22 +148,24 @@ def rank_players(
 
     def ranking_key(
         row: tuple[RankingInput, Decimal, Decimal, Decimal, str],
-    ) -> tuple[bool, Decimal, bool, Decimal, str]:
+    ) -> tuple[bool, bool, Decimal, Decimal, str]:
         item, projection, _, score, _ = row
         has_signal = any(
             value is not None for value in (item.projection, item.mfl_rank, item.adp, item.aav)
         )
         return (
+            item.position.upper() in primary_positions,
             has_signal,
             score if has_signal else Decimal("0"),
-            item.position.upper() in primary_positions,
             projection,
             item.player_id,
         )
 
     raw.sort(key=ranking_key, reverse=True)
-    positive_pool = sum((max(Decimal("0"), row[3]) for row in raw), Decimal("0"))
-    reserve = minimum_bid * Decimal(len(raw))
+    roster_capacity = min(len(raw), max(0, franchise_count * roster_size))
+    value_pool = raw[:roster_capacity]
+    positive_pool = sum((max(Decimal("0"), row[3]) for row in value_pool), Decimal("0"))
+    reserve = minimum_bid * Decimal(roster_capacity)
     allocatable = max(Decimal("0"), available_spending_pool - reserve)
     position_counts: dict[str, int] = defaultdict(int)
     result: list[RankedPlayer] = []
@@ -174,7 +176,11 @@ def rank_players(
         if previous is not None and previous - score >= Decimal("8"):
             tier += 1
         previous = score
-        share = max(Decimal("0"), score) / positive_pool if positive_pool else Decimal("0")
+        share = (
+            max(Decimal("0"), score) / positive_pool
+            if positive_pool and overall <= roster_capacity
+            else Decimal("0")
+        )
         baseline = (minimum_bid + share * allocatable).quantize(Decimal("0.01"), ROUND_HALF_UP)
         live = (baseline * inflation).quantize(Decimal("0.01"), ROUND_HALF_UP)
         result.append(

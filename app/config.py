@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     mfl_password: str = ""
     mfl_user_agent: str = "MFLDraftManager/1.0 contact@example.com"
     fantasypros_api_key: str = ""
+    auth_required: bool = True
+    session_secret: str = ""
+    session_max_age_days: int = 30
+    allowed_hosts: str = "localhost,127.0.0.1,testserver,*.up.railway.app"
     auction_default_budget: Decimal = Decimal("200")
     auction_min_bid: Decimal = Decimal("1")
     export_directory: Path = Field(default=Path("exports"))
@@ -40,6 +44,10 @@ class Settings(BaseSettings):
         if league_id == self.mfl_auction_league_id:
             return self.mfl_auction_api_key or None
         return None
+
+    @property
+    def allowed_host_list(self) -> list[str]:
+        return [item.strip() for item in self.allowed_hosts.split(",") if item.strip()]
 
 
 @lru_cache

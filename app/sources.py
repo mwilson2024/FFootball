@@ -10,7 +10,14 @@ import httpx
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app.models import DataSource, Player, PlayerIdentity, SourcePlayerValue
+from app.models import DataSource, League, Player, PlayerIdentity, SourcePlayerValue
+
+NFLVERSE_PLAYERS_URL = (
+    "https://github.com/nflverse/nflverse-data/releases/download/players/players.csv"
+)
+NFLVERSE_SCHEDULE_URL = (
+    "https://github.com/nflverse/nflverse-data/releases/download/schedules/games.csv"
+)
 
 DEFAULT_SOURCES: list[dict[str, Any]] = [
     {
@@ -177,6 +184,101 @@ TEAM_ALIASES = {
 def normalize_team(value: str | None) -> str:
     team = (value or "").upper().strip()
     return TEAM_ALIASES.get(team, team)
+
+
+def _schedule_data(
+    csv_text: str, season: int
+) -> tuple[
+    dict[str, list[dict[str, Any]]],
+    dict[str, int],
+    dict[str, int],
+    dict[str, float],
+    dict[str, float],
+]:
+    """Build team schedules and transparent difficulty ranks from nflverse games."""
+    rows = list(csv.DictReader(io.StringIO(csv_text)))
+    if not rows or not {"season", "week", "away_team", "home_team"}.issubset(rows[0]):
+        return {}, {}, {}, {}, {}
+
+    prior_stats: dict[str, dict[str, float]] = {}
+    for row in rows:
+        if row.get("season") != str(season - 1) or row.get("game_type") != "REG":
+            continue
+        away = normalize_team(row.get("away_team"))
+        home = normalize_team(row.get("home_team"))
+        try:
+            away_score = float(row.get("away_score") or "")
+            home_score = float(row.get("home_score") or "")
+        except ValueError:
+            continue
+        for team, scored, allowed in (
+            (away, away_score, home_score),
+            (home, home_score, away_score),
+        ):
+            stats = prior_stats.setdefault(team, {"games": 0, "for": 0, "against": 0})
+            stats["games"] += 1
+            stats["for"] += scored
+            stats["against"] += allowed
+
+    points_for = {
+        team: values["for"] / values["games"]
+        for team, values in prior_stats.items()
+        if values["games"]
+    }
+    points_against = {
+        team: values["against"] / values["games"]
+        for team, values in prior_stats.items()
+        if values["games"]
+    }
+    league_for = sum(points_for.values()) / len(points_for) if points_for else 22.5
+    league_against = sum(points_against.values()) / len(points_against) if points_against else 22.5
+
+    schedules: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        if row.get("season") != str(season) or row.get("game_type") != "REG":
+            continue
+        try:
+            week = int(row.get("week") or 0)
+        except ValueError:
+            continue
+        away = normalize_team(row.get("away_team"))
+        home = normalize_team(row.get("home_team"))
+        common = {
+            "week": week,
+            "date": row.get("gameday"),
+            "weekday": row.get("weekday"),
+            "time": row.get("gametime"),
+            "game_id": row.get("game_id"),
+        }
+        schedules.setdefault(away, []).append({**common, "opponent": home, "home_away": "away"})
+        schedules.setdefault(home, []).append({**common, "opponent": away, "home_away": "home"})
+    for games in schedules.values():
+        games.sort(key=lambda game: (int(game["week"]), str(game.get("date") or "")))
+
+    offense_scores = {
+        team: sum(points_against.get(game["opponent"], league_against) for game in games)
+        / len(games)
+        for team, games in schedules.items()
+        if games
+    }
+    defense_scores = {
+        team: sum(points_for.get(game["opponent"], league_for) for game in games) / len(games)
+        for team, games in schedules.items()
+        if games
+    }
+    offense_ranks = {
+        team: rank
+        for rank, (team, _) in enumerate(
+            sorted(offense_scores.items(), key=lambda item: (-item[1], item[0])), 1
+        )
+    }
+    defense_ranks = {
+        team: rank
+        for rank, (team, _) in enumerate(
+            sorted(defense_scores.items(), key=lambda item: (item[1], item[0])), 1
+        )
+    }
+    return schedules, offense_ranks, defense_ranks, offense_scores, defense_scores
 
 
 def _identity_for(db: Session, player: Player) -> PlayerIdentity:
@@ -543,7 +645,10 @@ async def sync_sleeper(
 
 
 async def sync_nflverse(
-    db: Session, *, transport: httpx.AsyncBaseTransport | None = None
+    db: Session,
+    season: int | None = None,
+    *,
+    transport: httpx.AsyncBaseTransport | None = None,
 ) -> dict[str, int]:
     source = db.get(DataSource, "nflverse")
     if source is None:
@@ -559,10 +664,18 @@ async def sync_nflverse(
             follow_redirects=True,
             transport=transport,
         ) as client:
-            response = await client.get(
-                "https://github.com/nflverse/nflverse-data/releases/download/players/players.csv"
-            )
+            response = await client.get(NFLVERSE_PLAYERS_URL)
             response.raise_for_status()
+            schedule_response = await client.get(NFLVERSE_SCHEDULE_URL)
+            schedule_response.raise_for_status()
+        selected_season = season or max(list(db.scalars(select(League.season))), default=2026)
+        (
+            schedules,
+            offense_ranks,
+            defense_ranks,
+            offense_scores,
+            defense_scores,
+        ) = _schedule_data(schedule_response.text, selected_season)
         players = list(db.scalars(select(Player)))
         exact, fallback = _player_indexes(players)
         matched = 0
@@ -612,6 +725,57 @@ async def sync_nflverse(
                 },
             }
             player.updated_at = datetime.now(UTC)
+        db.execute(
+            delete(SourcePlayerValue).where(
+                SourcePlayerValue.source_id == "nflverse",
+                SourcePlayerValue.value_type == "schedule",
+            )
+        )
+        schedule_snapshot = (
+            f"nflverse-schedule-{selected_season}-{int(datetime.now(UTC).timestamp())}"
+        )
+        for player in players:
+            team = normalize_team(player.nfl_team)
+            games = schedules.get(team)
+            if not games:
+                continue
+            is_defense = player.position.upper() in {"DEF", "DST", "D/ST"}
+            schedule_rank = (defense_ranks if is_defense else offense_ranks).get(team)
+            difficulty_score = (defense_scores if is_defense else offense_scores).get(team)
+            if schedule_rank is None:
+                continue
+            weeks = {int(game["week"]) for game in games}
+            bye_week = next((week for week in range(1, 19) if week not in weeks), None)
+            if bye_week is not None:
+                player.bye_week = bye_week
+            db.add(
+                SourcePlayerValue(
+                    source_id="nflverse",
+                    league_id=None,
+                    player_id=player.id,
+                    value_type="schedule",
+                    raw_value_json={
+                        "season": selected_season,
+                        "team": team,
+                        "games": games,
+                        "schedule_rank": schedule_rank,
+                        "schedule_rank_label": f"{schedule_rank} of {len(schedules)}",
+                        "difficulty_score": round(difficulty_score or 0, 2),
+                        "rank_basis": (
+                            "Opponent prior-season scoring; lower is easier for team defense"
+                            if is_defense
+                            else (
+                                "Opponent prior-season points allowed; higher is easier for offense"
+                            )
+                        ),
+                        "source_url": NFLVERSE_SCHEDULE_URL,
+                    },
+                    normalized_value=Decimal(schedule_rank),
+                    source_updated_at=datetime.now(UTC),
+                    fetched_at=datetime.now(UTC),
+                    snapshot_id=schedule_snapshot,
+                )
+            )
         source.last_success_at = datetime.now(UTC)
         source.last_error = None
         db.commit()

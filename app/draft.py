@@ -18,6 +18,7 @@ from app.models import (
     DraftSession,
     Franchise,
     League,
+    MFLSnapshot,
     PersonalPlayerPreference,
     Player,
     RosterAssignment,
@@ -27,6 +28,73 @@ from app.schemas import DraftPickCreate, DraftPickUpdate
 
 class DraftValidationError(ValueError):
     pass
+
+
+def _as_list(value: Any) -> list[Any]:
+    if value is None:
+        return []
+    return value if isinstance(value, list) else [value]
+
+
+def _number(value: Any) -> int | None:
+    try:
+        return int(value) if value not in (None, "") else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _draft_order(
+    db: Session, league_id: str, local_picks: list[DraftPick]
+) -> tuple[list[dict[str, Any]], str | None]:
+    snapshot = db.scalar(
+        select(MFLSnapshot)
+        .where(
+            MFLSnapshot.league_id == league_id,
+            MFLSnapshot.export_type == "draftResults",
+        )
+        .order_by(MFLSnapshot.fetched_at.desc())
+    )
+    if snapshot is None or not isinstance(snapshot.payload_json, dict):
+        return [], None
+    root = snapshot.payload_json.get("draftResults", snapshot.payload_json)
+    if not isinstance(root, dict):
+        return [], snapshot.fetched_at.isoformat()
+    units = [item for item in _as_list(root.get("draftUnit")) if isinstance(item, dict)]
+    unit = next((item for item in units if item.get("draftPick") is not None), None)
+    if unit is None:
+        return [], snapshot.fetched_at.isoformat()
+
+    local_by_overall = {
+        item.overall_pick: item for item in local_picks if item.overall_pick is not None
+    }
+    franchise_names = {
+        item.id: item.name
+        for item in db.scalars(select(Franchise).where(Franchise.league_id == league_id))
+    }
+    slots: list[dict[str, Any]] = []
+    for index, raw in enumerate(_as_list(unit.get("draftPick")), start=1):
+        if not isinstance(raw, dict):
+            continue
+        overall = _number(raw.get("overallPick")) or index
+        local = local_by_overall.get(overall)
+        franchise_id = str(raw.get("franchise") or (local.franchise_id if local else ""))
+        remote_player = raw.get("player")
+        remote_player_id = str(remote_player) if remote_player not in (None, "") else None
+        player_id = local.player_id if local else remote_player_id
+        player = db.get(Player, player_id) if player_id else None
+        slots.append(
+            {
+                "overall_pick": overall,
+                "round": _number(raw.get("round")) or (local.round if local else None),
+                "pick": _number(raw.get("pick")) or (local.pick if local else None),
+                "franchise_id": franchise_id or None,
+                "franchise_name": franchise_names.get(franchise_id, franchise_id or "Unknown"),
+                "player_id": player_id,
+                "player_name": player.name if player else None,
+                "completed": bool(player_id),
+            }
+        )
+    return slots, snapshot.fetched_at.isoformat()
 
 
 def get_or_create_session(db: Session, league: League) -> DraftSession:
@@ -268,6 +336,8 @@ def draft_state(db: Session, league_id: str) -> dict[str, Any]:
         if row["available"] and row["tier"] is not None:
             key = f"{row['position']}:T{row['tier']}"
             tiers[key] = tiers.get(key, 0) + 1
+    order, order_fetched_at = _draft_order(db, league_id, picks)
+    current_drafter = next((slot for slot in order if not slot["completed"]), None)
     return {
         "session": {
             "id": session.id,
@@ -280,6 +350,9 @@ def draft_state(db: Session, league_id: str) -> dict[str, Any]:
             "synced_at": session.synced_at.isoformat() if session.synced_at else None,
         },
         "picks": [pick_json(db, item) for item in picks],
+        "draft_order": order,
+        "current_drafter": current_drafter,
+        "order_fetched_at": order_fetched_at,
         "queue": [
             {
                 "player_id": player.id,

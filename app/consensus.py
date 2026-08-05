@@ -25,6 +25,15 @@ from app.models import (
 )
 from app.sources import normalize_player_name
 
+SOURCE_FAMILIES = {
+    "league_model": "mfl",
+    "mfl_rank": "mfl",
+    "mfl_adp": "mfl",
+    "mfl_aav": "mfl",
+    "fantasypros": "fantasypros",
+    "gng": "gng",
+}
+
 
 def _preference_json(preference: PersonalPlayerPreference | None) -> dict[str, Any]:
     if preference is None:
@@ -113,6 +122,25 @@ def _latest_user_ranks(db: Session, league_id: str) -> dict[str, dict[str, Decim
     return result
 
 
+def _latest_source_raw(db: Session, league_id: str, source_id: str) -> dict[str, dict[str, Any]]:
+    values = list(
+        db.scalars(
+            select(SourcePlayerValue)
+            .where(
+                SourcePlayerValue.league_id == league_id,
+                SourcePlayerValue.source_id == source_id,
+                SourcePlayerValue.value_type == "rank",
+            )
+            .order_by(SourcePlayerValue.fetched_at.desc(), SourcePlayerValue.id.desc())
+        )
+    )
+    result: dict[str, dict[str, Any]] = {}
+    for value in values:
+        if value.player_id not in result:
+            result[value.player_id] = value.raw_value_json or {}
+    return result
+
+
 def build_consensus(db: Session, league_id: str) -> list[dict[str, Any]]:
     players = list(db.scalars(select(Player)))
     rankings = {
@@ -131,6 +159,7 @@ def build_consensus(db: Session, league_id: str) -> list[dict[str, Any]]:
         item.id: item for item in db.scalars(select(DataSource).where(DataSource.enabled.is_(True)))
     }
     custom_ranks = _latest_user_ranks(db, league_id)
+    fantasypros_raw = _latest_source_raw(db, league_id, "fantasypros")
     rank_values_by_source: dict[str, dict[str, Decimal]] = {}
     for player in players:
         ranking = rankings.get(player.id)
@@ -170,7 +199,17 @@ def build_consensus(db: Session, league_id: str) -> list[dict[str, Any]]:
             weight = Decimal(sources[source_id].weight)
             weighted_total += percentiles[source_id][player.id] * weight
             total_weight += weight
-        score = weighted_total / total_weight if total_weight else Decimal("-1")
+        raw_score = weighted_total / total_weight if total_weight else Decimal("-1")
+        source_families = {SOURCE_FAMILIES.get(source_id, source_id) for source_id in raw_ranks}
+        family_count = len(source_families)
+        confidence_multiplier = {
+            0: Decimal("0"),
+            1: Decimal("0.72"),
+            2: Decimal("0.86"),
+        }.get(family_count, Decimal("1"))
+        score = raw_score * confidence_multiplier if raw_score >= 0 else raw_score
+        if player.position.upper() == "DEF":
+            score = score * Decimal("0.08") - Decimal("0.25")
         rank_numbers = [float(value) for value in raw_ranks.values()]
         owner = (
             availability["rostered_by"].get(player.id)
@@ -191,6 +230,10 @@ def build_consensus(db: Session, league_id: str) -> list[dict[str, Any]]:
                 "rookie": player.rookie,
                 "bye_week": player.bye_week,
                 "consensus_score": str(score.quantize(Decimal("0.0001"))),
+                "source_family_count": family_count,
+                "source_confidence": (
+                    "high" if family_count >= 3 else "medium" if family_count == 2 else "low"
+                ),
                 "source_count": len(raw_ranks),
                 "source_ranks": {key: str(value) for key, value in raw_ranks.items()},
                 "average_rank": round(mean(rank_numbers), 2) if rank_numbers else None,
@@ -206,6 +249,7 @@ def build_consensus(db: Session, league_id: str) -> list[dict[str, Any]]:
                 "tier": preference.manual_tier
                 if preference and preference.manual_tier
                 else (ranking.tier if ranking else None),
+                "fantasypros_tier": fantasypros_raw.get(player.id, {}).get("tier"),
                 "custom_score": str(ranking.custom_score) if ranking else None,
                 "projected_points": str(ranking.projected_points)
                 if ranking and ranking.projected_points is not None

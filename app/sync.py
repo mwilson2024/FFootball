@@ -383,7 +383,8 @@ async def sync_league(
             player.position = str(row.get("position", "UNK")).upper()
             player.nfl_team = row.get("team") or row.get("nfl_team")
             player.status = row.get("status")
-            player.rookie = str(row.get("rookie", "")).lower() in {"1", "true", "yes"} or None
+            if str(row.get("rookie", "")).lower() in {"1", "true", "yes"}:
+                player.rookie = True
             player.fantasy_positions_json = [
                 item.strip().upper()
                 for item in str(row.get("position", "UNK")).replace("|", ",").split(",")
@@ -464,6 +465,8 @@ def _signals(response: MFLResponse | None, root_name: str) -> dict[str, dict[str
 
 
 def calculate_rankings(db: Session, league: League, responses: dict[str, MFLResponse]) -> None:
+    from app.catalog import draftable_positions
+
     rank_signal = _signals(responses.get("playerRanks"), "playerRanks")
     adp_signal = _signals(responses.get("adp"), "adp")
     aav_signal = _signals(responses.get("aav"), "aav")
@@ -475,7 +478,13 @@ def calculate_rankings(db: Session, league: League, responses: dict[str, MFLResp
     ) | set(
         db.scalars(select(KeeperSelection.player_id).where(KeeperSelection.league_id == league.id))
     )
-    players = list(db.scalars(select(Player).where(Player.id.not_in(unavailable))))
+    allowed_positions = draftable_positions(db, league.id)
+    players = [
+        player
+        for player in db.scalars(select(Player).where(Player.id.not_in(unavailable)))
+        if player.position.upper() in allowed_positions
+        or (player.position.upper() == "K" and "PK" in allowed_positions)
+    ]
     inputs: list[RankingInput] = []
     for player in players:
         rank_row = rank_signal.get(player.id, {})

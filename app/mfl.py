@@ -56,7 +56,7 @@ def _xml_to_dict(node: ET.Element) -> dict[str, Any]:
 class MFLClient:
     # These league-independent exports are rejected by an individual league host.
     # MFL requires them to use the central API host even after a league baseURL is known.
-    CENTRAL_API_EXPORTS = {"allRules", "playerRanks", "adp", "aav"}
+    CENTRAL_API_EXPORTS = {"allRules", "playerRanks", "adp", "aav", "myleagues"}
 
     CACHE_TTLS: dict[str, timedelta] = {
         "players": timedelta(hours=24),
@@ -105,15 +105,15 @@ class MFLClient:
         host = self._league_hosts.get(league_id or "", "api.myfantasyleague.com")
         return f"https://{host}/{self.settings.mfl_season}"
 
-    async def login(self) -> None:
-        if not self.settings.mfl_username or not self.settings.mfl_password:
-            raise MFLAuthenticationError("Commissioner credentials are not configured")
+    async def authenticate(self, username: str, password: str) -> None:
+        if not username or not password:
+            raise MFLAuthenticationError("MFL credentials are required")
         response = await self._request(
             "POST",
             f"https://api.myfantasyleague.com/{self.settings.mfl_season}/login",
             data={
-                "USERNAME": self.settings.mfl_username,
-                "PASSWORD": self.settings.mfl_password,
+                "USERNAME": username,
+                "PASSWORD": password,
                 "XML": "1",
             },
         )
@@ -132,6 +132,11 @@ class MFLClient:
         if not cookie:
             raise MFLAuthenticationError("MFL login response did not contain MFL_USER_ID")
         self._cookie = cookie
+
+    async def login(self) -> None:
+        if not self.settings.mfl_username or not self.settings.mfl_password:
+            raise MFLAuthenticationError("Commissioner credentials are not configured")
+        await self.authenticate(self.settings.mfl_username, self.settings.mfl_password)
 
     async def export(
         self,
@@ -170,7 +175,8 @@ class MFLClient:
         )
         url = f"{base}/export"
         try:
-            response = await self._request("GET", url, params=request_params)
+            headers = {"Cookie": f"MFL_USER_ID={self._cookie}"} if self._cookie else None
+            response = await self._request("GET", url, params=request_params, headers=headers)
             payload = self._parse_response(response)
         except MFLError:
             if db is None:
@@ -235,7 +241,7 @@ class MFLClient:
             "POST",
             f"{self._base(league_id)}/import",
             data=data,
-            cookies={"MFL_USER_ID": self._cookie or ""},
+            headers={"Cookie": f"MFL_USER_ID={self._cookie or ''}"},
         )
         return response.text
 

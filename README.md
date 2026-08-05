@@ -86,3 +86,35 @@ pytest -q
 ```
 
 Tests use local fixtures and mocked transports; they do not call the live MFL API.
+
+## Deploy on Railway
+
+1. Push this project to a private GitHub repository and create a Railway service from that repo.
+   Railway reads `railway.toml`, starts Uvicorn on the provided `PORT`, and checks `/health` before
+   directing traffic to a new deployment.
+2. Add a Railway volume mounted at `/app/data`. Keep the service at **one replica** because SQLite
+   is a single-file database. Use Railway Postgres before scaling horizontally.
+3. Add these service variables (do not commit their values):
+
+   ```text
+   APP_ENV=production
+   AUTH_REQUIRED=true
+   SESSION_SECRET=<a stable random value of at least 32 characters>
+   DATABASE_URL=sqlite:////app/data/fantasy_draft.db
+   EXPORT_DIRECTORY=/app/data/exports
+   MFL_SEASON=2026
+   MFL_KEEPER_LEAGUE_ID=<ADFL league id>
+   MFL_AUCTION_LEAGUE_ID=<TMFL league id>
+   ALLOWED_HOSTS=*.up.railway.app
+   ```
+
+   Generate `SESSION_SECRET` locally with `python -c "import secrets;
+   print(secrets.token_urlsafe(48))"`. Keep it unchanged across deployments or every active login
+   will be invalidated. Add optional MFL league keys and `FANTASYPROS_API_KEY` as Railway variables.
+4. Generate a Railway domain, open the HTTPS URL, and sign in with an MFL account that belongs to
+   both configured leagues. MFL credentials are verified directly with MFL and are not retained by
+   DraftDesk.
+
+The production cookie is HTTP-only, secure, SameSite=Lax, HMAC-signed, and valid for 30 days.
+Mutating requests require a CSRF token; login attempts are rate-limited; host validation and common
+browser security headers are enabled. Railway must use HTTPS (its generated domains do by default).

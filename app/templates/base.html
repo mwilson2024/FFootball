@@ -3,16 +3,20 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ request.state.user.csrf_token if request.state.user else '' }}">
   <title>{{ title }} · MFL Draft Manager</title>
   <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
   <header class="topbar">
     <a class="brand" href="/">DraftDesk <span>MFL</span></a>
+    {% if request.state.user %}
     <button class="nav-toggle" type="button" aria-label="Toggle navigation" onclick="document.querySelector('.main-nav').classList.toggle('open')">Menu</button>
     <nav class="main-nav" aria-label="Primary navigation">
       <a href="/draft">Draft Room</a><a href="/cheat-sheet">Cheat Sheet</a><a href="/players">Players</a><a href="/rosters">Rosters</a><a href="/keepers">Keepers</a><a href="/auction">Auction</a><a href="/scoring">Scoring</a><a href="/sources">Sources</a><a href="/settings">Settings</a>
+      <button class="nav-logout" type="button" onclick="logout()" title="Signed in as {{ request.state.user.username }}">Sign out</button>
     </nav>
+    {% endif %}
   </header>
   <main>{% block content %}{% endblock %}</main>
   <div id="toast" role="status" aria-live="polite"></div>

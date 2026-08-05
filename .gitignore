@@ -6,9 +6,10 @@ __pycache__/
 .mypy_cache/
 *.pyc
 data/*.db
+data/.session_secret
 exports/*.csv
 exports/*.xml
 exports/*.json
 !data/.gitkeep
 !exports/.gitkeep
-
+.env.example

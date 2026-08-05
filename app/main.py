@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import csv
 import hashlib
+import hmac
 import io
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -10,14 +11,15 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Annotated, Any, cast
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 from fastapi import Body, Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.auction import (
     AuctionValidationError,
@@ -28,6 +30,17 @@ from app.auction import (
     undo,
     update_purchase,
 )
+from app.auth import (
+    SESSION_COOKIE,
+    clear_login_failures,
+    login_allowed,
+    login_rate_key,
+    make_session_token,
+    mfl_league_ids,
+    read_session_token,
+    record_login_failure,
+    resolve_session_secret,
+)
 from app.catalog import (
     draftable_consensus,
     player_detail,
@@ -35,6 +48,7 @@ from app.catalog import (
     query_players,
     roster_overview,
 )
+from app.config import get_settings
 from app.consensus import create_consensus_snapshot, parse_ranking_csv
 from app.db import get_db, init_db
 from app.draft import (
@@ -51,7 +65,7 @@ from app.draft import (
     update_pick,
 )
 from app.exports import build_xml, export_csv, export_xml
-from app.mfl import MFLClient, MFLError
+from app.mfl import MFLAuthenticationError, MFLClient, MFLError
 from app.models import (
     AuctionPurchase,
     DataSource,
@@ -92,10 +106,15 @@ from app.sync import RULE_DESCRIPTIONS, record_sync_warnings, sync_configured
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
+SESSION_SIGNING_SECRET = ""
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    global SESSION_SIGNING_SECRET
+    settings = get_settings()
+    if settings.auth_required:
+        SESSION_SIGNING_SECRET = resolve_session_secret(settings)
     init_db()
     from app.db import SessionLocal
 
@@ -112,8 +131,63 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="MFL Fantasy Draft Manager", version="1.0.0", lifespan=lifespan)
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=get_settings().allowed_host_list)
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 Db = Annotated[Session, Depends(get_db)]
+
+
+@app.middleware("http")
+async def secure_session(request: Request, call_next: Any) -> Response:
+    settings = get_settings()
+    public_path = (
+        request.url.path == "/login"
+        or request.url.path == "/health"
+        or request.url.path.startswith("/static/")
+    )
+    session = None
+    if settings.auth_required:
+        session = read_session_token(SESSION_SIGNING_SECRET, request.cookies.get(SESSION_COOKIE))
+        if session is None and not public_path:
+            if request.url.path.startswith("/api/"):
+                return JSONResponse(
+                    status_code=401,
+                    content={
+                        "detail": {"code": "authentication_required", "message": "Sign in required"}
+                    },
+                )
+            target = request.url.path
+            if request.url.query:
+                target += f"?{request.url.query}"
+            return RedirectResponse(f"/login?next={quote(target, safe='')}", status_code=303)
+        if (
+            session is not None
+            and request.method in {"POST", "PUT", "PATCH", "DELETE"}
+            and request.url.path != "/login"
+            and not hmac.compare_digest(request.headers.get("X-CSRF-Token", ""), session.csrf_token)
+        ):
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "detail": {
+                        "code": "csrf_failed",
+                        "message": "Security token expired; refresh and try again",
+                    }
+                },
+            )
+    request.state.user = session
+    response = cast(Response, await call_next(request))
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; "
+        "script-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; "
+        "base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+    )
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    if settings.app_env.lower() in {"production", "prod"}:
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
 
 
 def _league_or_404(db: Session, league_id: str) -> League:
@@ -171,11 +245,13 @@ def _page_context(db: Session, title: str, league_id: str | None = None) -> dict
     settings = runtime_settings(db)
     leagues = list(db.scalars(select(League).order_by(League.league_type, League.name)))
     selected = league_id or settings.mfl_keeper_league_id or settings.mfl_auction_league_id
+    selected_league = next((item for item in leagues if item.id == selected), None)
     return {
         "title": title,
         "settings": settings,
         "leagues": leagues,
         "selected_league_id": selected,
+        "selected_league": selected_league,
         "setup": setup_status(db),
     }
 
@@ -192,6 +268,102 @@ async def domain_error(_: Request, exc: Exception) -> JSONResponse:
     )
 
 
+@app.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+def _safe_next(value: str | None) -> str:
+    if value and value.startswith("/") and not value.startswith("//"):
+        return value
+    return "/"
+
+
+@app.get("/login", response_class=HTMLResponse)
+def login_page(request: Request, next: str | None = None) -> Any:
+    if request.state.user is not None:
+        return RedirectResponse(_safe_next(next), status_code=303)
+    return templates.TemplateResponse(
+        request,
+        "login.html",
+        {"title": "Sign in", "next": _safe_next(next), "error": None},
+    )
+
+
+@app.post("/login", response_class=HTMLResponse)
+async def login(
+    request: Request,
+    db: Db,
+    username: Annotated[str, Form()],
+    password: Annotated[str, Form()],
+    next: Annotated[str, Form()] = "/",
+) -> Any:
+    client_ip = request.client.host if request.client else "unknown"
+    rate_key = login_rate_key(client_ip, username)
+    error = "MFL sign-in failed or this account does not belong to the configured leagues."
+    if not login_allowed(rate_key):
+        return templates.TemplateResponse(
+            request,
+            "login.html",
+            {
+                "title": "Sign in",
+                "next": _safe_next(next),
+                "error": "Too many attempts. Wait ten minutes and try again.",
+            },
+            status_code=429,
+        )
+
+    settings = runtime_settings(db)
+    configured = {
+        value for value in (settings.mfl_keeper_league_id, settings.mfl_auction_league_id) if value
+    }
+    try:
+        if not configured:
+            raise MFLAuthenticationError("No leagues are configured")
+        async with MFLClient(settings) as client:
+            await client.authenticate(username.strip(), password)
+            leagues = await client.export("myleagues", force=True)
+        memberships = mfl_league_ids(leagues.payload)
+        if not configured.issubset(memberships):
+            raise MFLAuthenticationError("Account is not in every configured league")
+    except (MFLAuthenticationError, MFLError):
+        record_login_failure(rate_key)
+        return templates.TemplateResponse(
+            request,
+            "login.html",
+            {"title": "Sign in", "next": _safe_next(next), "error": error},
+            status_code=401,
+        )
+
+    clear_login_failures(rate_key)
+    app_settings = get_settings()
+    max_age = app_settings.session_max_age_days * 24 * 60 * 60
+    token, _ = make_session_token(
+        SESSION_SIGNING_SECRET,
+        username.strip(),
+        configured,
+        max_age_seconds=max_age,
+    )
+    response = RedirectResponse(_safe_next(next), status_code=303)
+    response.set_cookie(
+        SESSION_COOKIE,
+        token,
+        max_age=max_age,
+        httponly=True,
+        secure=app_settings.app_env.lower() in {"production", "prod"},
+        samesite="lax",
+        path="/",
+    )
+    return response
+
+
+@app.post("/logout", status_code=204)
+def logout() -> Response:
+    response = Response(status_code=204)
+    response.delete_cookie(SESSION_COOKIE, path="/")
+    return response
+
+
 @app.get("/", response_class=HTMLResponse)
 def dashboard(request: Request, db: Db) -> Any:
     context = _page_context(db, "League dashboard")
@@ -204,6 +376,17 @@ def players_page(request: Request, db: Db, league_id: str | None = None) -> Any:
     return templates.TemplateResponse(
         request, "players.html", _page_context(db, "All players", league_id)
     )
+
+
+@app.get("/player/{player_id}", response_class=HTMLResponse)
+def player_profile_page(
+    request: Request, player_id: str, db: Db, league_id: str | None = None
+) -> Any:
+    context = _page_context(db, "Player profile", league_id)
+    if db.get(Player, player_id) is None:
+        raise HTTPException(404, detail={"code": "player_not_found", "message": "Player not found"})
+    context["player_id"] = player_id
+    return templates.TemplateResponse(request, "player_profile.html", context)
 
 
 @app.get("/rosters", response_class=HTMLResponse)
@@ -649,7 +832,7 @@ def rankings(
     tier: int | None = None,
     available: bool = True,
     search: str | None = None,
-    sort: str = "overall_rank",
+    sort: str = "consensus_rank",
 ) -> list[dict[str, Any]]:
     result = query_players(
         db,
@@ -660,17 +843,20 @@ def rankings(
         tier=tier,
         availability="available" if available else "all",
         search=search,
-        sort="league_adjusted_rank" if sort == "overall_rank" else sort,
+        sort="league_adjusted_rank"
+        if sort in {"weekly_model_rank", "league_adjusted_rank"}
+        else sort,
         direction="desc" if sort in {"custom_score", "suggested_auction_value"} else "asc",
     )
     return [
         {
             **row,
-            "overall_rank": row["league_adjusted_rank"],
+            "overall_rank": row["consensus_rank"],
+            "weekly_model_rank": row["league_adjusted_rank"],
             "suggested_auction_value": row["live_auction_value"],
         }
         for row in result["items"]
-        if row["league_adjusted_rank"] is not None
+        if row["consensus_rank"] is not None
     ]
 
 
@@ -834,6 +1020,9 @@ def export_cheat_sheet(league_id: str, db: Db) -> Response:
         "rank_range",
         "adp",
         "mfl_aav",
+        "suggested_auction_value",
+        "max_recommended_bid",
+        "dynamic_bid",
         "value_over_replacement",
         "available",
     ]

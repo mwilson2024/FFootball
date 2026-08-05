@@ -1,21 +1,33 @@
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import httpx
 import pytest
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.catalog import draftable_positions, player_filters, query_players, roster_overview
+from app.auction import add_purchase
+from app.catalog import (
+    draftable_positions,
+    player_detail,
+    player_filters,
+    query_players,
+    roster_overview,
+)
 from app.consensus import build_consensus, parse_ranking_csv
 from app.draft import add_pick, draft_state, remove_pick, undo_draft, update_pick
 from app.main import app
 from app.models import (
     DataSource,
     DraftPick,
+    MFLSnapshot,
     PersonalPlayerPreference,
+    Player,
     RankingSnapshot,
     RosterAssignment,
+    SourcePlayerValue,
 )
-from app.schemas import DraftPickCreate, DraftPickUpdate
+from app.schemas import DraftPickCreate, DraftPickUpdate, PurchaseCreate
 from app.settings_store import setup_status
 from app.sources import (
     initialize_sources,
@@ -114,7 +126,53 @@ def test_player_pool_only_contains_positions_draftable_in_selected_league(
     assert draftable_positions(seeded, "00999") == {"QB", "RB", "WR", "TE", "DEF"}
     rows = query_players(seeded, "00999", per_page=500)["items"]
     assert {row["player_id"] for row in rows} == {"0001234", "99", "defense"}
+    defense = next(row for row in rows if row["player_id"] == "defense")
+    top_skill = next(row for row in rows if row["position"] != "DEF")
+    assert defense["tier"] >= 6
+    assert Decimal(top_skill["suggested_auction_value"]) > Decimal("1")
+    assert Decimal(top_skill["max_recommended_bid"]) >= Decimal(
+        top_skill["suggested_auction_value"]
+    )
     assert player_filters(seeded, "00999")["positions"] == ["QB", "RB", "DEF"]
+    defense_detail = player_detail(seeded, "00999", "defense")
+    assert defense_detail is not None
+    assert defense_detail["profile"]["external_links"][0] == {
+        "label": "FantasyPros defense news",
+        "url": "https://www.fantasypros.com/nfl/news/buffalo-defense.php",
+        "guessed": False,
+    }
+
+
+def test_dynamic_bid_reacts_to_selected_players_and_remaining_money(seeded: Session) -> None:
+    initialize_sources(seeded)
+    seeded.add_all(
+        [
+            Player(id=f"depth-{index}", name=f"Depth Player {index}", position="RB", nfl_team="BUF")
+            for index in range(3, 13)
+        ]
+    )
+    add_rank(seeded, "0001234", 1)
+    add_rank(seeded, "99", 2)
+    for index in range(3, 13):
+        add_rank(seeded, f"depth-{index}", index)
+    seeded.commit()
+    before = {row["player_id"]: row for row in query_players(seeded, "00999")["items"]}
+
+    add_purchase(
+        seeded,
+        PurchaseCreate(
+            league_id="00999",
+            player_id="0001234",
+            franchise_id="0001",
+            amount=Decimal("17"),
+            status="ROSTER",
+        ),
+    )
+    after = {row["player_id"]: row for row in query_players(seeded, "00999")["items"]}
+
+    assert after["0001234"]["dynamic_bid"] is None
+    assert after["99"]["dynamic_bid"] != before["99"]["dynamic_bid"]
+    assert after["99"]["suggested_auction_value"] == before["99"]["suggested_auction_value"]
 
 
 def test_real_draft_add_edit_delete_and_undo(seeded: Session) -> None:
@@ -144,6 +202,51 @@ def test_real_draft_add_edit_delete_and_undo(seeded: Session) -> None:
     undo_draft(seeded, "00999")
     assert seeded.get(DraftPick, pick.id) is not None
     assert draft_state(seeded, "00999")["picks"][0]["player_id"] == "0001234"
+
+
+def test_draft_state_uses_mfl_traded_pick_order_and_current_drafter(seeded: Session) -> None:
+    now = datetime.now(UTC)
+    seeded.add(
+        MFLSnapshot(
+            league_id="00999",
+            season=2026,
+            export_type="draftResults",
+            source_url="https://api.myfantasyleague.com/2026/export",
+            parameters_json={},
+            payload_json={
+                "draftResults": {
+                    "draftUnit": {
+                        "draftPick": [
+                            {"round": "1", "pick": "1", "franchise": "0001", "player": ""},
+                            {"round": "1", "pick": "2", "franchise": "0002", "player": ""},
+                        ]
+                    }
+                }
+            },
+            fetched_at=now,
+            expires_at=now + timedelta(minutes=15),
+        )
+    )
+    seeded.commit()
+
+    before = draft_state(seeded, "00999")
+    assert [slot["franchise_id"] for slot in before["draft_order"]] == ["0001", "0002"]
+    assert before["current_drafter"]["franchise_name"] == "Alpha"
+
+    add_pick(
+        seeded,
+        DraftPickCreate(
+            league_id="00999",
+            player_id="0001234",
+            franchise_id="0001",
+            round=1,
+            pick=1,
+            overall_pick=1,
+        ),
+    )
+    after = draft_state(seeded, "00999")
+    assert after["draft_order"][0]["completed"] is True
+    assert after["current_drafter"]["franchise_name"] == "Beta"
 
 
 def test_user_csv_preview_import_and_queue_persist(seeded: Session, tmp_path) -> None:
@@ -252,6 +355,12 @@ async def test_gng_and_fantasypros_rankings_preserve_provenance(seeded: Session)
     assert fantasypros["matched"] == 1
     assert rows["0001234"]["source_ranks"]["gng"] == "7.000000"
     assert rows["0001234"]["source_ranks"]["fantasypros"] == "3.000000"
+    detail = player_detail(seeded, "00999", "0001234")
+    assert detail is not None
+    assert detail["profile"]["fantasypros"]["rank_ecr"] == 3
+    assert detail["profile"]["external_links"][0]["url"].startswith(
+        "https://www.fantasypros.com/nfl/players/"
+    )
 
 
 @pytest.mark.asyncio
@@ -263,9 +372,16 @@ async def test_nflverse_sync_handles_new_identity_json_defaults(seeded: Session)
         "Leading Zero,RB,BUF,00-0012345,12345,ZeroLe00,9876,2000-01-02,2026,ACT,0,Test U,"
         "https://example.test/player.png\n"
     )
+    schedule_body = (
+        "game_id,season,game_type,week,gameday,weekday,gametime,away_team,away_score,"
+        "home_team,home_score\n"
+        "2025_01_BUF_NYJ,2025,REG,1,2025-09-07,Sunday,13:00,BUF,20,NYJ,10\n"
+        "2026_01_BUF_NYJ,2026,REG,1,2026-09-13,Sunday,13:00,BUF,,NYJ,\n"
+    )
 
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, text=csv_body, request=request)
+        body = schedule_body if "schedules" in str(request.url) else csv_body
+        return httpx.Response(200, text=body, request=request)
 
     result = await sync_nflverse(seeded, transport=httpx.MockTransport(handler))
     source = seeded.get(DataSource, "nflverse")
@@ -274,3 +390,16 @@ async def test_nflverse_sync_handles_new_identity_json_defaults(seeded: Session)
     assert source is not None
     assert source.last_success_at is not None
     assert source.last_error is None
+    assert seeded.get(Player, "0001234").rookie is True
+    schedule = seeded.scalar(
+        select(SourcePlayerValue).where(
+            SourcePlayerValue.player_id == "0001234",
+            SourcePlayerValue.value_type == "schedule",
+        )
+    )
+    assert schedule is not None
+    assert schedule.raw_value_json["schedule_rank"] == 1
+    assert schedule.raw_value_json["games"][0]["opponent"] == "NYJ"
+    detail = player_detail(seeded, "00999", "0001234")
+    assert detail is not None
+    assert detail["profile"]["schedule"]["schedule_rank_label"] == "1 of 2"
