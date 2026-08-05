@@ -364,6 +364,109 @@ async def test_gng_and_fantasypros_rankings_preserve_provenance(seeded: Session)
 
 
 @pytest.mark.asyncio
+async def test_fantasypros_dynasty_rankings_are_scoped_to_adfl(seeded: Session) -> None:
+    from app.models import League
+
+    initialize_sources(seeded)
+    seeded.add(
+        League(
+            id="adfl",
+            season=2026,
+            league_type="keeper",
+            name="ADFL",
+            roster_size=20,
+            starting_budget=None,
+            minimum_bid=Decimal("1"),
+            settings_json={},
+            scoring_rules_json={"receptions": "1"},
+            lineup_json={"QB": 1, "RB": 2, "WR": 2, "TE": 1},
+            warnings_json=[],
+        )
+    )
+    seeded.commit()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.params["type"] == "DYNASTY"
+        return httpx.Response(
+            200,
+            request=request,
+            json={
+                "last_updated_ts": 67890,
+                "players": [
+                    {
+                        "player_id": 9001,
+                        "player_name": "Leading Zero",
+                        "player_position_id": "RB",
+                        "player_team_id": "BUF",
+                        "rank_ecr": 2,
+                    }
+                ],
+            },
+        )
+
+    result = await sync_fantasypros(
+        seeded,
+        "adfl",
+        2026,
+        {"receptions": "1"},
+        "secret-key",
+        source_id="fantasypros_dynasty",
+        ranking_type="DYNASTY",
+        transport=httpx.MockTransport(handler),
+    )
+    adfl = {row["player_id"]: row for row in build_consensus(seeded, "adfl")}
+    tmfl = {row["player_id"]: row for row in build_consensus(seeded, "00999")}
+
+    assert result["ranking_type"] == "DYNASTY"
+    assert adfl["0001234"]["source_ranks"]["fantasypros_dynasty"] == "2.000000"
+    assert "fantasypros_dynasty" not in tmfl["0001234"]["source_ranks"]
+
+
+def test_projection_aav_trend_and_schedule_sources_affect_consensus(seeded: Session) -> None:
+    initialize_sources(seeded)
+    add_rank(seeded, "0001234", 1)
+    add_rank(seeded, "99", 2)
+    snapshots = list(seeded.query(RankingSnapshot).all())
+    for snapshot in snapshots:
+        if snapshot.player_id == "0001234":
+            snapshot.projected_points = Decimal("20")
+            snapshot.mfl_aav = Decimal("40")
+        else:
+            snapshot.projected_points = Decimal("10")
+            snapshot.mfl_aav = Decimal("5")
+        snapshot.source_summary_json = {
+            "projection_note": "MFL weekly projected score; not a full-season projection"
+        }
+    seeded.add_all(
+        [
+            SourcePlayerValue(
+                source_id="sleeper",
+                league_id=None,
+                player_id="0001234",
+                value_type="trend_add_24h",
+                raw_value_json={"count": 100},
+                normalized_value=Decimal("100"),
+                snapshot_id="sleeper-test",
+            ),
+            SourcePlayerValue(
+                source_id="nflverse",
+                league_id=None,
+                player_id="0001234",
+                value_type="schedule",
+                raw_value_json={"schedule_rank": 4},
+                normalized_value=Decimal("4"),
+                snapshot_id="schedule-test",
+            ),
+        ]
+    )
+    seeded.commit()
+
+    row = next(item for item in build_consensus(seeded, "00999") if item["player_id"] == "0001234")
+
+    assert {"mfl_projection", "mfl_aav", "sleeper", "nflverse"}.issubset(row["source_ranks"])
+
+
+@pytest.mark.asyncio
 async def test_nflverse_sync_handles_new_identity_json_defaults(seeded: Session) -> None:
     initialize_sources(seeded)
     csv_body = (

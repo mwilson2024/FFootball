@@ -6,4 +6,5 @@ keyring>=25,<26
 pydantic-settings>=2.5,<3
 python-multipart>=0.0.9,<1
 sqlalchemy>=2.0,<3
+tzdata>=2026.1
 uvicorn[standard]>=0.30,<1

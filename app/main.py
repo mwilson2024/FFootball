@@ -41,6 +41,7 @@ from app.auth import (
     record_login_failure,
     resolve_session_secret,
 )
+from app.automation import daily_sync_loop, stop_daily_sync
 from app.catalog import (
     draftable_consensus,
     player_detail,
@@ -73,6 +74,7 @@ from app.models import (
     ImportRecord,
     KeeperSelection,
     League,
+    LeagueType,
     MFLSnapshot,
     PersonalPlayerPreference,
     Player,
@@ -127,7 +129,14 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
                 record_sync_warnings(db, league_item.id, league_item.warnings_json)
         db.commit()
         runtime_settings(db).export_directory.mkdir(parents=True, exist_ok=True)
-    yield
+    auto_sync_task: asyncio.Task[None] | None = None
+    if settings.auto_sync_enabled:
+        auto_sync_task = asyncio.create_task(daily_sync_loop(settings), name="daily-mfl-sync")
+    try:
+        yield
+    finally:
+        if auto_sync_task is not None:
+            await stop_daily_sync(auto_sync_task)
 
 
 app = FastAPI(title="MFL Fantasy Draft Manager", version="1.0.0", lifespan=lifespan)
@@ -540,7 +549,7 @@ def update_source(source_id: str, payload: SourceUpdate, db: Db) -> dict[str, An
     source = db.get(DataSource, source_id)
     if source is None:
         raise HTTPException(404, detail={"code": "source_not_found", "message": "Source not found"})
-    source.enabled = payload.enabled
+    source.enabled = True
     source.weight = payload.weight
     db.commit()
     return source_json(source)
@@ -560,11 +569,15 @@ async def sync_source(db: Db, source_id: str = Query(...)) -> dict[str, Any]:
             return {"source_id": source_id, **await sync_sleeper(db)}
         if source_id == "nflverse":
             return {"source_id": source_id, **await sync_nflverse(db)}
-        if source_id in {"gng", "fantasypros"}:
+        if source_id in {"gng", "fantasypros", "fantasypros_dynasty"}:
             settings = runtime_settings(db)
             leagues_to_sync = list(
                 db.scalars(select(League).order_by(League.league_type, League.id))
             )
+            if source_id == "fantasypros_dynasty":
+                leagues_to_sync = [
+                    item for item in leagues_to_sync if item.league_type == LeagueType.KEEPER
+                ]
             results: list[dict[str, Any]] = []
             for index, league_item in enumerate(leagues_to_sync):
                 if source_id == "gng":
@@ -580,6 +593,8 @@ async def sync_source(db: Db, source_id: str = Query(...)) -> dict[str, Any]:
                         league_item.season,
                         league_item.scoring_rules_json or {},
                         settings.fantasypros_api_key,
+                        source_id=source_id,
+                        ranking_type=("DYNASTY" if source_id == "fantasypros_dynasty" else "DRAFT"),
                     )
                 results.append({"league_id": league_item.id, **synced})
             return {

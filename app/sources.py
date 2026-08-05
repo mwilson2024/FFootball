@@ -90,7 +90,7 @@ DEFAULT_SOURCES: list[dict[str, Any]] = [
         "id": "fantasypros",
         "name": "FantasyPros Expert Consensus Rankings",
         "kind": "ranking",
-        "enabled": False,
+        "enabled": True,
         "weight": Decimal("1"),
         "terms_url": "https://api.fantasypros.com/public/v2/terms-of-use",
         "license": "FantasyPros API terms; personal use tier depends on key",
@@ -98,10 +98,21 @@ DEFAULT_SOURCES: list[dict[str, Any]] = [
         "cache_ttl_seconds": 21600,
     },
     {
+        "id": "fantasypros_dynasty",
+        "name": "FantasyPros Dynasty Rankings (ADFL only)",
+        "kind": "ranking",
+        "enabled": True,
+        "weight": Decimal("1"),
+        "terms_url": "https://api.fantasypros.com/public/v2/terms-of-use",
+        "license": "FantasyPros API terms; personal use tier depends on key",
+        "attribution": "Dynasty Expert Consensus Rankings by FantasyPros",
+        "cache_ttl_seconds": 21600,
+    },
+    {
         "id": "sleeper",
         "name": "Sleeper Player Metadata & Trends",
         "kind": "metadata",
-        "enabled": False,
+        "enabled": True,
         "weight": Decimal("0.25"),
         "terms_url": "https://docs.sleeper.com/",
         "license": "Sleeper API terms",
@@ -112,8 +123,8 @@ DEFAULT_SOURCES: list[dict[str, Any]] = [
         "id": "nflverse",
         "name": "nflverse Player Identity",
         "kind": "metadata",
-        "enabled": False,
-        "weight": Decimal("0"),
+        "enabled": True,
+        "weight": Decimal("0.15"),
         "terms_url": "https://github.com/nflverse/nflverse-data",
         "license": "CC-BY-4.0",
         "attribution": "Data provided by nflverse",
@@ -138,6 +149,10 @@ def initialize_sources(db: Session) -> None:
         source = db.get(DataSource, values["id"])
         if source is None:
             db.add(DataSource(**values))
+            continue
+        source.enabled = True
+        if Decimal(source.weight) <= 0 and Decimal(values["weight"]) > 0:
+            source.weight = values["weight"]
     db.commit()
 
 
@@ -444,14 +459,16 @@ async def sync_fantasypros(
     scoring_rules: dict[str, Any],
     api_key: str,
     *,
+    source_id: str = "fantasypros",
+    ranking_type: str = "DRAFT",
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> dict[str, Any]:
     if not api_key:
         raise ValueError("Add the FantasyPros API key in Settings before syncing")
-    source = db.get(DataSource, "fantasypros")
+    source = db.get(DataSource, source_id)
     if source is None:
         initialize_sources(db)
-        source = db.get(DataSource, "fantasypros")
+        source = db.get(DataSource, source_id)
     assert source is not None
     source.last_attempt_at = datetime.now(UTC)
     db.commit()
@@ -464,7 +481,7 @@ async def sync_fantasypros(
         ) as client:
             response = await client.get(
                 f"https://api.fantasypros.com/public/v2/json/nfl/{season}/consensus-rankings",
-                params={"position": "ALL", "scoring": scoring, "type": "DRAFT"},
+                params={"position": "ALL", "scoring": scoring, "type": ranking_type},
             )
             response.raise_for_status()
         payload = response.json()
@@ -490,10 +507,10 @@ async def sync_fantasypros(
                 continue
             mapped.append((player, row, method, confidence))
         updated_token = payload.get("last_updated_ts", int(datetime.now(UTC).timestamp()))
-        snapshot_id = f"fantasypros-{season}-{scoring}-{updated_token}"
+        snapshot_id = f"{source_id}-{season}-{scoring}-{ranking_type.lower()}-{updated_token}"
         db.execute(
             delete(SourcePlayerValue).where(
-                SourcePlayerValue.source_id == "fantasypros",
+                SourcePlayerValue.source_id == source_id,
                 SourcePlayerValue.league_id == league_id,
             )
         )
@@ -505,11 +522,15 @@ async def sync_fantasypros(
             identity.updated_at = datetime.now(UTC)
             db.add(
                 SourcePlayerValue(
-                    source_id="fantasypros",
+                    source_id=source_id,
                     league_id=league_id,
                     player_id=player.id,
                     value_type="rank",
-                    raw_value_json={**row, "scoring": scoring},
+                    raw_value_json={
+                        **row,
+                        "scoring": scoring,
+                        "ranking_type": ranking_type,
+                    },
                     normalized_value=Decimal(str(row.get("rank_ecr", row.get("rank")))),
                     source_updated_at=datetime.now(UTC),
                     fetched_at=datetime.now(UTC),
@@ -523,6 +544,7 @@ async def sync_fantasypros(
             "matched": len(mapped),
             "unresolved": unresolved,
             "scoring": scoring,
+            "ranking_type": ranking_type,
             "snapshot_id": snapshot_id,
         }
     except Exception as exc:

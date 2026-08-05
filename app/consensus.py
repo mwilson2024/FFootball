@@ -8,7 +8,7 @@ from pathlib import Path
 from statistics import mean, median
 from typing import Any
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
 
 from app.models import (
@@ -17,6 +17,8 @@ from app.models import (
     DataSource,
     DraftPick,
     KeeperSelection,
+    League,
+    LeagueType,
     PersonalPlayerPreference,
     Player,
     RankingSnapshot,
@@ -30,8 +32,12 @@ SOURCE_FAMILIES = {
     "mfl_rank": "mfl",
     "mfl_adp": "mfl",
     "mfl_aav": "mfl",
+    "mfl_projection": "mfl",
     "fantasypros": "fantasypros",
+    "fantasypros_dynasty": "fantasypros",
     "gng": "gng",
+    "sleeper": "sleeper",
+    "nflverse": "nflverse",
 }
 
 
@@ -141,7 +147,49 @@ def _latest_source_raw(db: Session, league_id: str, source_id: str) -> dict[str,
     return result
 
 
+def _latest_metric_values(
+    db: Session,
+    league_id: str,
+    source_id: str,
+    value_type: str,
+) -> dict[str, Decimal]:
+    values = list(
+        db.scalars(
+            select(SourcePlayerValue)
+            .where(
+                SourcePlayerValue.source_id == source_id,
+                SourcePlayerValue.value_type == value_type,
+                or_(
+                    SourcePlayerValue.league_id == league_id,
+                    SourcePlayerValue.league_id.is_(None),
+                ),
+            )
+            .order_by(SourcePlayerValue.fetched_at.desc(), SourcePlayerValue.id.desc())
+        )
+    )
+    result: dict[str, Decimal] = {}
+    for value in values:
+        if value.player_id not in result and value.normalized_value is not None:
+            result[value.player_id] = Decimal(value.normalized_value)
+    return result
+
+
+def _ordinal_ranks(values: dict[str, Decimal], *, higher_is_better: bool) -> dict[str, Decimal]:
+    ordered = sorted(
+        values.items(),
+        key=lambda item: (item[1], item[0]),
+        reverse=higher_is_better,
+    )
+    return {player_id: Decimal(index) for index, (player_id, _) in enumerate(ordered, 1)}
+
+
 def build_consensus(db: Session, league_id: str) -> list[dict[str, Any]]:
+    league_type = db.scalar(
+        select(League.league_type)
+        .where(League.id == league_id)
+        .order_by(League.season.desc())
+        .limit(1)
+    )
     players = list(db.scalars(select(Player)))
     rankings = {
         item.player_id: item
@@ -174,6 +222,35 @@ def build_consensus(db: Session, league_id: str) -> list[dict[str, Any]]:
         for source_id, rank in custom_ranks.get(player.id, {}).items():
             if source_id in sources:
                 rank_values_by_source.setdefault(source_id, {})[player.id] = rank
+    if "mfl_projection" in sources:
+        projection_values = {
+            player_id: Decimal(ranking.projected_points)
+            for player_id, ranking in rankings.items()
+            if ranking.projected_points is not None
+            and str((ranking.source_summary_json or {}).get("projection_note", "")).startswith(
+                "MFL weekly projected score"
+            )
+        }
+        rank_values_by_source["mfl_projection"] = _ordinal_ranks(
+            projection_values, higher_is_better=True
+        )
+    if "mfl_aav" in sources and league_type == LeagueType.AUCTION:
+        aav_values = {
+            player_id: Decimal(ranking.mfl_aav)
+            for player_id, ranking in rankings.items()
+            if ranking.mfl_aav is not None
+        }
+        rank_values_by_source["mfl_aav"] = _ordinal_ranks(aav_values, higher_is_better=True)
+    if "sleeper" in sources:
+        sleeper_values = _latest_metric_values(db, league_id, "sleeper", "trend_add_24h")
+        rank_values_by_source["sleeper"] = _ordinal_ranks(sleeper_values, higher_is_better=True)
+    if "nflverse" in sources:
+        rank_values_by_source["nflverse"] = _latest_metric_values(
+            db, league_id, "nflverse", "schedule"
+        )
+    rank_values_by_source = {
+        source_id: values for source_id, values in rank_values_by_source.items() if values
+    }
     percentiles: dict[str, dict[str, Decimal]] = {}
     for source_id, values in rank_values_by_source.items():
         ordered = sorted(values.items(), key=lambda item: (item[1], item[0]))

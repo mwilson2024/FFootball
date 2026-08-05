@@ -107,6 +107,11 @@ MFL_USERNAME=
 MFL_PASSWORD=
 
 MFL_USER_AGENT=MFLDraftManager/1.0 contact@example.com
+FANTASYPROS_API_KEY=
+
+AUTO_SYNC_ENABLED=true
+AUTO_SYNC_TIMEZONE=America/New_York
+AUTO_SYNC_HOUR=1
 
 # Use this only when the league settings do not expose the value reliably.
 AUCTION_DEFAULT_BUDGET=200
@@ -883,6 +888,13 @@ narrower earlier requirement, the expanded requirement controls.
 Create a source-adapter layer. Each source must have its own client, parser, cache policy, health
 status, license/terms note, attribution text, and last-successful-fetch time. The UI must never
 present blended data without showing which sources contributed.
+
+All registered sources are enabled automatically. Ranking, projection, market, trend, and schedule
+signals must affect the consensus through labeled, normalized, non-zero weights when data exists.
+Refresh both configured leagues and automatic sources every day at 1:00 AM America/New_York.
+Use the official FantasyPros API with the configured key: include redraft rankings for both leagues
+and an additional `DYNASTY` ranking source for the keeper/ADFL league only. Never place dynasty
+values on the auction/TMFL board.
 
 ### 21.1 MFL: authoritative league source
 

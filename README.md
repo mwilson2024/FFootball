@@ -39,9 +39,9 @@ precedence.
   until an explicit export or submission.
 - **Auction:** atomic purchases, budgets, reserves, maximum bids, duplicate prevention, undo/redo,
   canonical CSV, and MFL XML.
-- **Data Sources:** enable, weight, synchronize, and inspect health/attribution for MFL, the attributed
-  CC-BY-4.0 GNG Pigskin board, optional FantasyPros ECR using your API key, optional free Sleeper
-  metadata/trends, optional CC-BY-4.0 nflverse identity data, and user CSV imports.
+- **Data Sources:** inspect and weight automatically enabled sources: MFL, the attributed CC-BY-4.0
+  GNG Pigskin board, FantasyPros ECR using your API key, free Sleeper metadata/trends, CC-BY-4.0
+  nflverse identity and schedule data, and user CSV imports.
 - **Scoring:** grouped MFL scoring rules with every repeated range retained, readable event names,
   normalized values, mapping state, and the raw imported response.
 - **Settings:** configure both leagues without editing code and test public and protected access
@@ -58,10 +58,15 @@ season projection. Missing values are ignored rather than treated as zero. “Co
 configured local blend and never implies FantasyPros Expert Consensus Rank.
 
 The GNG rankings need no key and are attributed under CC BY 4.0. FantasyPros uses the official API
-and stores its key in Windows Credential Manager. Sleeper is optional and free/read-only with no
-token. nflverse is optional and attributed under CC-BY-4.0. Source health records last attempt,
+and stores its key in Windows Credential Manager. ADFL receives both redraft and dynasty ECR;
+TMFL receives redraft ECR only. Sleeper trends and nflverse schedule difficulty use small ranking
+weights, while their metadata also enriches player profiles. Source health records last attempt,
 success, error, cache interval, license, and terms.
 The site remains fully usable with MFL and the local league model alone.
+
+Both configured leagues and every automatic source refresh daily at **1:00 AM America/New_York**.
+The scheduler is part of the web service, honors daylight-saving time, attempts both leagues even
+if one fails, and records source failures without stopping the remaining refreshes.
 
 Synchronization warnings are intentionally not shown in the normal website. A rotating internal
 diagnostic log is kept at `data/logs/sync_warnings.log` (2 MB per file, five backups) for debugging.
@@ -109,7 +114,10 @@ also runs that installation explicitly for deterministic Railpack builds. If dep
    MFL_SEASON=2026
    MFL_KEEPER_LEAGUE_ID=<ADFL league id>
    MFL_AUCTION_LEAGUE_ID=<TMFL league id>
-ALLOWED_HOSTS=*.up.railway.app,healthcheck.railway.app
+   ALLOWED_HOSTS=*.up.railway.app,healthcheck.railway.app
+   AUTO_SYNC_ENABLED=true
+   AUTO_SYNC_TIMEZONE=America/New_York
+   AUTO_SYNC_HOUR=1
    ```
 
    Generate `SESSION_SECRET` locally with `python -c "import secrets;

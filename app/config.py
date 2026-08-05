@@ -23,9 +23,10 @@ class Settings(BaseSettings):
     auth_required: bool = True
     session_secret: str = ""
     session_max_age_days: int = 30
-    allowed_hosts: str = (
-        "localhost,127.0.0.1,testserver,*.up.railway.app,healthcheck.railway.app"
-    )
+    allowed_hosts: str = "localhost,127.0.0.1,testserver,*.up.railway.app,healthcheck.railway.app"
+    auto_sync_enabled: bool = True
+    auto_sync_timezone: str = "America/New_York"
+    auto_sync_hour: int = Field(default=1, ge=0, le=23)
     auction_default_budget: Decimal = Decimal("200")
     auction_min_bid: Decimal = Decimal("1")
     export_directory: Path = Field(default=Path("exports"))
