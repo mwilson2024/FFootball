@@ -853,7 +853,6 @@ def rankings(
             **row,
             "overall_rank": row["consensus_rank"],
             "weekly_model_rank": row["league_adjusted_rank"],
-            "suggested_auction_value": row["live_auction_value"],
         }
         for row in result["items"]
         if row["consensus_rank"] is not None
