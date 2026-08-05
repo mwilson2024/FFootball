@@ -87,7 +87,8 @@ alembic/
 
 ## 3. Configuration
 
-Create `.env.example` with these values:
+Configure local values in an untracked `.env` file and production values in the deployment
+platform. Do not add or recreate `.env.example`. The supported values are:
 
 ```dotenv
 APP_ENV=development
@@ -792,7 +793,7 @@ The feature is complete only when all of the following are true:
 Follow this order unless the repository requires a justified variation:
 
 1. Inspect repository and document current architecture.
-2. Add configuration and `.env.example`.
+2. Add configuration without committing environment or secret files.
 3. Implement the typed MFL client.
 4. Add database models and migrations.
 5. Implement league synchronization.

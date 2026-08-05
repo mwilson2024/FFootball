@@ -21,7 +21,7 @@ Open [http://127.0.0.1:8000](http://127.0.0.1:8000). Go to **Settings**, enter t
 league IDs, test each connection, save, then choose **Synchronize MFL**. Public leagues normally do
 not need a key. Optional league API keys are saved in Windows Credential Manager and are never
 returned to the browser after saving. Environment variables in `.env` remain supported and take
-precedence; `.env.example` documents them.
+precedence.
 
 ## Website guide
 
