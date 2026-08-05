@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-title compact"><div><p class="eyebrow">COMPLETE MFL PLAYER POOL</p><h1>All Players</h1><p>Every MFL player stays visible, even without an external rank.</p></div>{% include "league_select.html" %}</section>
+<form id="player-filters" class="filter-bar" aria-label="Player filters">
+  <input id="catalog-search" name="search" type="search" placeholder="Search players or NFL team…" autofocus>
+  <select name="position" id="catalog-position"><option value="">All positions</option></select>
+  <select name="availability"><option value="all">All ownership</option><option value="available">Available</option><option value="rostered">Rostered</option><option value="keeper">Keepers</option><option value="drafted">Drafted</option></select>
+  <select name="nfl_team" id="catalog-team"><option value="">All NFL teams</option></select>
+  <select name="owner" id="catalog-owner"><option value="">All franchises</option></select>
+  <select name="tag"><option value="">All personal tags</option><option value="target">Targets</option><option value="queued">Queue</option><option value="fade">Fades</option><option value="do_not_draft">Do not draft</option></select>
+  <input name="sort" type="hidden" value="consensus_rank"><input name="direction" type="hidden" value="asc">
+  <button type="reset">Clear</button>
+</form>
+<div id="active-filters" class="chips" aria-live="polite"></div>
+<section class="panel flush"><div class="panel-head"><h2 id="player-count">Players</h2><span id="player-freshness" class="muted"></span></div><div class="table-wrap catalog-table"><table><thead><tr><th><button onclick="sortCatalog('consensus_rank')">Rank ↕</button></th><th><button onclick="sortCatalog('player_name')">Player ↕</button></th><th><button onclick="sortCatalog('position')">Pos ↕</button></th><th><button onclick="sortCatalog('nfl_team')">NFL ↕</button></th><th><button onclick="sortCatalog('tier')">Tier ↕</button></th><th><button onclick="sortCatalog('source_count')">Sources ↕</button></th><th><button onclick="sortCatalog('adp')">ADP ↕</button></th><th><button onclick="sortCatalog('live_auction_value')">Value ↕</button></th><th>Availability</th><th>Personal</th></tr><tr class="column-filters"><th></th><th><input data-filter="search" aria-label="Filter player column" placeholder="Name"></th><th><select data-filter="position" aria-label="Filter position column"><option value="">All</option></select></th><th><select data-filter="nfl_team" aria-label="Filter NFL team column"><option value="">All</option></select></th><th><input data-filter="tier" type="number" min="1" aria-label="Filter tier column"></th><th><input data-filter="min_source_count" type="number" min="0" aria-label="Minimum source count"></th><th><input data-filter="max_adp" type="number" min="0" aria-label="Maximum ADP"></th><th></th><th><select data-filter="availability" aria-label="Filter availability column"><option value="all">All</option><option value="available">Available</option><option value="rostered">Rostered</option><option value="keeper">Keepers</option><option value="drafted">Drafted</option></select></th><th></th></tr></thead><tbody id="player-body"><tr><td colspan="10">Loading players…</td></tr></tbody></table></div><nav id="player-pages" class="pager" aria-label="Player pages"></nav></section>
+<dialog id="player-detail" class="drawer"><button class="drawer-close" aria-label="Close" onclick="this.closest('dialog').close()">×</button><div id="player-detail-body"></div></dialog>
+{% endblock %}
+{% block scripts %}<script>window.SELECTED_LEAGUE_ID={{ selected_league_id|tojson }}; initPlayers()</script>{% endblock %}

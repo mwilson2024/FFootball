@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-title compact"><div><p class="eyebrow">PROVENANCE & FRESHNESS</p><h1>Data Sources</h1><p>MFL works alone. Sleeper and nflverse are optional free enrichments; proprietary sites are not scraped.</p></div><button onclick="syncMfl()">Sync MFL</button></section>
+<section id="source-grid" class="cards"><article class="card">Loading source registry…</article></section>
+{% endblock %}
+{% block scripts %}<script>initSources()</script>{% endblock %}

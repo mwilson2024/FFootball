@@ -1,0 +1,14 @@
+2026-08-05 11:15:42,140 | WARNING | league=59885 season=2026 | allRules: {'$t': 'Invalid request. This API request must go to api.myfantasyleague.com'}
+2026-08-05 11:15:42,140 | WARNING | league=59885 season=2026 | playerRanks: {'$t': 'Invalid request. This API request must go to api.myfantasyleague.com'}
+2026-08-05 11:15:42,140 | WARNING | league=59885 season=2026 | adp: {'$t': 'Invalid request. This API request must go to api.myfantasyleague.com'}
+2026-08-05 11:15:42,140 | WARNING | league=59885 season=2026 | aav: {'$t': 'Invalid request. This API request must go to api.myfantasyleague.com'}
+2026-08-05 11:15:42,142 | WARNING | league=59885 season=2026 | auctionResults: {'$t': 'Auction has not been setup yet.'}
+2026-08-05 11:15:48,194 | WARNING | league=48465 season=2026 | allRules: {'$t': 'Invalid request. This API request must go to api.myfantasyleague.com'}
+2026-08-05 11:15:48,195 | WARNING | league=48465 season=2026 | selectedKeepers: {'$t': 'No Select Keepers Event Defined.'}
+2026-08-05 11:15:48,195 | WARNING | league=48465 season=2026 | playerRanks: {'$t': 'Invalid request. This API request must go to api.myfantasyleague.com'}
+2026-08-05 11:15:48,196 | WARNING | league=48465 season=2026 | adp: {'$t': 'Invalid request. This API request must go to api.myfantasyleague.com'}
+2026-08-05 11:15:48,196 | WARNING | league=48465 season=2026 | aav: {'$t': 'Invalid request. This API request must go to api.myfantasyleague.com'}
+2026-08-05 11:15:48,197 | WARNING | league=48465 season=2026 | auctionResults: {'$t': 'Auction has not been setup yet.'}
+2026-08-05 11:15:48,197 | WARNING | league=48465 season=2026 | Unmapped scoring rule retained: QB|RB|WR|TE|PK:FR
+2026-08-05 11:15:48,197 | WARNING | league=48465 season=2026 | Unmapped scoring rule retained: QB|RB|WR|TE|PK:FR:10-39
+2026-08-05 11:15:48,198 | WARNING | league=48465 season=2026 | Unmapped scoring rule retained: QB|RB|WR|TE|PK:FR:40-110

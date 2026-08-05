@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero">
+  <div><p class="eyebrow">REAL DRAFT COMMAND CENTER</p><h1>Your leagues. Your board. Every pick.</h1>
+  <p>Research the full player pool, blend approved sources, follow every roster, and manage your real keeper and auction drafts from one private local workspace.</p></div>
+  <button id="sync-button" class="primary">Synchronize MFL</button>
+</section>
+{% if not setup.complete %}
+<div class="notice warning"><strong>Setup needed.</strong> <a href="/settings">Connect both MFL leagues</a> from the website, then synchronize.</div>
+{% endif %}
+<section class="cards">
+{% for league in leagues %}
+  <article class="card"><span class="pill">{{ league.league_type }}</span><h2>{{ league.name }}</h2>
+    <dl><div><dt>Roster</dt><dd>{{ league.roster_size }}</dd></div><div><dt>Last sync</dt><dd>{{ league.synced_at or 'Never' }}</dd></div></dl>
+    <div class="card-actions"><a href="/{{ 'auction' if league.league_type == 'auction' else 'draft' }}?league_id={{ league.id }}">Open draft room →</a><a href="/rosters?league_id={{ league.id }}">Rosters</a><a href="/scoring?league_id={{ league.id }}">Scoring</a></div>
+  </article>
+{% else %}
+  <article class="card empty"><h2>No synchronized leagues yet</h2><p>Configure league IDs, then synchronize.</p></article>
+{% endfor %}
+</section>
+<section class="dashboard-strip"><article><strong>{{ leagues|length }}</strong><span>Leagues</span></article><article><strong>{{ sources|selectattr('enabled')|list|length }}</strong><span>Active sources</span></article><article><strong>{{ sources|selectattr('last_error')|list|length }}</strong><span>Source alerts</span></article></section>
+{% endblock %}
+{% block scripts %}<script>document.querySelector('#sync-button')?.addEventListener('click', syncMfl)</script>{% endblock %}

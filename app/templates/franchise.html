@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-title compact"><div><p class="eyebrow">FRANCHISE DETAIL</p><h1 id="franchise-name">Loading…</h1><p id="franchise-meta"></p></div><a class="button" href="/rosters?league_id={{ selected_league_id }}">Back to rosters</a></section>
+<div id="franchise-stats" class="dashboard-strip"></div><section class="panel flush"><div class="table-wrap"><table><thead><tr><th>Player</th><th>Pos</th><th>NFL</th><th>Status</th><th>Keeper</th><th>Salary</th><th>League rank</th></tr></thead><tbody id="franchise-body"></tbody></table></div></section>
+{% endblock %}
+{% block scripts %}<script>window.SELECTED_LEAGUE_ID={{ selected_league_id|tojson }};window.FRANCHISE_ID={{ franchise_id|tojson }};initFranchise()</script>{% endblock %}

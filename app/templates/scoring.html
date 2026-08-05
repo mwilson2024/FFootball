@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-title compact"><div><p class="eyebrow">IMPORTED DIRECTLY FROM MFL</p><h1>League Scoring Rules</h1><p>Review the exact imported MFL response and the normalized rules used by league-adjusted rankings.</p></div>{% include "league_select.html" %}</section>
+<div id="scoring-summary" class="dashboard-strip"></div><section class="panel flush"><div class="panel-head"><h2>Normalized scoring rules</h2><input id="scoring-search" type="search" placeholder="Filter event, position, or description…"></div><div class="table-wrap"><table><thead><tr><th>Positions</th><th>Event</th><th>Range (low–high)</th><th>Points</th><th>Mapping</th><th></th></tr></thead><tbody id="scoring-body"></tbody></table></div></section><details class="panel raw-rules"><summary>Show raw imported MFL response</summary><pre id="scoring-raw"></pre></details>
+{% endblock %}
+{% block scripts %}<script>window.SELECTED_LEAGUE_ID={{ selected_league_id|tojson }};initScoring()</script>{% endblock %}

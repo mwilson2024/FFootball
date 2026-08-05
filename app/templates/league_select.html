@@ -1,0 +1,1 @@
+<label class="league-picker">League<select id="league-picker" onchange="switchLeague(this.value)">{% for item in leagues %}<option value="{{ item.id }}" {% if item.id == selected_league_id %}selected{% endif %}>{{ item.name }}</option>{% endfor %}</select></label>

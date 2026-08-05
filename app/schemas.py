@@ -1,0 +1,116 @@
+from decimal import Decimal
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.models import RosterStatus
+
+
+class PurchaseCreate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    league_id: str
+    franchise_id: str
+    player_id: str
+    amount: Decimal = Field(gt=0)
+    status: RosterStatus = RosterStatus.ROSTER
+
+    @field_validator("league_id", "franchise_id", "player_id", mode="before")
+    @classmethod
+    def preserve_id(cls, value: object) -> str:
+        return str(value)
+
+
+class PurchaseUpdate(BaseModel):
+    franchise_id: str | None = None
+    amount: Decimal | None = Field(default=None, gt=0)
+    status: RosterStatus | None = None
+    version: int
+
+
+class KeeperCreate(BaseModel):
+    league_id: str
+    franchise_id: str
+    player_id: str
+    keeper_cost: Decimal | None = None
+
+
+class ImportConfirmation(BaseModel):
+    league_id: str
+    confirmation_token: str
+    clear: bool = False
+    overwrite: bool = False
+
+
+class SetupUpdate(BaseModel):
+    season: int = Field(ge=2020, le=2100)
+    keeper_league_id: str = ""
+    auction_league_id: str = ""
+    keeper_api_key: str | None = None
+    auction_api_key: str | None = None
+    fantasypros_api_key: str | None = None
+    user_agent: str = Field(min_length=10, max_length=250)
+
+    @field_validator("keeper_league_id", "auction_league_id", mode="before")
+    @classmethod
+    def preserve_setup_ids(cls, value: object) -> str:
+        return "" if value is None else str(value).strip()
+
+
+class MFLConnectionTest(BaseModel):
+    season: int = Field(ge=2020, le=2100)
+    league_id: str
+    api_key: str | None = None
+
+    @field_validator("league_id", mode="before")
+    @classmethod
+    def preserve_test_id(cls, value: object) -> str:
+        return str(value).strip()
+
+
+class SourceUpdate(BaseModel):
+    enabled: bool
+    weight: Decimal = Field(ge=0, le=10)
+
+
+class WarningResolve(BaseModel):
+    resolved: bool = True
+
+
+class PreferenceUpdate(BaseModel):
+    manual_rank: int | None = Field(default=None, ge=1)
+    manual_tier: int | None = Field(default=None, ge=1)
+    queue_order: int | None = Field(default=None, ge=1)
+    target: bool = False
+    fade: bool = False
+    do_not_draft: bool = False
+    notes: str | None = Field(default=None, max_length=4000)
+    tags: list[str] = Field(default_factory=list, max_length=20)
+
+
+class IdentityUpdate(BaseModel):
+    gsis_id: str | None = None
+    sleeper_id: str | None = None
+    espn_id: str | None = None
+    verified: bool = True
+
+
+class DraftPickCreate(BaseModel):
+    league_id: str
+    player_id: str
+    franchise_id: str | None = None
+    round: int | None = Field(default=None, ge=1)
+    pick: int | None = Field(default=None, ge=1)
+    overall_pick: int | None = Field(default=None, ge=1)
+
+    @field_validator("league_id", "player_id", "franchise_id", mode="before")
+    @classmethod
+    def preserve_draft_ids(cls, value: object) -> str | None:
+        return None if value is None else str(value).strip()
+
+
+class DraftPickUpdate(BaseModel):
+    franchise_id: str | None = None
+    round: int | None = Field(default=None, ge=1)
+    pick: int | None = Field(default=None, ge=1)
+    overall_pick: int | None = Field(default=None, ge=1)
+    version: int = Field(ge=1)
