@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.consensus import build_consensus
 from app.main import update_preference
-from app.models import DataSource, UserPlayerPreference
+from app.models import DataSource, UserLeagueSetting, UserMFLMembership, UserPlayerPreference
 from app.schemas import PreferenceUpdate
 from app.sources import initialize_sources
 from app.user_context import reset_active_username, set_active_username
@@ -13,6 +13,7 @@ from app.users import (
     bootstrap_user,
     effective_auction_strategy,
     effective_source_settings,
+    save_mfl_memberships,
     save_source_setting,
 )
 
@@ -58,3 +59,29 @@ def test_wilsonmw_is_admin_and_balanced_strategy_is_default(seeded: Session) -> 
     assert account.is_admin is True
     assert strategy["template"] == "balanced"
     assert strategy["priority_order"] != ["WR", "QB", "RB", "TE", "DEF"]
+
+
+def test_mfl_membership_sets_the_users_franchise(seeded: Session) -> None:
+    save_mfl_memberships(
+        seeded,
+        "Alice",
+        2026,
+        [
+            {
+                "league_id": "00999",
+                "league_name": "Test League",
+                "franchise_id": "0001",
+                "source_url": None,
+            }
+        ],
+    )
+
+    membership = seeded.scalar(select(UserMFLMembership))
+    setting = seeded.scalar(select(UserLeagueSetting))
+    assert membership is not None
+    assert membership.username == "alice"
+    assert membership.franchise_id == "0001"
+    assert setting is not None
+    assert setting.username == "alice"
+    assert setting.league_id == "00999"
+    assert setting.franchise_id == "0001"

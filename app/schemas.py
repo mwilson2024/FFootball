@@ -82,6 +82,16 @@ class UserLeagueSettingUpdate(BaseModel):
     auction_strategy: dict[str, object] = Field(default_factory=dict)
 
 
+class LeagueConnect(BaseModel):
+    league_id: str
+    league_type: str = Field(pattern="^(keeper|auction)$")
+
+    @field_validator("league_id", mode="before")
+    @classmethod
+    def preserve_connected_league_id(cls, value: object) -> str:
+        return str(value).strip()
+
+
 class AuctionLiveUpdate(BaseModel):
     is_live: bool
 

@@ -38,7 +38,7 @@ from app.auth import (
     login_allowed,
     login_rate_key,
     make_session_token,
-    mfl_league_ids,
+    mfl_memberships,
     read_session_token,
     record_login_failure,
     resolve_session_secret,
@@ -82,6 +82,7 @@ from app.models import (
     Player,
     PlayerIdentity,
     SyncWarning,
+    UserMFLMembership,
     UserPlayerPreference,
 )
 from app.schemas import (
@@ -92,6 +93,7 @@ from app.schemas import (
     IdentityUpdate,
     ImportConfirmation,
     KeeperCreate,
+    LeagueConnect,
     MFLConnectionTest,
     PreferenceUpdate,
     PurchaseCreate,
@@ -111,16 +113,25 @@ from app.sources import (
     sync_nflverse,
     sync_sleeper,
 )
-from app.sync import RULE_DESCRIPTIONS, record_sync_warnings, sync_configured
-from app.user_context import active_username, reset_active_username, set_active_username
+from app.sync import RULE_DESCRIPTIONS, record_sync_warnings, sync_configured, sync_league
+from app.user_context import (
+    active_username,
+    reset_active_league_ids,
+    reset_active_username,
+    set_active_league_ids,
+    set_active_username,
+)
 from app.users import (
     AUCTION_STRATEGIES,
+    authorized_league_ids,
     bootstrap_user,
     current_account,
     effective_source_settings,
     is_current_admin,
     league_setting,
+    mfl_memberships_for_user,
     record_login,
+    save_mfl_memberships,
     save_source_setting,
     strategy_json,
 )
@@ -206,9 +217,11 @@ async def secure_session(request: Request, call_next: Any) -> Response:
             )
     request.state.user = session
     context_token = set_active_username(session.username if session else "wilsonmw")
+    league_context_token = set_active_league_ids(session.league_ids if session else None)
     try:
         response = cast(Response, await call_next(request))
     finally:
+        reset_active_league_ids(league_context_token)
         reset_active_username(context_token)
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; "
@@ -226,7 +239,8 @@ async def secure_session(request: Request, call_next: Any) -> Response:
 
 def _league_or_404(db: Session, league_id: str) -> League:
     league = db.scalar(select(League).where(League.id == league_id))
-    if not league:
+    allowed = authorized_league_ids(db)
+    if not league or (allowed is not None and league_id not in allowed):
         raise HTTPException(404, detail={"code": "league_not_found", "message": "League not found"})
     return league
 
@@ -278,6 +292,9 @@ def _keeper_json(keeper: KeeperSelection) -> dict[str, Any]:
 def _page_context(db: Session, title: str, league_id: str | None = None) -> dict[str, Any]:
     settings = runtime_settings(db)
     leagues = list(db.scalars(select(League).order_by(League.league_type, League.name)))
+    allowed = authorized_league_ids(db)
+    if allowed is not None:
+        leagues = [item for item in leagues if item.id in allowed]
     selected = league_id or settings.mfl_keeper_league_id or settings.mfl_auction_league_id
     selected_league = next((item for item in leagues if item.id == selected), None)
     account = current_account(db)
@@ -387,8 +404,9 @@ async def login(
         async with MFLClient(settings) as client:
             await client.authenticate(username.strip(), password)
             leagues = await client.export("myleagues", force=True)
-        memberships = mfl_league_ids(leagues.payload)
-        if not configured.issubset(memberships):
+        membership_rows = mfl_memberships(leagues.payload)
+        membership_ids = {str(item["league_id"]) for item in membership_rows}
+        if not configured.issubset(membership_ids):
             raise MFLAuthenticationError("Account is not in every configured league")
     except (MFLAuthenticationError, MFLError):
         record_login_failure(rate_key)
@@ -402,11 +420,12 @@ async def login(
     clear_login_failures(rate_key)
     app_settings = get_settings()
     record_login(db, username.strip(), app_settings.admin_username_set)
+    save_mfl_memberships(db, username.strip(), settings.mfl_season, membership_rows)
     max_age = app_settings.session_max_age_days * 24 * 60 * 60
     token, _ = make_session_token(
         SESSION_SIGNING_SECRET,
         username.strip(),
-        configured,
+        membership_ids,
         max_age_seconds=max_age,
     )
     response = RedirectResponse(_safe_next(next), status_code=303)
@@ -645,7 +664,7 @@ def preview_sources(payload: SourcePreview, db: Db) -> dict[str, Any]:
         for row in preview
     ]
     movers.sort(key=lambda item: abs(item["change"]), reverse=True)
-    return {"top": preview[:12], "movers": movers[:12]}
+    return {"top": preview[:100], "movers": movers[:12]}
 
 
 @app.post("/api/sources/sync")
@@ -1236,10 +1255,24 @@ def download_draft_csv(league_id: str, db: Db) -> FileResponse:
 def account_settings(db: Db) -> dict[str, Any]:
     account = current_account(db)
     leagues = list(db.scalars(select(League).order_by(League.name)))
+    allowed = authorized_league_ids(db)
+    if allowed is not None:
+        leagues = [item for item in leagues if item.id in allowed]
+    memberships = mfl_memberships_for_user(db, runtime_settings(db).mfl_season)
+    connected_ids = {item.id for item in leagues}
     return {
         "username": account.username,
         "display_name": account.display_name,
         "is_admin": account.is_admin,
+        "available_leagues": [
+            {
+                "id": item.league_id,
+                "name": item.league_name or f"MFL League {item.league_id}",
+                "mfl_franchise_id": item.franchise_id,
+                "connected": item.league_id in connected_ids,
+            }
+            for item in memberships
+        ],
         "leagues": [
             {
                 "id": league.id,
@@ -1264,12 +1297,70 @@ def account_settings(db: Db) -> dict[str, Any]:
     }
 
 
+@app.post("/api/account/leagues")
+async def connect_account_league(payload: LeagueConnect, db: Db) -> dict[str, Any]:
+    settings = runtime_settings(db)
+    membership = db.scalar(
+        select(UserMFLMembership).where(
+            UserMFLMembership.username == active_username(),
+            UserMFLMembership.season == settings.mfl_season,
+            UserMFLMembership.league_id == payload.league_id,
+        )
+    )
+    if membership is None:
+        raise HTTPException(
+            403,
+            detail={
+                "code": "league_not_authorized",
+                "message": "This league was not returned by your MFL sign-in",
+            },
+        )
+    try:
+        async with MFLClient(settings) as client:
+            await sync_league(
+                db,
+                client,
+                settings,
+                payload.league_id,
+                LeagueType(payload.league_type),
+            )
+    except (MFLError, ValueError) as exc:
+        raise HTTPException(
+            502,
+            detail={
+                "code": "league_connect_failed",
+                "message": f"MFL could not sync this league: {exc}",
+            },
+        ) from exc
+    setting = league_setting(db, payload.league_id)
+    if membership.franchise_id:
+        matching = db.scalar(
+            select(Franchise).where(
+                Franchise.league_id == payload.league_id,
+                Franchise.id == membership.franchise_id,
+            )
+        )
+        if matching is not None:
+            setting.franchise_id = matching.id
+            db.commit()
+    return {
+        "league_id": payload.league_id,
+        "league_type": payload.league_type,
+        "franchise_id": setting.franchise_id,
+    }
+
+
 @app.put("/api/account/leagues/{league_id}")
 def save_account_league(league_id: str, payload: UserLeagueSettingUpdate, db: Db) -> dict[str, Any]:
     _league_or_404(db, league_id)
     if payload.franchise_id:
-        franchise = db.get(Franchise, payload.franchise_id)
-        if franchise is None or franchise.league_id != league_id:
+        franchise = db.scalar(
+            select(Franchise).where(
+                Franchise.league_id == league_id,
+                Franchise.id == payload.franchise_id,
+            )
+        )
+        if franchise is None:
             raise HTTPException(
                 422,
                 detail={

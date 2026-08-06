@@ -21,7 +21,16 @@ def _league_context(db: Session, league_id: str) -> dict[str, Any]:
     setting = league_setting(db, league_id)
     roster: list[dict[str, str | None]] = []
     budget: dict[str, Any] | None = None
-    franchise = db.get(Franchise, setting.franchise_id) if setting.franchise_id else None
+    franchise = (
+        db.scalar(
+            select(Franchise).where(
+                Franchise.league_id == league_id,
+                Franchise.id == setting.franchise_id,
+            )
+        )
+        if setting.franchise_id
+        else None
+    )
     if franchise and franchise.league_id == league_id:
         roster = [
             {"name": player.name, "position": player.position, "team": player.nfl_team}

@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <section class="page-title compact"><div><p class="eyebrow">PERSONAL DRAFT SETTINGS</p><h1>My Account</h1><p>Your ranking choices, franchise, targets, and auction strategy stay separate from every other user.</p></div><span class="pill">{{ 'Administrator' if is_admin else 'League member' }}</span></section>
+<section class="panel add-league-panel"><div><h2>Add an MFL league</h2><p class="muted">Choose a league found during your MFL sign-in. DraftDesk will sync its public data and use the team MFL associates with your account when available.</p></div><div id="available-mfl-leagues" class="league-connect-list"><p class="muted">Looking for your MFL leagues…</p></div></section>
 <section class="panel"><h2>League setup</h2><div id="account-leagues" class="cards"><article class="card">Loading your leagues…</article></div></section>
 {% endblock %}
 {% block scripts %}<script>initAccount()</script>{% endblock %}

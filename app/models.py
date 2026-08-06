@@ -234,6 +234,20 @@ class UserLeagueSetting(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class UserMFLMembership(Base):
+    __tablename__ = "user_mfl_memberships"
+    __table_args__ = (UniqueConstraint("username", "season", "league_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    username: Mapped[str] = mapped_column(String(100), index=True)
+    season: Mapped[int] = mapped_column(Integer, index=True)
+    league_id: Mapped[str] = mapped_column(String, index=True)
+    league_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    franchise_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    source_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    discovered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class AuctionLiveState(Base):
     __tablename__ = "auction_live_states"
 

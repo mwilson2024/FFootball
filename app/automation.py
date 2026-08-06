@@ -7,12 +7,13 @@ from datetime import UTC, datetime, time, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
 from app.db import SessionLocal
 from app.mfl import MFLClient
-from app.models import AppSetting
+from app.models import AppSetting, League, LeagueType
 from app.settings_store import runtime_settings
 from app.source_sync import sync_enabled_sources
 from app.sync import sync_league
@@ -47,14 +48,21 @@ def _save_status(db: Session, key: str, value: str) -> None:
 async def automatic_sync_once() -> dict[str, Any]:
     with SessionLocal() as db:
         settings = runtime_settings(db)
+        stored_leagues = {
+            league.id: LeagueType(league.league_type)
+            for league in db.scalars(select(League).where(League.season == settings.mfl_season))
+        }
         league_ids = list(
             dict.fromkeys(
-                league_id
-                for league_id in (
-                    settings.mfl_keeper_league_id,
-                    settings.mfl_auction_league_id,
-                )
-                if league_id
+                [
+                    league_id
+                    for league_id in (
+                        settings.mfl_keeper_league_id,
+                        settings.mfl_auction_league_id,
+                    )
+                    if league_id
+                ]
+                + list(stored_leagues)
             )
         )
         started_at = datetime.now(UTC)
@@ -63,7 +71,11 @@ async def automatic_sync_once() -> dict[str, Any]:
         async with MFLClient(settings) as client:
             for league_id in league_ids:
                 try:
-                    league_results.append(await sync_league(db, client, settings, league_id))
+                    league_results.append(
+                        await sync_league(
+                            db, client, settings, league_id, stored_leagues.get(league_id)
+                        )
+                    )
                 except Exception as exc:
                     LOGGER.warning(
                         "Automatic MFL sync failed for league %s: %s: %s",

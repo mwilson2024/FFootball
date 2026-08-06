@@ -269,9 +269,13 @@ def _rules(payload: dict[str, Any], catalog: dict[str, str]) -> dict[str, Any]:
 
 
 async def sync_league(
-    db: Session, client: MFLClient, settings: Settings, league_id: str
+    db: Session,
+    client: MFLClient,
+    settings: Settings,
+    league_id: str,
+    league_type_override: LeagueType | None = None,
 ) -> dict[str, Any]:
-    league_type = (
+    league_type = league_type_override or (
         LeagueType.KEEPER if league_id == settings.mfl_keeper_league_id else LeagueType.AUCTION
     )
     export_types = [
@@ -566,5 +570,9 @@ async def sync_configured(
         raise ValueError("Configure at least one MFL league ID in .env")
     results = []
     for league_id in dict.fromkeys(league_ids):
-        results.append(await sync_league(db, client, settings, league_id))
+        stored = db.scalar(
+            select(League).where(League.id == league_id, League.season == settings.mfl_season)
+        )
+        override = LeagueType(stored.league_type) if stored else None
+        results.append(await sync_league(db, client, settings, league_id, override))
     return results

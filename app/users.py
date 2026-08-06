@@ -11,9 +11,10 @@ from app.models import (
     DataSource,
     UserAccount,
     UserLeagueSetting,
+    UserMFLMembership,
     UserSourceSetting,
 )
-from app.user_context import active_username, normalize_username
+from app.user_context import active_league_ids, active_username, normalize_username
 
 DEFAULT_AUCTION_STRATEGY = "balanced"
 AUCTION_STRATEGIES: dict[str, dict[str, Any]] = {
@@ -92,6 +93,78 @@ def record_login(db: Session, username: str, admin_usernames: set[str]) -> UserA
     account.last_login_at = datetime.now(UTC)
     db.commit()
     return account
+
+
+def save_mfl_memberships(
+    db: Session,
+    username: str,
+    season: int,
+    memberships: list[dict[str, str | None]],
+) -> None:
+    normalized = normalize_username(username)
+    for row in memberships:
+        league_id = str(row["league_id"])
+        membership = db.scalar(
+            select(UserMFLMembership).where(
+                UserMFLMembership.username == normalized,
+                UserMFLMembership.season == season,
+                UserMFLMembership.league_id == league_id,
+            )
+        )
+        if membership is None:
+            membership = UserMFLMembership(username=normalized, season=season, league_id=league_id)
+            db.add(membership)
+        membership.league_name = row.get("league_name")
+        membership.franchise_id = row.get("franchise_id")
+        membership.source_url = row.get("source_url")
+        membership.discovered_at = datetime.now(UTC)
+        if membership.franchise_id:
+            connected = db.scalar(
+                select(UserLeagueSetting).where(
+                    UserLeagueSetting.username == normalized,
+                    UserLeagueSetting.league_id == league_id,
+                )
+            )
+            if connected is None:
+                connected = UserLeagueSetting(
+                    username=normalized,
+                    league_id=league_id,
+                    auction_strategy_json={"template": DEFAULT_AUCTION_STRATEGY},
+                )
+                db.add(connected)
+            if not connected.franchise_id:
+                connected.franchise_id = membership.franchise_id
+    db.commit()
+
+
+def mfl_memberships_for_user(db: Session, season: int) -> list[UserMFLMembership]:
+    return list(
+        db.scalars(
+            select(UserMFLMembership)
+            .where(
+                UserMFLMembership.username == active_username(),
+                UserMFLMembership.season == season,
+            )
+            .order_by(UserMFLMembership.league_name, UserMFLMembership.league_id)
+        )
+    )
+
+
+def authorized_league_ids(db: Session) -> set[str] | None:
+    """Return the current user's MFL leagues, or None when auth is disabled."""
+    session_leagues = active_league_ids()
+    if session_leagues is not None:
+        return session_leagues
+    rows = list(
+        db.scalars(
+            select(UserMFLMembership.league_id).where(
+                UserMFLMembership.username == active_username()
+            )
+        )
+    )
+    if rows:
+        return set(rows)
+    return None
 
 
 def current_account(db: Session) -> UserAccount:

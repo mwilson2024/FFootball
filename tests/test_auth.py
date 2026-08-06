@@ -1,7 +1,13 @@
 from fastapi.testclient import TestClient
 
 import app.main as main_module
-from app.auth import SESSION_COOKIE, make_session_token, mfl_league_ids, read_session_token
+from app.auth import (
+    SESSION_COOKIE,
+    make_session_token,
+    mfl_league_ids,
+    mfl_memberships,
+    read_session_token,
+)
 from app.main import app
 
 
@@ -25,6 +31,37 @@ def test_mfl_membership_parser_handles_single_and_list_leagues():
         }
     }
     assert mfl_league_ids(payload) == {"59885", "48465"}
+
+
+def test_mfl_membership_parser_keeps_franchise_association():
+    payload = {
+        "leagues": {
+            "league": [
+                {"id": "59885", "name": "ADFL", "franchise_id": "0002"},
+                {
+                    "league_id": "48465",
+                    "name": "TMFL",
+                    "franchise": {"id": "0007"},
+                    "url": "https://www49.myfantasyleague.com/2026/home/48465",
+                },
+            ]
+        }
+    }
+
+    assert mfl_memberships(payload) == [
+        {
+            "league_id": "59885",
+            "league_name": "ADFL",
+            "franchise_id": "0002",
+            "source_url": None,
+        },
+        {
+            "league_id": "48465",
+            "league_name": "TMFL",
+            "franchise_id": "0007",
+            "source_url": "https://www49.myfantasyleague.com/2026/home/48465",
+        },
+    ]
 
 
 def test_protected_routes_require_session_and_csrf():

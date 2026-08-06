@@ -116,14 +116,35 @@ def read_session_token(
 
 
 def mfl_league_ids(payload: Any) -> set[str]:
-    found: set[str] = set()
+    return {
+        str(item["league_id"]) for item in mfl_memberships(payload) if item["league_id"] is not None
+    }
+
+
+def mfl_memberships(payload: Any) -> list[dict[str, str | None]]:
+    found: dict[str, dict[str, str | None]] = {}
 
     def walk(value: Any, parent_key: str = "") -> None:
         if isinstance(value, dict):
             if parent_key.lower() == "league":
-                league_id = value.get("id") or value.get("league_id")
+                league_id = value.get("id") or value.get("league_id") or value.get("leagueId")
                 if league_id is not None:
-                    found.add(str(league_id))
+                    normalized = str(league_id)
+                    franchise = (
+                        value.get("franchise_id")
+                        or value.get("franchiseId")
+                        or value.get("franchise")
+                    )
+                    if isinstance(franchise, dict):
+                        franchise = franchise.get("id") or franchise.get("franchise_id")
+                    found[normalized] = {
+                        "league_id": normalized,
+                        "league_name": str(value.get("name")) if value.get("name") else None,
+                        "franchise_id": str(franchise) if franchise not in (None, "") else None,
+                        "source_url": str(value.get("url") or value.get("baseURL"))
+                        if value.get("url") or value.get("baseURL")
+                        else None,
+                    }
             for key, child in value.items():
                 walk(child, str(key))
         elif isinstance(value, list):
@@ -131,7 +152,7 @@ def mfl_league_ids(payload: Any) -> set[str]:
                 walk(child, parent_key)
 
     walk(payload)
-    return found
+    return list(found.values())
 
 
 def login_rate_key(client_ip: str, username: str) -> str:
