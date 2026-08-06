@@ -72,6 +72,26 @@ class SourceUpdate(BaseModel):
     weight: Decimal = Field(ge=0, le=10)
 
 
+class SourcePreview(BaseModel):
+    league_id: str
+    sources: dict[str, SourceUpdate]
+
+
+class UserLeagueSettingUpdate(BaseModel):
+    franchise_id: str | None = None
+    auction_strategy: dict[str, object] = Field(default_factory=dict)
+
+
+class AuctionLiveUpdate(BaseModel):
+    is_live: bool
+
+
+class AssistantRequest(BaseModel):
+    league_id: str
+    message: str = Field(min_length=1, max_length=2000)
+    history: list[dict[str, str]] = Field(default_factory=list, max_length=10)
+
+
 class WarningResolve(BaseModel):
     resolved: bool = True
 

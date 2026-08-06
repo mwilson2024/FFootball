@@ -1,0 +1,178 @@
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from decimal import Decimal
+from typing import Any
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models import (
+    DataSource,
+    UserAccount,
+    UserLeagueSetting,
+    UserSourceSetting,
+)
+from app.user_context import active_username, normalize_username
+
+DEFAULT_AUCTION_STRATEGY = "balanced"
+AUCTION_STRATEGIES: dict[str, dict[str, Any]] = {
+    "balanced": {
+        "name": "Balanced value",
+        "description": "Spread budget across starters and react to value as it appears.",
+        "priority_order": ["WR", "RB", "QB", "TE", "DEF"],
+        "star_emphasis": Decimal("1.08"),
+        "depth_emphasis": Decimal("1.00"),
+    },
+    "elite_wr": {
+        "name": "Elite WR foundation",
+        "description": "Prioritize star WR, then star QB and RB before filling depth.",
+        "priority_order": ["WR", "QB", "RB", "TE", "DEF"],
+        "star_emphasis": Decimal("1.28"),
+        "depth_emphasis": Decimal("0.94"),
+    },
+    "hero_rb": {
+        "name": "Hero RB",
+        "description": "Pay for one premium RB, then emphasize WR depth and value quarterbacks.",
+        "priority_order": ["RB", "WR", "TE", "QB", "DEF"],
+        "star_emphasis": Decimal("1.22"),
+        "depth_emphasis": Decimal("1.02"),
+    },
+    "elite_qb": {
+        "name": "Elite QB anchor",
+        "description": "Secure a difference-making quarterback, then build balanced skill depth.",
+        "priority_order": ["QB", "WR", "RB", "TE", "DEF"],
+        "star_emphasis": Decimal("1.20"),
+        "depth_emphasis": Decimal("1.00"),
+    },
+    "depth_first": {
+        "name": "Depth and flexibility",
+        "description": "Flatten prices and preserve budget for a deep, adaptable roster.",
+        "priority_order": ["WR", "RB", "TE", "QB", "DEF"],
+        "star_emphasis": Decimal("0.94"),
+        "depth_emphasis": Decimal("1.12"),
+    },
+    "stars_scrubs": {
+        "name": "Stars and depth bargains",
+        "description": "Concentrate money in elite players and reserve minimum bids for depth.",
+        "priority_order": ["WR", "RB", "QB", "TE", "DEF"],
+        "star_emphasis": Decimal("1.38"),
+        "depth_emphasis": Decimal("0.82"),
+    },
+}
+
+
+def bootstrap_user(
+    db: Session,
+    username: str,
+    *,
+    display_name: str | None = None,
+    admin_usernames: set[str] | None = None,
+) -> UserAccount:
+    normalized = normalize_username(username)
+    account = db.get(UserAccount, normalized)
+    admins = {normalize_username(item) for item in (admin_usernames or {"wilsonmw"})}
+    if account is None:
+        account = UserAccount(
+            username=normalized,
+            display_name=display_name or username.strip(),
+            is_admin=normalized in admins,
+        )
+        db.add(account)
+    else:
+        account.display_name = display_name or account.display_name
+        if normalized in admins:
+            account.is_admin = True
+    db.commit()
+    return account
+
+
+def record_login(db: Session, username: str, admin_usernames: set[str]) -> UserAccount:
+    account = bootstrap_user(db, username, admin_usernames=admin_usernames)
+    account.last_login_at = datetime.now(UTC)
+    db.commit()
+    return account
+
+
+def current_account(db: Session) -> UserAccount:
+    return bootstrap_user(db, active_username())
+
+
+def is_current_admin(db: Session) -> bool:
+    return current_account(db).is_admin
+
+
+def effective_source_settings(db: Session) -> dict[str, dict[str, Any]]:
+    username = active_username()
+    saved = {
+        item.source_id: item
+        for item in db.scalars(
+            select(UserSourceSetting).where(UserSourceSetting.username == username)
+        )
+    }
+    return {
+        source.id: {
+            "enabled": saved[source.id].enabled if source.id in saved else True,
+            "weight": Decimal(saved[source.id].weight)
+            if source.id in saved
+            else Decimal(source.weight),
+        }
+        for source in db.scalars(select(DataSource))
+    }
+
+
+def save_source_setting(
+    db: Session, source_id: str, *, enabled: bool, weight: Decimal
+) -> UserSourceSetting:
+    username = active_username()
+    setting = db.scalar(
+        select(UserSourceSetting).where(
+            UserSourceSetting.username == username,
+            UserSourceSetting.source_id == source_id,
+        )
+    )
+    if setting is None:
+        setting = UserSourceSetting(username=username, source_id=source_id)
+        db.add(setting)
+    setting.enabled = enabled
+    setting.weight = weight
+    setting.updated_at = datetime.now(UTC)
+    db.commit()
+    return setting
+
+
+def league_setting(db: Session, league_id: str) -> UserLeagueSetting:
+    username = active_username()
+    setting = db.scalar(
+        select(UserLeagueSetting).where(
+            UserLeagueSetting.username == username,
+            UserLeagueSetting.league_id == league_id,
+        )
+    )
+    if setting is None:
+        setting = UserLeagueSetting(
+            username=username,
+            league_id=league_id,
+            auction_strategy_json={"template": DEFAULT_AUCTION_STRATEGY},
+        )
+        db.add(setting)
+        db.commit()
+    return setting
+
+
+def effective_auction_strategy(db: Session, league_id: str) -> dict[str, Any]:
+    saved = league_setting(db, league_id).auction_strategy_json or {}
+    template_id = str(saved.get("template") or DEFAULT_AUCTION_STRATEGY)
+    template = AUCTION_STRATEGIES.get(template_id, AUCTION_STRATEGIES[DEFAULT_AUCTION_STRATEGY])
+    priority = saved.get("priority_order") or template["priority_order"]
+    return {
+        **template,
+        "template": template_id,
+        "priority_order": [str(item).upper() for item in priority],
+        "star_emphasis": Decimal(str(saved.get("star_emphasis", template["star_emphasis"]))),
+        "depth_emphasis": Decimal(str(saved.get("depth_emphasis", template["depth_emphasis"]))),
+    }
+
+
+def strategy_json(value: dict[str, Any]) -> dict[str, Any]:
+    return {key: str(item) if isinstance(item, Decimal) else item for key, item in value.items()}

@@ -24,8 +24,11 @@ from app.models import (
     RankingSnapshot,
     RosterAssignment,
     SourcePlayerValue,
+    UserPlayerPreference,
 )
 from app.sources import normalize_player_name
+from app.user_context import active_username
+from app.users import effective_source_settings
 
 SOURCE_FAMILIES = {
     "league_model": "mfl",
@@ -41,7 +44,9 @@ SOURCE_FAMILIES = {
 }
 
 
-def _preference_json(preference: PersonalPlayerPreference | None) -> dict[str, Any]:
+def _preference_json(
+    preference: PersonalPlayerPreference | UserPlayerPreference | None,
+) -> dict[str, Any]:
     if preference is None:
         return {
             "manual_rank": None,
@@ -112,7 +117,6 @@ def _latest_user_ranks(db: Session, league_id: str) -> dict[str, dict[str, Decim
             .where(
                 SourcePlayerValue.league_id == league_id,
                 SourcePlayerValue.value_type == "rank",
-                DataSource.enabled.is_(True),
             )
             .order_by(SourcePlayerValue.fetched_at.desc(), SourcePlayerValue.id.desc())
         )
@@ -183,7 +187,11 @@ def _ordinal_ranks(values: dict[str, Decimal], *, higher_is_better: bool) -> dic
     return {player_id: Decimal(index) for index, (player_id, _) in enumerate(ordered, 1)}
 
 
-def build_consensus(db: Session, league_id: str) -> list[dict[str, Any]]:
+def build_consensus(
+    db: Session,
+    league_id: str,
+    source_overrides: dict[str, dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
     league_type = db.scalar(
         select(League.league_type)
         .where(League.id == league_id)
@@ -197,14 +205,38 @@ def build_consensus(db: Session, league_id: str) -> list[dict[str, Any]]:
             select(RankingSnapshot).where(RankingSnapshot.league_id == league_id)
         )
     }
-    preferences = {
+    legacy_preferences = {
         item.player_id: item
         for item in db.scalars(
             select(PersonalPlayerPreference).where(PersonalPlayerPreference.league_id == league_id)
         )
     }
+    preferences: dict[str, PersonalPlayerPreference | UserPlayerPreference] = (
+        dict(legacy_preferences) if active_username() == "wilsonmw" else {}
+    )
+    preferences.update(
+        {
+            item.player_id: item
+            for item in db.scalars(
+                select(UserPlayerPreference).where(
+                    UserPlayerPreference.username == active_username(),
+                    UserPlayerPreference.league_id == league_id,
+                )
+            )
+        }
+    )
+    source_options = effective_source_settings(db)
+    for source_id, override in (source_overrides or {}).items():
+        if source_id in source_options:
+            source_options[source_id] = {
+                "enabled": bool(override.get("enabled", source_options[source_id]["enabled"])),
+                "weight": Decimal(str(override.get("weight", source_options[source_id]["weight"]))),
+            }
     sources = {
-        item.id: item for item in db.scalars(select(DataSource).where(DataSource.enabled.is_(True)))
+        item.id: item
+        for item in db.scalars(select(DataSource))
+        if source_options.get(item.id, {}).get("enabled", True)
+        and Decimal(source_options.get(item.id, {}).get("weight", 0)) > 0
     }
     custom_ranks = _latest_user_ranks(db, league_id)
     fantasypros_raw = _latest_source_raw(db, league_id, "fantasypros")
@@ -273,7 +305,7 @@ def build_consensus(db: Session, league_id: str) -> list[dict[str, Any]]:
         weighted_total = Decimal("0")
         total_weight = Decimal("0")
         for source_id in raw_ranks:
-            weight = Decimal(sources[source_id].weight)
+            weight = Decimal(source_options[source_id]["weight"])
             weighted_total += percentiles[source_id][player.id] * weight
             total_weight += weight
         raw_score = weighted_total / total_weight if total_weight else Decimal("-1")
@@ -371,8 +403,9 @@ def create_consensus_snapshot(
     db: Session, league_id: str, name: str = "Generated consensus"
 ) -> ConsensusSnapshot:
     weights = {
-        item.id: str(item.weight)
-        for item in db.scalars(select(DataSource).where(DataSource.enabled.is_(True)))
+        source_id: str(option["weight"])
+        for source_id, option in effective_source_settings(db).items()
+        if option["enabled"]
     }
     snapshot = ConsensusSnapshot(
         league_id=league_id,

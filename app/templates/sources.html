@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
 <section class="page-title compact"><div><p class="eyebrow">PROVENANCE & FRESHNESS</p><h1>Data Sources</h1><p>MFL works alone. Sleeper and nflverse are optional free enrichments; proprietary sites are not scraped.</p></div><button onclick="syncMfl()">Sync MFL</button></section>
-<section id="source-grid" class="cards"><article class="card">Loading source registry…</article></section>
+<section id="source-grid" class="cards"><article class="card">Loading source registry…</article></section><section class="panel"><div class="panel-head"><div><h2>Live ranking preview</h2><p class="muted">Change a source or weight above to preview the biggest movers before saving.</p></div><select id="source-preview-league">{% for league in leagues %}<option value="{{ league.id }}">{{ league.name }}</option>{% endfor %}</select></div><div id="source-preview"><p class="muted">Adjust a source to preview its impact.</p></div></section>
 {% endblock %}
 {% block scripts %}<script>initSources()</script>{% endblock %}

@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Annotated, Any, cast
 from urllib.parse import quote, urlparse
 
+import httpx
 from fastapi import Body, Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -21,6 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from app.assistant import ask_assistant
 from app.auction import (
     AuctionValidationError,
     add_purchase,
@@ -68,6 +70,7 @@ from app.draft import (
 from app.exports import build_xml, export_csv, export_xml
 from app.mfl import MFLAuthenticationError, MFLClient, MFLError
 from app.models import (
+    AuctionLiveState,
     AuctionPurchase,
     DataSource,
     Franchise,
@@ -76,12 +79,14 @@ from app.models import (
     League,
     LeagueType,
     MFLSnapshot,
-    PersonalPlayerPreference,
     Player,
     PlayerIdentity,
     SyncWarning,
+    UserPlayerPreference,
 )
 from app.schemas import (
+    AssistantRequest,
+    AuctionLiveUpdate,
     DraftPickCreate,
     DraftPickUpdate,
     IdentityUpdate,
@@ -92,7 +97,9 @@ from app.schemas import (
     PurchaseCreate,
     PurchaseUpdate,
     SetupUpdate,
+    SourcePreview,
     SourceUpdate,
+    UserLeagueSettingUpdate,
     WarningResolve,
 )
 from app.settings_store import CredentialStoreError, runtime_settings, save_setup, setup_status
@@ -105,6 +112,18 @@ from app.sources import (
     sync_sleeper,
 )
 from app.sync import RULE_DESCRIPTIONS, record_sync_warnings, sync_configured
+from app.user_context import active_username, reset_active_username, set_active_username
+from app.users import (
+    AUCTION_STRATEGIES,
+    bootstrap_user,
+    current_account,
+    effective_source_settings,
+    is_current_admin,
+    league_setting,
+    record_login,
+    save_source_setting,
+    strategy_json,
+)
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
@@ -122,6 +141,8 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
     with SessionLocal() as db:
         initialize_sources(db)
+        for username in settings.admin_username_set or {"wilsonmw"}:
+            bootstrap_user(db, username, admin_usernames=settings.admin_username_set)
         for league_item in db.scalars(select(League)):
             if league_item.warnings_json and not db.scalar(
                 select(SyncWarning.id).where(SyncWarning.league_id == league_item.id).limit(1)
@@ -184,7 +205,11 @@ async def secure_session(request: Request, call_next: Any) -> Response:
                 },
             )
     request.state.user = session
-    response = cast(Response, await call_next(request))
+    context_token = set_active_username(session.username if session else "wilsonmw")
+    try:
+        response = cast(Response, await call_next(request))
+    finally:
+        reset_active_username(context_token)
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; "
         "script-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; "
@@ -255,6 +280,7 @@ def _page_context(db: Session, title: str, league_id: str | None = None) -> dict
     leagues = list(db.scalars(select(League).order_by(League.league_type, League.name)))
     selected = league_id or settings.mfl_keeper_league_id or settings.mfl_auction_league_id
     selected_league = next((item for item in leagues if item.id == selected), None)
+    account = current_account(db)
     return {
         "title": title,
         "settings": settings,
@@ -262,7 +288,36 @@ def _page_context(db: Session, title: str, league_id: str | None = None) -> dict
         "selected_league_id": selected,
         "selected_league": selected_league,
         "setup": setup_status(db),
+        "account": account,
+        "is_admin": account.is_admin,
+        "assistant_enabled": bool(get_settings().openai_api_key),
     }
+
+
+def _require_admin(db: Session) -> None:
+    if not is_current_admin(db):
+        raise HTTPException(
+            403,
+            detail={"code": "admin_required", "message": "An administrator must do that"},
+        )
+
+
+def _auction_live(db: Session, league_id: str) -> AuctionLiveState:
+    state = db.get(AuctionLiveState, league_id)
+    if state is None:
+        state = AuctionLiveState(league_id=league_id)
+        db.add(state)
+        db.commit()
+    return state
+
+
+def _bump_auction(db: Session, league_id: str) -> AuctionLiveState:
+    state = _auction_live(db, league_id)
+    state.revision += 1
+    state.updated_by = active_username()
+    state.updated_at = datetime.now(UTC)
+    db.commit()
+    return state
 
 
 @app.exception_handler(AuctionValidationError)
@@ -346,6 +401,7 @@ async def login(
 
     clear_login_failures(rate_key)
     app_settings = get_settings()
+    record_login(db, username.strip(), app_settings.admin_username_set)
     max_age = app_settings.session_max_age_days * 24 * 60 * 60
     token, _ = make_session_token(
         SESSION_SIGNING_SECRET,
@@ -433,6 +489,13 @@ def draft_page(request: Request, db: Db, league_id: str | None = None) -> Any:
 @app.get("/sources", response_class=HTMLResponse)
 def sources_page(request: Request, db: Db) -> Any:
     return templates.TemplateResponse(request, "sources.html", _page_context(db, "Data sources"))
+
+
+@app.get("/account", response_class=HTMLResponse)
+def account_page(request: Request, db: Db, league_id: str | None = None) -> Any:
+    return templates.TemplateResponse(
+        request, "account.html", _page_context(db, "My account", league_id)
+    )
 
 
 @app.get("/settings", response_class=HTMLResponse)
@@ -541,7 +604,15 @@ async def sync(db: Db) -> dict[str, Any]:
 @app.get("/api/sources")
 def sources(db: Db) -> list[dict[str, Any]]:
     initialize_sources(db)
-    return [source_json(item) for item in db.scalars(select(DataSource).order_by(DataSource.name))]
+    effective = effective_source_settings(db)
+    return [
+        {
+            **source_json(item),
+            "enabled": effective[item.id]["enabled"],
+            "weight": str(effective[item.id]["weight"]),
+        }
+        for item in db.scalars(select(DataSource).order_by(DataSource.name))
+    ]
 
 
 @app.put("/api/setup/sources/{source_id}")
@@ -549,10 +620,32 @@ def update_source(source_id: str, payload: SourceUpdate, db: Db) -> dict[str, An
     source = db.get(DataSource, source_id)
     if source is None:
         raise HTTPException(404, detail={"code": "source_not_found", "message": "Source not found"})
-    source.enabled = True
-    source.weight = payload.weight
-    db.commit()
-    return source_json(source)
+    setting = save_source_setting(db, source_id, enabled=payload.enabled, weight=payload.weight)
+    return {**source_json(source), "enabled": setting.enabled, "weight": str(setting.weight)}
+
+
+@app.post("/api/sources/preview")
+def preview_sources(payload: SourcePreview, db: Db) -> dict[str, Any]:
+    _league_or_404(db, payload.league_id)
+    baseline = draftable_consensus(db, payload.league_id)
+    preview = draftable_consensus(
+        db,
+        payload.league_id,
+        {key: value.model_dump() for key, value in payload.sources.items()},
+    )
+    old = {row["player_id"]: row["consensus_rank"] for row in baseline}
+    movers = [
+        {
+            "player_name": row["player_name"],
+            "position": row["position"],
+            "old_rank": old.get(row["player_id"]),
+            "new_rank": row["consensus_rank"],
+            "change": old.get(row["player_id"], row["consensus_rank"]) - row["consensus_rank"],
+        }
+        for row in preview
+    ]
+    movers.sort(key=lambda item: abs(item["change"]), reverse=True)
+    return {"top": preview[:12], "movers": movers[:12]}
 
 
 @app.post("/api/sources/sync")
@@ -959,6 +1052,8 @@ def cheat_sheet(
     position: str | None = None,
     availability: str = "all",
     search: str | None = None,
+    rookie: bool | None = None,
+    tag: str | None = Query(None, pattern="^(target|fade|queued|do_not_draft|sleeper)$"),
 ) -> dict[str, Any]:
     return query_players(
         db,
@@ -968,6 +1063,8 @@ def cheat_sheet(
         position=position,
         availability=availability,
         search=search,
+        rookie=rookie,
+        tag=tag,
     )
 
 
@@ -1058,13 +1155,16 @@ def update_preference(
     if db.get(Player, player_id) is None:
         raise HTTPException(404, detail={"code": "player_not_found", "message": "Player not found"})
     preference = db.scalar(
-        select(PersonalPlayerPreference).where(
-            PersonalPlayerPreference.league_id == league_id,
-            PersonalPlayerPreference.player_id == player_id,
+        select(UserPlayerPreference).where(
+            UserPlayerPreference.username == active_username(),
+            UserPlayerPreference.league_id == league_id,
+            UserPlayerPreference.player_id == player_id,
         )
     )
     if preference is None:
-        preference = PersonalPlayerPreference(league_id=league_id, player_id=player_id)
+        preference = UserPlayerPreference(
+            username=active_username(), league_id=league_id, player_id=player_id
+        )
         db.add(preference)
     for key, value in payload.model_dump(exclude={"tags"}).items():
         setattr(preference, key, value)
@@ -1132,6 +1232,107 @@ def download_draft_csv(league_id: str, db: Db) -> FileResponse:
     return FileResponse(path, media_type="text/csv", filename=path.name)
 
 
+@app.get("/api/account")
+def account_settings(db: Db) -> dict[str, Any]:
+    account = current_account(db)
+    leagues = list(db.scalars(select(League).order_by(League.name)))
+    return {
+        "username": account.username,
+        "display_name": account.display_name,
+        "is_admin": account.is_admin,
+        "leagues": [
+            {
+                "id": league.id,
+                "name": league.name,
+                "type": league.league_type,
+                "franchise_id": league_setting(db, league.id).franchise_id,
+                "auction_strategy": league_setting(db, league.id).auction_strategy_json,
+                "franchises": [
+                    {"id": item.id, "name": item.name}
+                    for item in db.scalars(
+                        select(Franchise)
+                        .where(Franchise.league_id == league.id)
+                        .order_by(Franchise.name)
+                    )
+                ],
+            }
+            for league in leagues
+        ],
+        "auction_strategies": {
+            key: strategy_json(value) for key, value in AUCTION_STRATEGIES.items()
+        },
+    }
+
+
+@app.put("/api/account/leagues/{league_id}")
+def save_account_league(league_id: str, payload: UserLeagueSettingUpdate, db: Db) -> dict[str, Any]:
+    _league_or_404(db, league_id)
+    if payload.franchise_id:
+        franchise = db.get(Franchise, payload.franchise_id)
+        if franchise is None or franchise.league_id != league_id:
+            raise HTTPException(
+                422,
+                detail={
+                    "code": "franchise_mismatch",
+                    "message": "Choose a franchise in this league",
+                },
+            )
+    strategy = dict(payload.auction_strategy)
+    template = str(strategy.get("template") or "balanced")
+    if template not in AUCTION_STRATEGIES:
+        raise HTTPException(422, detail={"code": "invalid_strategy", "message": "Unknown strategy"})
+    if "priority_order" in strategy:
+        allowed = {"QB", "RB", "WR", "TE", "DEF"}
+        raw_priority = strategy["priority_order"]
+        if not isinstance(raw_priority, list):
+            raise HTTPException(
+                422,
+                detail={"code": "invalid_priority", "message": "Position order must be a list"},
+            )
+        priority = [str(item).upper() for item in raw_priority]
+        if set(priority) != allowed or len(priority) != len(allowed):
+            raise HTTPException(
+                422,
+                detail={"code": "invalid_priority", "message": "Use each position once"},
+            )
+        strategy["priority_order"] = priority
+    setting = league_setting(db, league_id)
+    setting.franchise_id = payload.franchise_id
+    setting.auction_strategy_json = strategy
+    setting.updated_at = datetime.now(UTC)
+    db.commit()
+    return {
+        "league_id": league_id,
+        "franchise_id": setting.franchise_id,
+        "auction_strategy": strategy,
+    }
+
+
+@app.get("/api/assistant/status")
+def assistant_status() -> dict[str, Any]:
+    settings = get_settings()
+    return {"enabled": bool(settings.openai_api_key), "model": settings.openai_model}
+
+
+@app.post("/api/assistant")
+async def league_assistant(payload: AssistantRequest, db: Db) -> dict[str, str]:
+    _league_or_404(db, payload.league_id)
+    try:
+        answer = await ask_assistant(
+            db, get_settings(), payload.league_id, payload.message, payload.history
+        )
+    except RuntimeError as exc:
+        raise HTTPException(
+            503, detail={"code": "assistant_unavailable", "message": str(exc)}
+        ) from exc
+    except httpx.HTTPError as exc:
+        raise HTTPException(
+            502,
+            detail={"code": "assistant_failed", "message": "The assistant service is unavailable"},
+        ) from exc
+    return {"answer": answer}
+
+
 @app.get("/api/auction/state")
 def auction_state(db: Db, league_id: str | None = None) -> dict[str, Any]:
     settings = runtime_settings(db)
@@ -1145,6 +1346,7 @@ def auction_state(db: Db, league_id: str | None = None) -> dict[str, Any]:
             },
         )
     league = _league_or_404(db, selected)
+    live = _auction_live(db, selected)
     return {
         "league": _league_json(league),
         "franchises": [
@@ -1163,34 +1365,73 @@ def auction_state(db: Db, league_id: str | None = None) -> dict[str, Any]:
         ],
         "synced_at": league.synced_at,
         "stale": not league.synced_at,
+        "live": {
+            "is_live": live.is_live,
+            "revision": live.revision,
+            "updated_at": live.updated_at,
+            "updated_by": live.updated_by,
+        },
+        "is_admin": is_current_admin(db),
     }
+
+
+@app.put("/api/auction/live")
+def set_auction_live(
+    payload: AuctionLiveUpdate, db: Db, league_id: str | None = None
+) -> dict[str, Any]:
+    _require_admin(db)
+    selected = league_id or runtime_settings(db).mfl_auction_league_id
+    _league_or_404(db, selected)
+    state = _auction_live(db, selected)
+    state.is_live = payload.is_live
+    state.revision += 1
+    state.updated_by = active_username()
+    state.updated_at = datetime.now(UTC)
+    db.commit()
+    return {"is_live": state.is_live, "revision": state.revision}
 
 
 @app.post("/api/auction/purchases", status_code=201)
 def purchase(payload: PurchaseCreate, db: Db) -> dict[str, Any]:
-    return _purchase_json(add_purchase(db, payload))
+    _require_admin(db)
+    result = add_purchase(db, payload)
+    _bump_auction(db, payload.league_id)
+    return _purchase_json(result)
 
 
 @app.patch("/api/auction/purchases/{purchase_id}")
 def patch_purchase(purchase_id: str, payload: PurchaseUpdate, db: Db) -> dict[str, Any]:
-    return _purchase_json(update_purchase(db, purchase_id, payload))
+    _require_admin(db)
+    result = update_purchase(db, purchase_id, payload)
+    _bump_auction(db, result.league_id)
+    return _purchase_json(result)
 
 
 @app.delete("/api/auction/purchases/{purchase_id}", status_code=204)
 def remove_purchase(purchase_id: str, db: Db) -> None:
+    _require_admin(db)
+    current = db.get(AuctionPurchase, purchase_id)
+    league_id = current.league_id if current else runtime_settings(db).mfl_auction_league_id
     delete_purchase(db, purchase_id)
+    _bump_auction(db, league_id)
 
 
 @app.post("/api/auction/undo", status_code=204)
 def undo_purchase(db: Db, league_id: str | None = None) -> None:
+    _require_admin(db)
     settings = runtime_settings(db)
-    undo(db, league_id or settings.mfl_auction_league_id)
+    selected = league_id or settings.mfl_auction_league_id
+    undo(db, selected)
+    _bump_auction(db, selected)
 
 
 @app.post("/api/auction/redo", status_code=204)
 def redo_purchase(db: Db, league_id: str | None = None) -> None:
+    _require_admin(db)
     settings = runtime_settings(db)
-    redo(db, league_id or settings.mfl_auction_league_id)
+    selected = league_id or settings.mfl_auction_league_id
+    redo(db, selected)
+    _bump_auction(db, selected)
 
 
 @app.get("/api/auction/export.csv")
@@ -1224,6 +1465,7 @@ def import_preview(db: Db, league_id: str | None = None) -> dict[str, Any]:
 
 @app.post("/api/auction/push-to-mfl")
 async def push_to_mfl(payload: ImportConfirmation, db: Db) -> dict[str, str]:
+    _require_admin(db)
     settings = runtime_settings(db)
     if not settings.commissioner_configured:
         raise HTTPException(

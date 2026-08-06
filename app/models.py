@@ -200,6 +200,53 @@ class AppSetting(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class UserAccount(Base):
+    __tablename__ = "user_accounts"
+
+    username: Mapped[str] = mapped_column(String(100), primary_key=True)
+    display_name: Mapped[str] = mapped_column(String(100))
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class UserSourceSetting(Base):
+    __tablename__ = "user_source_settings"
+    __table_args__ = (UniqueConstraint("username", "source_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    username: Mapped[str] = mapped_column(String(100), index=True)
+    source_id: Mapped[str] = mapped_column(ForeignKey("data_sources.id"), index=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    weight: Mapped[Decimal] = mapped_column(Numeric(8, 4), default=Decimal("1"))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class UserLeagueSetting(Base):
+    __tablename__ = "user_league_settings"
+    __table_args__ = (UniqueConstraint("username", "league_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    username: Mapped[str] = mapped_column(String(100), index=True)
+    league_id: Mapped[str] = mapped_column(String, index=True)
+    franchise_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    auction_strategy_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class AuctionLiveState(Base):
+    __tablename__ = "auction_live_states"
+
+    league_id: Mapped[str] = mapped_column(String, primary_key=True)
+    is_live: Mapped[bool] = mapped_column(Boolean, default=False)
+    revision: Mapped[int] = mapped_column(Integer, default=0)
+    current_player_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    current_franchise_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    current_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class DataSource(Base):
     __tablename__ = "data_sources"
 
@@ -288,6 +335,25 @@ class PersonalPlayerPreference(Base):
     __table_args__ = (UniqueConstraint("league_id", "player_id"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    league_id: Mapped[str] = mapped_column(String, index=True)
+    player_id: Mapped[str] = mapped_column(ForeignKey("players.id"), index=True)
+    manual_rank: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    manual_tier: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    queue_order: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    target: Mapped[bool] = mapped_column(Boolean, default=False)
+    fade: Mapped[bool] = mapped_column(Boolean, default=False)
+    do_not_draft: Mapped[bool] = mapped_column(Boolean, default=False)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tags_json: Mapped[list[str]] = mapped_column(JSON, default=list)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class UserPlayerPreference(Base):
+    __tablename__ = "user_player_preferences"
+    __table_args__ = (UniqueConstraint("username", "league_id", "player_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    username: Mapped[str] = mapped_column(String(100), index=True)
     league_id: Mapped[str] = mapped_column(String, index=True)
     player_id: Mapped[str] = mapped_column(ForeignKey("players.id"), index=True)
     manual_rank: Mapped[int | None] = mapped_column(Integer, nullable=True)

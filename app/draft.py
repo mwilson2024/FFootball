@@ -19,7 +19,6 @@ from app.models import (
     Franchise,
     League,
     MFLSnapshot,
-    PersonalPlayerPreference,
     Player,
     RosterAssignment,
 )
@@ -320,19 +319,21 @@ def draft_state(db: Session, league_id: str) -> dict[str, Any]:
             .order_by(DraftPick.overall_pick, DraftPick.selected_at)
         )
     )
-    queue = list(
-        db.execute(
-            select(PersonalPlayerPreference, Player)
-            .join(Player, Player.id == PersonalPlayerPreference.player_id)
-            .where(
-                PersonalPlayerPreference.league_id == league_id,
-                PersonalPlayerPreference.queue_order.is_not(None),
-            )
-            .order_by(PersonalPlayerPreference.queue_order)
-        )
+    board = draftable_consensus(db, league_id)
+    queue = sorted(
+        (
+            row
+            for row in board
+            if row["preference"]["queue_order"] is not None or row["preference"]["target"]
+        ),
+        key=lambda row: (
+            row["preference"]["queue_order"] is None,
+            row["preference"]["queue_order"] or 99999,
+            row["consensus_rank"],
+        ),
     )
     tiers: dict[str, int] = {}
-    for row in draftable_consensus(db, league_id):
+    for row in board:
         if row["available"] and row["tier"] is not None:
             key = f"{row['position']}:T{row['tier']}"
             tiers[key] = tiers.get(key, 0) + 1
@@ -355,12 +356,13 @@ def draft_state(db: Session, league_id: str) -> dict[str, Any]:
         "order_fetched_at": order_fetched_at,
         "queue": [
             {
-                "player_id": player.id,
-                "player_name": player.name,
-                "position": player.position,
-                "queue_order": preference.queue_order,
+                "player_id": row["player_id"],
+                "player_name": row["player_name"],
+                "position": row["position"],
+                "queue_order": row["preference"]["queue_order"],
+                "target": row["preference"]["target"],
             }
-            for preference, player in queue
+            for row in queue
         ],
         "tier_counts": tiers,
     }

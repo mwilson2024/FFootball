@@ -13,13 +13,14 @@
     {% if request.state.user %}
     <button class="nav-toggle" type="button" aria-label="Toggle navigation" onclick="document.querySelector('.main-nav').classList.toggle('open')">Menu</button>
     <nav class="main-nav" aria-label="Primary navigation">
-      <a href="/draft">Draft Room</a><a href="/cheat-sheet">Cheat Sheet</a><a href="/players">Players</a><a href="/rosters">Rosters</a><a href="/keepers">Keepers</a><a href="/auction">Auction</a><a href="/scoring">Scoring</a><a href="/sources">Sources</a><a href="/settings">Settings</a>
+      <a href="/draft">Draft Room</a><a href="/cheat-sheet">Cheat Sheet</a><a href="/players">Players</a><a href="/rosters">Rosters</a><a href="/keepers">Keepers</a><a href="/auction">Auction</a><a href="/scoring">Scoring</a><a href="/sources">Sources</a><a href="/account">My Account</a>{% if is_admin %}<a href="/settings">Admin</a>{% endif %}
       <button class="nav-logout" type="button" onclick="logout()" title="Signed in as {{ request.state.user.username }}">Sign out</button>
     </nav>
     {% endif %}
   </header>
   <main>{% block content %}{% endblock %}</main>
   <div id="toast" role="status" aria-live="polite"></div>
+  {% if request.state.user %}<button id="assistant-launcher" class="assistant-launcher" type="button" onclick="openAssistant()">Ask DraftDesk</button><dialog id="assistant-dialog" class="assistant-dialog"><form onsubmit="askLeagueAssistant(event)"><div class="panel-head"><h2>League assistant</h2><button type="button" onclick="this.closest('dialog').close()">Close</button></div><p class="muted">Advice uses your selected franchise, roster, league scoring, lineup, and remaining auction budget.</p><div id="assistant-messages" class="assistant-messages"></div><label>Question<textarea id="assistant-input" maxlength="2000" required placeholder="Who should I target next?"></textarea></label><button class="primary">Ask</button></form></dialog>{% endif %}
   <dialog id="shortcut-help"><h2>Keyboard shortcuts</h2><dl><dt>/</dt><dd>Focus search</dd><dt>?</dt><dd>Show this help</dd><dt>Esc</dt><dd>Close detail or help</dd></dl><button onclick="this.closest('dialog').close()">Close</button></dialog>
   <script src="/static/app.js"></script>
   {% block scripts %}{% endblock %}

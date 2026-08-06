@@ -15,11 +15,13 @@ from app.models import (
     Franchise,
     KeeperSelection,
     League,
+    LeagueType,
     Player,
     PlayerIdentity,
     RosterAssignment,
     SourcePlayerValue,
 )
+from app.users import effective_auction_strategy
 
 
 def _number(value: Any) -> float | None:
@@ -112,9 +114,17 @@ def _is_draftable(row: dict[str, Any], allowed: set[str]) -> bool:
     return bool(positions & allowed)
 
 
-def draftable_consensus(db: Session, league_id: str) -> list[dict[str, Any]]:
+def draftable_consensus(
+    db: Session,
+    league_id: str,
+    source_overrides: dict[str, dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
     allowed = draftable_positions(db, league_id)
-    rows = [row for row in build_consensus(db, league_id) if _is_draftable(row, allowed)]
+    rows = [
+        row
+        for row in build_consensus(db, league_id, source_overrides)
+        if _is_draftable(row, allowed)
+    ]
     league_ranked = sorted(
         (row for row in rows if row["league_adjusted_rank"] is not None),
         key=lambda row: (row["league_adjusted_rank"], row["player_id"]),
@@ -198,7 +208,21 @@ def _apply_auction_values(db: Session, league_id: str, rows: list[dict[str, Any]
         ),
         default=minimum,
     )
-    all_candidates = [row for row in rows if row["position"].upper() != "DEF"]
+    strategy = effective_auction_strategy(db, league_id)
+    priorities = {position: index for index, position in enumerate(strategy["priority_order"])}
+
+    def strategy_key(row: dict[str, Any]) -> tuple[float, int, int]:
+        rank = int(row.get("consensus_rank") or 99999)
+        star_bonus = (
+            float(strategy["star_emphasis"]) if rank <= 36 else float(strategy["depth_emphasis"])
+        )
+        position_priority = priorities.get(row["position"].upper(), 99)
+        position_bonus = max(0.78, 1.12 - min(position_priority, 5) * 0.07)
+        return (rank / max(star_bonus * position_bonus, 0.01), position_priority, rank)
+
+    all_candidates = sorted(
+        (row for row in rows if row["position"].upper() != "DEF"), key=strategy_key
+    )
     available_candidates = [row for row in all_candidates if row["available"]]
     baseline_values = _allocate_auction_pool(
         all_candidates,
@@ -333,6 +357,8 @@ def query_players(
             return False
         if tag == "do_not_draft" and not preference["do_not_draft"]:
             return False
+        if tag == "sleeper" and "sleeper" not in preference.get("tags", []):
+            return False
         return True
 
     filtered = [row for row in rows if includes(row)]
@@ -458,16 +484,23 @@ def roster_overview(db: Session, league_id: str) -> dict[str, Any]:
             if position not in {"FLEX", "SUPERFLEX"}
         }
         budget = franchise_budget(db, league, franchise)
-        teams.append(
-            {
-                **budget,
-                "players": players,
-                "position_counts": position_counts,
-                "needs": needs,
-                "roster_strength": str(strength.quantize(Decimal("0.01"))),
-            }
-        )
-    return {"league_id": league_id, "teams": teams, "table": table, "synced_at": league.synced_at}
+        team = {
+            **budget,
+            "players": players,
+            "position_counts": position_counts,
+            "needs": needs,
+            "roster_strength": str(strength.quantize(Decimal("0.01"))),
+        }
+        if league.league_type == LeagueType.KEEPER:
+            team.pop("maximum_bid", None)
+        teams.append(team)
+    return {
+        "league_id": league_id,
+        "league_type": league.league_type,
+        "teams": teams,
+        "table": table,
+        "synced_at": league.synced_at,
+    }
 
 
 def player_detail(db: Session, league_id: str, player_id: str) -> dict[str, Any] | None:

@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     auto_sync_enabled: bool = True
     auto_sync_timezone: str = "America/New_York"
     auto_sync_hour: int = Field(default=1, ge=0, le=23)
+    admin_usernames: str = "wilsonmw"
+    openai_api_key: str = ""
+    openai_model: str = "gpt-5.6"
+    openai_base_url: str = "https://api.openai.com/v1"
     auction_default_budget: Decimal = Decimal("200")
     auction_min_bid: Decimal = Decimal("1")
     export_directory: Path = Field(default=Path("exports"))
@@ -51,6 +55,10 @@ class Settings(BaseSettings):
     @property
     def allowed_host_list(self) -> list[str]:
         return [item.strip() for item in self.allowed_hosts.split(",") if item.strip()]
+
+    @property
+    def admin_username_set(self) -> set[str]:
+        return {item.strip().casefold() for item in self.admin_usernames.split(",") if item.strip()}
 
 
 @lru_cache

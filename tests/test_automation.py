@@ -38,5 +38,5 @@ def test_source_initialization_turns_every_source_on(db: Session) -> None:
     assert db.get(DataSource, "fantasypros_dynasty") is not None
 
     response = update_source("sleeper", SourceUpdate(enabled=False, weight=Decimal("0.5")), db)
-    assert response["enabled"] is True
+    assert response["enabled"] is False
     assert Decimal(response["weight"]) == Decimal("0.5")

@@ -29,7 +29,7 @@ precedence.
 - **All Players:** all relevant MFL players with sortable headers, per-column filters, combined
   position/team/owner/availability/personal-tag filters, and server-side pagination.
 - **League Rosters:** every franchise and player, slots, positional counts and needs, salaries,
-  keeper status, strength, remaining auction funds, and maximum legal bid.
+  keeper status, and strength. Auction leagues also show remaining funds and maximum legal bid.
 - **Cheat Sheet:** a per-league percentile blend of enabled rank sources plus the local scoring/VOR
   model. It displays source count, mean, median, best/worst, range, and disagreement. Import legally
   obtained CSV rankings using `player_name,team,position,overall_rank`.
@@ -37,15 +37,20 @@ precedence.
   need, tier inventory, undo, MFL `draftResults` reconciliation preview, and recap export.
 - **Keepers:** MFL-selected keepers and the available league board. Local choices remain distinct
   until an explicit export or submission.
-- **Auction:** atomic purchases, budgets, reserves, maximum bids, duplicate prevention, undo/redo,
-  canonical CSV, and MFL XML.
-- **Data Sources:** inspect and weight automatically enabled sources: MFL, the attributed CC-BY-4.0
+- **Auction:** admin-controlled live status, shared three-second viewer updates, atomic purchases,
+  correction/reassignment tools, strategy-aware dynamic pricing, undo/redo, CSV, and MFL XML.
+- **Data Sources:** inspect shared cached sources and privately preview, include, exclude, or weight
+  each one for your board: MFL, the attributed CC-BY-4.0
   GNG Pigskin board, FantasyPros ECR using your API key, free Sleeper metadata/trends, CC-BY-4.0
   nflverse identity and schedule data, and user CSV imports.
 - **Scoring:** grouped MFL scoring rules with every repeated range retained, readable event names,
   normalized values, mapping state, and the raw imported response.
 - **Settings:** configure both leagues without editing code and test public and protected access
   separately. The User-Agent identifies the app; it is not authentication.
+- **My Account:** select your franchise and auction strategy. Player tiers, targets, sleepers,
+  queues, and source adjustments belong only to the signed-in MFL user.
+- **League assistant:** optional OpenAI-powered advice using the selected user franchise, roster,
+  budget, scoring, and lineup context. It cannot submit bids or picks.
 
 Use `/` to focus the current page search and `?` to show keyboard help. Dense tables retain sticky
 headers and scroll inside their panels.
@@ -118,11 +123,16 @@ also runs that installation explicitly for deterministic Railpack builds. If dep
    AUTO_SYNC_ENABLED=true
    AUTO_SYNC_TIMEZONE=America/New_York
    AUTO_SYNC_HOUR=1
+   ADMIN_USERNAMES=wilsonmw
    ```
 
    Generate `SESSION_SECRET` locally with `python -c "import secrets;
    print(secrets.token_urlsafe(48))"`. Keep it unchanged across deployments or every active login
    will be invalidated. Add optional MFL league keys and `FANTASYPROS_API_KEY` as Railway variables.
+   `wilsonmw` is the initial administrator; add more comma-separated MFL usernames to
+   `ADMIN_USERNAMES`. To enable the optional league assistant, also add `OPENAI_API_KEY` and,
+   optionally, `OPENAI_MODEL` (defaults to `gpt-5.6`). Source/player data stays in DraftDesk; only a
+   bounded league context and the user question are sent when the assistant is explicitly used.
 4. Generate a Railway domain, open the HTTPS URL, and sign in with an MFL account that belongs to
    both configured leagues. MFL credentials are verified directly with MFL and are not retained by
    DraftDesk.

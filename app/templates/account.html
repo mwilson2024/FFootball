@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-title compact"><div><p class="eyebrow">PERSONAL DRAFT SETTINGS</p><h1>My Account</h1><p>Your ranking choices, franchise, targets, and auction strategy stay separate from every other user.</p></div><span class="pill">{{ 'Administrator' if is_admin else 'League member' }}</span></section>
+<section class="panel"><h2>League setup</h2><div id="account-leagues" class="cards"><article class="card">Loading your leagues…</article></div></section>
+{% endblock %}
+{% block scripts %}<script>initAccount()</script>{% endblock %}
