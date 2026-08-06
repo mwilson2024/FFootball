@@ -308,6 +308,7 @@ def _page_context(db: Session, title: str, league_id: str | None = None) -> dict
         "account": account,
         "is_admin": account.is_admin,
         "assistant_enabled": bool(get_settings().openai_api_key),
+        "chat_context": {"username": account.username, "league_id": selected},
     }
 
 
@@ -1400,9 +1401,41 @@ def save_account_league(league_id: str, payload: UserLeagueSettingUpdate, db: Db
 
 
 @app.get("/api/assistant/status")
-def assistant_status() -> dict[str, Any]:
+def assistant_status(db: Db, league_id: str | None = None) -> dict[str, Any]:
     settings = get_settings()
-    return {"enabled": bool(settings.openai_api_key), "model": settings.openai_model}
+    result: dict[str, Any] = {
+        "enabled": bool(settings.openai_api_key),
+        "model": settings.openai_model,
+        "league_id": None,
+        "league_name": None,
+        "league_type": None,
+        "franchise_id": None,
+        "franchise_name": None,
+    }
+    if not league_id:
+        return result
+    league = _league_or_404(db, league_id)
+    setting = league_setting(db, league_id)
+    franchise = (
+        db.scalar(
+            select(Franchise).where(
+                Franchise.league_id == league_id,
+                Franchise.id == setting.franchise_id,
+            )
+        )
+        if setting.franchise_id
+        else None
+    )
+    result.update(
+        {
+            "league_id": league.id,
+            "league_name": league.name,
+            "league_type": league.league_type,
+            "franchise_id": franchise.id if franchise else None,
+            "franchise_name": franchise.name if franchise else None,
+        }
+    )
+    return result
 
 
 @app.post("/api/assistant")

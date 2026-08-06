@@ -87,7 +87,7 @@ async def ask_assistant(
     )
     prior = [
         {"role": item.get("role", "user"), "content": item.get("content", "")[:2000]}
-        for item in history[-10:]
+        for item in history[-20:]
         if item.get("role") in {"user", "assistant"}
     ]
     payload = {

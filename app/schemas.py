@@ -99,7 +99,7 @@ class AuctionLiveUpdate(BaseModel):
 class AssistantRequest(BaseModel):
     league_id: str
     message: str = Field(min_length=1, max_length=2000)
-    history: list[dict[str, str]] = Field(default_factory=list, max_length=10)
+    history: list[dict[str, str]] = Field(default_factory=list, max_length=20)
 
 
 class WarningResolve(BaseModel):
