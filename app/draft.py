@@ -110,6 +110,20 @@ def get_or_create_session(db: Session, league: League) -> DraftSession:
     return session
 
 
+def set_draft_live(db: Session, league_id: str, is_live: bool) -> dict[str, Any]:
+    league = db.scalar(select(League).where(League.id == league_id))
+    if league is None:
+        raise DraftValidationError("League does not exist")
+    session = get_or_create_session(db, league)
+    session.status = "live" if is_live else "paused"
+    db.commit()
+    db.refresh(session)
+    return {
+        "is_live": session.status == "live",
+        "status": session.status,
+    }
+
+
 def pick_json(db: Session, pick: DraftPick) -> dict[str, Any]:
     player = db.get(Player, pick.player_id)
     franchise = (
@@ -220,7 +234,8 @@ def add_pick(db: Session, payload: DraftPickCreate, *, source: str = "local") ->
                 after_json=_snapshot(pick),
             )
         )
-        session.status = "in_progress"
+        if session.status not in {"live", "paused"}:
+            session.status = "in_progress"
         session.current_round = payload.round
         session.current_pick = payload.pick
         db.commit()
@@ -349,6 +364,10 @@ def draft_state(db: Session, league_id: str) -> dict[str, Any]:
             "current_pick": session.current_pick,
             "source": session.source,
             "synced_at": session.synced_at.isoformat() if session.synced_at else None,
+        },
+        "live": {
+            "is_live": session.status == "live",
+            "status": session.status,
         },
         "picks": [pick_json(db, item) for item in picks],
         "draft_order": order,

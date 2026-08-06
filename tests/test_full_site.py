@@ -15,8 +15,15 @@ from app.catalog import (
     roster_overview,
 )
 from app.consensus import build_consensus, parse_ranking_csv
-from app.draft import add_pick, draft_state, remove_pick, undo_draft, update_pick
-from app.main import app
+from app.draft import (
+    add_pick,
+    draft_state,
+    remove_pick,
+    set_draft_live,
+    undo_draft,
+    update_pick,
+)
+from app.main import _purchase_json, app
 from app.models import (
     DataSource,
     DraftPick,
@@ -175,6 +182,25 @@ def test_dynamic_bid_reacts_to_selected_players_and_remaining_money(seeded: Sess
     assert after["99"]["suggested_auction_value"] == before["99"]["suggested_auction_value"]
 
 
+def test_auction_purchase_payload_includes_player_and_franchise_names(seeded: Session) -> None:
+    purchase = add_purchase(
+        seeded,
+        PurchaseCreate(
+            league_id="00999",
+            player_id="0001234",
+            franchise_id="0001",
+            amount=Decimal("5"),
+            status="ROSTER",
+        ),
+    )
+
+    payload = _purchase_json(seeded, purchase)
+
+    assert payload["player_name"] == "Leading Zero"
+    assert payload["player_team"] == "BUF"
+    assert payload["franchise_name"] == "Alpha"
+
+
 def test_real_draft_add_edit_delete_and_undo(seeded: Session) -> None:
     pick = add_pick(
         seeded,
@@ -202,6 +228,25 @@ def test_real_draft_add_edit_delete_and_undo(seeded: Session) -> None:
     undo_draft(seeded, "00999")
     assert seeded.get(DraftPick, pick.id) is not None
     assert draft_state(seeded, "00999")["picks"][0]["player_id"] == "0001234"
+
+
+def test_draft_live_status_is_shared_and_survives_a_pick(seeded: Session) -> None:
+    assert set_draft_live(seeded, "00999", True)["is_live"] is True
+    add_pick(
+        seeded,
+        DraftPickCreate(
+            league_id="00999",
+            player_id="0001234",
+            franchise_id="0001",
+            overall_pick=1,
+        ),
+    )
+
+    assert draft_state(seeded, "00999")["live"] == {"is_live": True, "status": "live"}
+    assert set_draft_live(seeded, "00999", False) == {
+        "is_live": False,
+        "status": "paused",
+    }
 
 
 def test_draft_state_uses_mfl_traded_pick_order_and_current_drafter(seeded: Session) -> None:

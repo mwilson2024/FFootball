@@ -65,6 +65,7 @@ from app.draft import (
     recommendations,
     reconcile_preview,
     remove_pick,
+    set_draft_live,
     undo_draft,
     update_pick,
 )
@@ -265,12 +266,22 @@ def _league_json(league: League) -> dict[str, Any]:
     }
 
 
-def _purchase_json(purchase: AuctionPurchase) -> dict[str, Any]:
+def _purchase_json(db: Session, purchase: AuctionPurchase) -> dict[str, Any]:
+    player = db.get(Player, purchase.player_id)
+    franchise = db.scalar(
+        select(Franchise).where(
+            Franchise.league_id == purchase.league_id,
+            Franchise.id == purchase.franchise_id,
+        )
+    )
     return {
         "id": purchase.id,
         "league_id": purchase.league_id,
         "franchise_id": purchase.franchise_id,
         "player_id": purchase.player_id,
+        "player_name": player.name if player else purchase.player_id,
+        "player_team": player.nfl_team if player else None,
+        "franchise_name": franchise.name if franchise else purchase.franchise_id,
         "amount": str(purchase.amount),
         "status": purchase.status,
         "purchase_order": purchase.purchase_order,
@@ -1219,6 +1230,14 @@ def api_draft_state(league_id: str, db: Db) -> dict[str, Any]:
     return draft_state(db, league_id)
 
 
+@app.put("/api/draft/live")
+def api_set_draft_live(
+    payload: AuctionLiveUpdate, league_id: str, db: Db
+) -> dict[str, Any]:
+    _require_admin(db)
+    return set_draft_live(db, league_id, payload.is_live)
+
+
 @app.post("/api/draft/picks", status_code=201)
 def create_draft_pick(payload: DraftPickCreate, db: Db) -> dict[str, Any]:
     return pick_json(db, add_pick(db, payload))
@@ -1500,7 +1519,7 @@ def auction_state(db: Db, league_id: str | None = None) -> dict[str, Any]:
             )
         ],
         "purchases": [
-            _purchase_json(item)
+            _purchase_json(db, item)
             for item in db.scalars(
                 select(AuctionPurchase)
                 .where(AuctionPurchase.league_id == selected, AuctionPurchase.active.is_(True))
@@ -1540,7 +1559,7 @@ def purchase(payload: PurchaseCreate, db: Db) -> dict[str, Any]:
     _require_admin(db)
     result = add_purchase(db, payload)
     _bump_auction(db, payload.league_id)
-    return _purchase_json(result)
+    return _purchase_json(db, result)
 
 
 @app.patch("/api/auction/purchases/{purchase_id}")
@@ -1548,7 +1567,7 @@ def patch_purchase(purchase_id: str, payload: PurchaseUpdate, db: Db) -> dict[st
     _require_admin(db)
     result = update_purchase(db, purchase_id, payload)
     _bump_auction(db, result.league_id)
-    return _purchase_json(result)
+    return _purchase_json(db, result)
 
 
 @app.delete("/api/auction/purchases/{purchase_id}", status_code=204)
