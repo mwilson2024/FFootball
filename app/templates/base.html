@@ -13,7 +13,7 @@
     {% if request.state.user %}
     <button class="nav-toggle" type="button" aria-label="Toggle navigation" onclick="document.querySelector('.main-nav').classList.toggle('open')">Menu</button>
     <nav class="main-nav" aria-label="Primary navigation">
-      <a href="/draft">Draft Room</a><a href="/cheat-sheet">Cheat Sheet</a><a href="/players">Players</a><a href="/rosters">Rosters</a><a href="/keepers">Keepers</a><a href="/auction">Auction</a><a href="/scoring">Scoring</a><a href="/sources">Sources</a><a href="/account">My Account</a>{% if is_admin %}<a href="/settings">Admin</a>{% endif %}
+      <a href="/draft">Draft Room</a><a href="/cheat-sheet">Cheat Sheet</a><a href="/players">Players</a><a href="/rosters">Rosters</a><a href="/bye-advisor">Bye Advisor</a><a href="/keepers">Keepers</a><a href="/auction">Auction</a><a href="/scoring">Scoring</a><a href="/sources">Sources</a><a href="/account">My Account</a>{% if is_admin %}<a href="/settings">Admin</a>{% endif %}
       <button class="nav-logout" type="button" onclick="logout()" title="Signed in as {{ request.state.user.username }}">Sign out</button>
     </nav>
     {% endif %}

@@ -269,6 +269,10 @@ def _schedule_data(
         schedules.setdefault(home, []).append({**common, "opponent": away, "home_away": "home"})
     for games in schedules.values():
         games.sort(key=lambda game: (int(game["week"]), str(game.get("date") or "")))
+        for game in games:
+            opponent = str(game["opponent"])
+            game["offense_matchup_score"] = round(points_against.get(opponent, league_against), 2)
+            game["defense_matchup_score"] = round(points_for.get(opponent, league_for), 2)
 
     offense_scores = {
         team: sum(points_against.get(game["opponent"], league_against) for game in games)

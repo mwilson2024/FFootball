@@ -44,6 +44,7 @@ from app.auth import (
     resolve_session_secret,
 )
 from app.automation import daily_sync_loop, stop_daily_sync
+from app.bye_advisor import bye_week_advice
 from app.catalog import (
     draftable_consensus,
     player_detail,
@@ -509,6 +510,15 @@ def draft_page(request: Request, db: Db, league_id: str | None = None) -> Any:
 @app.get("/sources", response_class=HTMLResponse)
 def sources_page(request: Request, db: Db) -> Any:
     return templates.TemplateResponse(request, "sources.html", _page_context(db, "Data sources"))
+
+
+@app.get("/bye-advisor", response_class=HTMLResponse)
+def bye_advisor_page(request: Request, db: Db, league_id: str | None = None) -> Any:
+    return templates.TemplateResponse(
+        request,
+        "bye_advisor.html",
+        _page_context(db, "Bye Week Advisor", league_id),
+    )
 
 
 @app.get("/account", response_class=HTMLResponse)
@@ -985,6 +995,16 @@ def rankings(
         for row in result["items"]
         if row["consensus_rank"] is not None
     ]
+
+
+@app.get("/api/leagues/{league_id}/bye-advisor")
+def get_bye_week_advice(
+    league_id: str,
+    db: Db,
+    week: int = Query(1, ge=1, le=18),
+) -> dict[str, Any]:
+    _league_or_404(db, league_id)
+    return bye_week_advice(db, league_id, week)
 
 
 @app.get("/api/leagues/{league_id}/franchises")

@@ -503,6 +503,8 @@ async def test_nflverse_sync_handles_new_identity_json_defaults(seeded: Session)
     assert schedule is not None
     assert schedule.raw_value_json["schedule_rank"] == 1
     assert schedule.raw_value_json["games"][0]["opponent"] == "NYJ"
+    assert schedule.raw_value_json["games"][0]["offense_matchup_score"] == 20
+    assert schedule.raw_value_json["games"][0]["defense_matchup_score"] == 10
     detail = player_detail(seeded, "00999", "0001234")
     assert detail is not None
     assert detail["profile"]["schedule"]["schedule_rank_label"] == "1 of 2"
