@@ -1,16 +1,26 @@
 import csv
+import hashlib
 import io
 import re
 import unicodedata
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 import httpx
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app.models import DataSource, League, Player, PlayerIdentity, SourcePlayerValue
+from app.models import (
+    DataSource,
+    League,
+    LeagueType,
+    Player,
+    PlayerIdentity,
+    SourcePlayerValue,
+    UserSourceSetting,
+)
 
 NFLVERSE_PLAYERS_URL = (
     "https://github.com/nflverse/nflverse-data/releases/download/players/players.csv"
@@ -26,6 +36,24 @@ NFLVERSE_PLAYER_STATS_URL = (
     "https://github.com/nflverse/nflverse-data/releases/download/stats_player/"
     "stats_player_reg_{season}.csv"
 )
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+LEGACY_FANTASYPROS_SOURCE_IDS = {"fantasypros", "fantasypros_dynasty"}
+LOCAL_RANKING_SPECS: dict[str, dict[str, Any]] = {
+    "espn_ppr_csv": {
+        "path": PROJECT_ROOT / "CSV" / "NFL26_CS_PPR300.csv",
+        "league_types": {LeagueType.AUCTION},
+    },
+    "espn_dynasty_csv": {
+        "path": PROJECT_ROOT / "CSV" / "espnDynastyNFL26_CS_Dyn.csv",
+        "league_types": {LeagueType.KEEPER},
+    },
+    "local_redraft_csv": {
+        "path": PROJECT_ROOT / "CSV" / "FantasyPros_2026_Draft_ALL_Rankings.csv",
+        "league_types": {LeagueType.AUCTION},
+    },
+}
+LOCAL_RANKING_SOURCE_IDS = tuple(LOCAL_RANKING_SPECS)
 
 DEFAULT_SOURCES: list[dict[str, Any]] = [
     {
@@ -95,26 +123,37 @@ DEFAULT_SOURCES: list[dict[str, Any]] = [
         "cache_ttl_seconds": 86400,
     },
     {
-        "id": "fantasypros",
-        "name": "FantasyPros Expert Consensus Rankings",
+        "id": "espn_ppr_csv",
+        "name": "ESPN PPR Top 300 (local CSV)",
         "kind": "ranking",
         "enabled": True,
         "weight": Decimal("1"),
-        "terms_url": "https://api.fantasypros.com/public/v2/terms-of-use",
-        "license": "FantasyPros API terms; personal use tier depends on key",
-        "attribution": "Expert Consensus Rankings by FantasyPros",
-        "cache_ttl_seconds": 21600,
+        "terms_url": None,
+        "license": "User-provided ranking file; personal use",
+        "attribution": "ESPN 2026 PPR Top 300 supplied locally",
+        "cache_ttl_seconds": 0,
     },
     {
-        "id": "fantasypros_dynasty",
-        "name": "FantasyPros Dynasty Rankings (ADFL only)",
+        "id": "espn_dynasty_csv",
+        "name": "ESPN Dynasty Top 240 (ADFL)",
         "kind": "ranking",
         "enabled": True,
         "weight": Decimal("1"),
-        "terms_url": "https://api.fantasypros.com/public/v2/terms-of-use",
-        "license": "FantasyPros API terms; personal use tier depends on key",
-        "attribution": "Dynasty Expert Consensus Rankings by FantasyPros",
-        "cache_ttl_seconds": 21600,
+        "terms_url": None,
+        "license": "User-provided ranking file; personal use",
+        "attribution": "ESPN 2026 dynasty rankings supplied locally",
+        "cache_ttl_seconds": 0,
+    },
+    {
+        "id": "local_redraft_csv",
+        "name": "Full Redraft Rankings (local CSV)",
+        "kind": "ranking",
+        "enabled": True,
+        "weight": Decimal("1"),
+        "terms_url": None,
+        "license": "User-provided ranking file; personal use",
+        "attribution": "User-provided 2026 full redraft ranking CSV",
+        "cache_ttl_seconds": 0,
     },
     {
         "id": "sleeper",
@@ -153,6 +192,20 @@ DEFAULT_SOURCES: list[dict[str, Any]] = [
 
 
 def initialize_sources(db: Session) -> None:
+    db.execute(
+        delete(UserSourceSetting).where(
+            UserSourceSetting.source_id.in_(LEGACY_FANTASYPROS_SOURCE_IDS)
+        )
+    )
+    db.execute(
+        delete(SourcePlayerValue).where(
+            SourcePlayerValue.source_id.in_(LEGACY_FANTASYPROS_SOURCE_IDS)
+        )
+    )
+    for source_id in LEGACY_FANTASYPROS_SOURCE_IDS:
+        legacy_source = db.get(DataSource, source_id)
+        if legacy_source is not None:
+            db.delete(legacy_source)
     for values in DEFAULT_SOURCES:
         source = db.get(DataSource, values["id"])
         if source is None:
@@ -192,6 +245,17 @@ def source_json(source: DataSource) -> dict[str, Any]:
     }
 
 
+PLAYER_NAME_ALIASES = {
+    "andyborregales": "andresborregales",
+    "cameronward": "camward",
+    "chigokonkwo": "chigoziemokonkwo",
+    "hollywoodbrown": "marquisebrown",
+    "kennygainwell": "kennethgainwell",
+    "kenwalker": "kennethwalker",
+    "kyletwilliams": "kylewilliams",
+}
+
+
 def normalize_player_name(value: str) -> str:
     name = value.strip()
     if "," in name:
@@ -199,7 +263,8 @@ def normalize_player_name(value: str) -> str:
         name = f"{first.strip()} {last.strip()}"
     name = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
     name = re.sub(r"\b(jr|sr|ii|iii|iv|v)\b\.?", "", name, flags=re.IGNORECASE)
-    return re.sub(r"[^a-z0-9]", "", name.lower())
+    normalized = re.sub(r"[^a-z0-9]", "", name.lower())
+    return PLAYER_NAME_ALIASES.get(normalized, normalized)
 
 
 TEAM_ALIASES = {
@@ -352,6 +417,15 @@ def ensure_mfl_identities(db: Session) -> None:
     db.commit()
 
 
+def normalize_position(value: str | None) -> str:
+    position = re.sub(r"\d+$", "", (value or "").upper().strip())
+    if position in {"DST", "D/ST", "DEFENSE"}:
+        return "DEF"
+    if position == "K":
+        return "PK"
+    return position
+
+
 def _player_indexes(
     players: list[Player],
 ) -> tuple[dict[tuple[str, str, str], Player], dict[tuple[str, str], list[Player]]]:
@@ -359,7 +433,7 @@ def _player_indexes(
     fallback: dict[tuple[str, str], list[Player]] = {}
     for player in players:
         name = normalize_player_name(player.name)
-        position = player.position.upper()
+        position = normalize_position(player.position)
         team = normalize_team(player.nfl_team)
         exact[(name, team, position)] = player
         fallback.setdefault((name, position), []).append(player)
@@ -375,7 +449,7 @@ def _match_player(
     position: str,
 ) -> tuple[Player | None, str, Decimal]:
     normalized_name = normalize_player_name(name)
-    normalized_position = "DEF" if position.upper() in {"DST", "D/ST"} else position.upper()
+    normalized_position = normalize_position(position)
     player = exact.get((normalized_name, normalize_team(team), normalized_position))
     if player is not None:
         return player, "exact_name_team", Decimal("0.96")
@@ -383,6 +457,153 @@ def _match_player(
     if len(candidates) == 1:
         return candidates[0], "exact_name_position", Decimal("0.86")
     return None, "unresolved", Decimal("0")
+
+
+def _csv_value(row: dict[str, Any], *names: str) -> str:
+    for name in names:
+        value = row.get(name)
+        if value not in (None, ""):
+            return str(value).strip()
+    return ""
+
+
+def sync_local_ranking_source(db: Session, source_id: str) -> dict[str, Any]:
+    spec = LOCAL_RANKING_SPECS.get(source_id)
+    if spec is None:
+        raise ValueError(f"Unknown local ranking source: {source_id}")
+    source = db.get(DataSource, source_id)
+    if source is None:
+        initialize_sources(db)
+        source = db.get(DataSource, source_id)
+    assert source is not None
+    attempted_at = datetime.now(UTC)
+    source.last_attempt_at = attempted_at
+    path = Path(spec["path"])
+    try:
+        content = path.read_bytes()
+        text = content.decode("utf-8-sig")
+        rows = [
+            dict(row)
+            for row in csv.DictReader(io.StringIO(text))
+            if any((value or "").strip() for value in row.values())
+        ]
+        if not rows:
+            raise ValueError(f"Local ranking CSV is empty: {path.name}")
+        checksum = hashlib.sha256(content).hexdigest()
+        updated_at = datetime.fromtimestamp(path.stat().st_mtime, UTC)
+        players = list(db.scalars(select(Player)))
+        exact, fallback = _player_indexes(players)
+        defenses_by_team = {
+            normalize_team(player.nfl_team): player
+            for player in players
+            if normalize_position(player.position) == "DEF" and player.nfl_team
+        }
+        allowed_types = {str(item) for item in spec["league_types"]}
+        leagues = [
+            league
+            for league in db.scalars(select(League).order_by(League.league_type, League.id))
+            if str(league.league_type) in allowed_types
+        ]
+        league_results: list[dict[str, Any]] = []
+        total_matched = 0
+        for league in leagues:
+            matched: dict[str, tuple[Player, dict[str, Any], Decimal]] = {}
+            unresolved = 0
+            for raw_row in rows:
+                rank = _safe_decimal(_csv_value(raw_row, "overall_rank", "RK", "rank"))
+                if rank is None or rank <= 0:
+                    unresolved += 1
+                    continue
+                name = _csv_value(raw_row, "player_name", "PLAYER NAME", "player")
+                team = _csv_value(raw_row, "team", "TEAM")
+                position = normalize_position(_csv_value(raw_row, "position", "POS"))
+                player: Player | None
+                method: str
+                confidence: Decimal
+                if position == "DEF" and normalize_team(team) in defenses_by_team:
+                    player = defenses_by_team[normalize_team(team)]
+                    method = "exact_team_defense"
+                    confidence = Decimal("0.98")
+                else:
+                    player, method, confidence = _match_player(
+                        exact,
+                        fallback,
+                        name=name,
+                        team=team,
+                        position=position,
+                    )
+                if player is None:
+                    unresolved += 1
+                    continue
+                current = matched.get(player.id)
+                if current is None or rank < current[2]:
+                    standardized = {
+                        **raw_row,
+                        "player_name": name,
+                        "team": team,
+                        "position": position,
+                        "overall_rank": str(rank),
+                        "position_rank": _csv_value(raw_row, "position_rank", "POS"),
+                        "tier": _csv_value(raw_row, "tier", "TIERS"),
+                        "auction_value": _csv_value(raw_row, "auction_value"),
+                        "source_file": path.name,
+                        "source_label": source.name,
+                        "match_method": method,
+                        "match_confidence": str(confidence),
+                    }
+                    matched[player.id] = (player, standardized, rank)
+            if matched:
+                db.execute(
+                    delete(SourcePlayerValue).where(
+                        SourcePlayerValue.source_id == source_id,
+                        SourcePlayerValue.league_id == league.id,
+                        SourcePlayerValue.value_type == "rank",
+                    )
+                )
+                for player, raw_row, rank in matched.values():
+                    db.add(
+                        SourcePlayerValue(
+                            source_id=source_id,
+                            league_id=league.id,
+                            player_id=player.id,
+                            value_type="rank",
+                            raw_value_json=raw_row,
+                            normalized_value=rank,
+                            source_updated_at=updated_at,
+                            fetched_at=attempted_at,
+                            snapshot_id=checksum,
+                        )
+                    )
+            total_matched += len(matched)
+            league_results.append(
+                {
+                    "league_id": league.id,
+                    "matched": len(matched),
+                    "unresolved": unresolved,
+                }
+            )
+        source.last_success_at = attempted_at
+        source.last_error = None
+        db.commit()
+        return {
+            "file": path.name,
+            "file_rows": len(rows),
+            "matched": total_matched,
+            "unresolved": sum(item["unresolved"] for item in league_results),
+            "leagues": league_results,
+            "snapshot_id": checksum,
+        }
+    except Exception as exc:
+        source.last_error = f"{type(exc).__name__}: {exc}"
+        db.commit()
+        raise
+
+
+def sync_local_ranking_sources(db: Session) -> list[dict[str, Any]]:
+    return [
+        {"source_id": source_id, **sync_local_ranking_source(db, source_id)}
+        for source_id in LOCAL_RANKING_SOURCE_IDS
+    ]
 
 
 def scoring_profile(scoring_rules: dict[str, Any]) -> tuple[str, str]:
@@ -480,107 +701,6 @@ async def sync_gng(
             "matched": len(mapped),
             "unresolved": unresolved,
             "profile": profile,
-            "snapshot_id": snapshot_id,
-        }
-    except Exception as exc:
-        source.last_error = f"{type(exc).__name__}: {exc}"
-        db.commit()
-        raise
-
-
-async def sync_fantasypros(
-    db: Session,
-    league_id: str,
-    season: int,
-    scoring_rules: dict[str, Any],
-    api_key: str,
-    *,
-    source_id: str = "fantasypros",
-    ranking_type: str = "DRAFT",
-    transport: httpx.AsyncBaseTransport | None = None,
-) -> dict[str, Any]:
-    if not api_key:
-        raise ValueError("Add the FantasyPros API key in Settings before syncing")
-    source = db.get(DataSource, source_id)
-    if source is None:
-        initialize_sources(db)
-        source = db.get(DataSource, source_id)
-    assert source is not None
-    source.last_attempt_at = datetime.now(UTC)
-    db.commit()
-    _, scoring = scoring_profile(scoring_rules)
-    try:
-        async with httpx.AsyncClient(
-            headers={"User-Agent": "MFLDraftManager/1.0", "x-api-key": api_key},
-            timeout=httpx.Timeout(30),
-            transport=transport,
-        ) as client:
-            response = await client.get(
-                f"https://api.fantasypros.com/public/v2/json/nfl/{season}/consensus-rankings",
-                params={"position": "ALL", "scoring": scoring, "type": ranking_type},
-            )
-            response.raise_for_status()
-        payload = response.json()
-        rows = payload.get("players", []) if isinstance(payload, dict) else []
-        if not isinstance(rows, list):
-            raise ValueError("FantasyPros returned an unexpected response shape")
-        exact, fallback = _player_indexes(list(db.scalars(select(Player))))
-        mapped: list[tuple[Player, dict[str, Any], str, Decimal]] = []
-        unresolved = 0
-        for row in rows:
-            if not isinstance(row, dict):
-                continue
-            player, method, confidence = _match_player(
-                exact,
-                fallback,
-                name=str(row.get("player_name", "")),
-                team=str(row.get("player_team_id", row.get("team_id", ""))),
-                position=str(row.get("player_position_id", row.get("position_id", ""))),
-            )
-            rank = row.get("rank_ecr", row.get("rank"))
-            if player is None or rank is None:
-                unresolved += 1
-                continue
-            mapped.append((player, row, method, confidence))
-        updated_token = payload.get("last_updated_ts", int(datetime.now(UTC).timestamp()))
-        snapshot_id = f"{source_id}-{season}-{scoring}-{ranking_type.lower()}-{updated_token}"
-        db.execute(
-            delete(SourcePlayerValue).where(
-                SourcePlayerValue.source_id == source_id,
-                SourcePlayerValue.league_id == league_id,
-            )
-        )
-        for player, row, method, confidence in mapped:
-            identity = _identity_for(db, player)
-            identity.fantasypros_id = str(row.get("player_id"))
-            identity.match_method = method
-            identity.match_confidence = confidence
-            identity.updated_at = datetime.now(UTC)
-            db.add(
-                SourcePlayerValue(
-                    source_id=source_id,
-                    league_id=league_id,
-                    player_id=player.id,
-                    value_type="rank",
-                    raw_value_json={
-                        **row,
-                        "scoring": scoring,
-                        "ranking_type": ranking_type,
-                    },
-                    normalized_value=Decimal(str(row.get("rank_ecr", row.get("rank")))),
-                    source_updated_at=datetime.now(UTC),
-                    fetched_at=datetime.now(UTC),
-                    snapshot_id=snapshot_id,
-                )
-            )
-        source.last_success_at = datetime.now(UTC)
-        source.last_error = None
-        db.commit()
-        return {
-            "matched": len(mapped),
-            "unresolved": unresolved,
-            "scoring": scoring,
-            "ranking_type": ranking_type,
             "snapshot_id": snapshot_id,
         }
     except Exception as exc:

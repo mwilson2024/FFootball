@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from collections.abc import Awaitable
 from datetime import UTC, datetime
 from typing import Any
@@ -9,11 +8,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import Settings
-from app.models import DataSource, League, LeagueType
+from app.models import DataSource, League
 from app.sources import (
+    LOCAL_RANKING_SOURCE_IDS,
     initialize_sources,
-    sync_fantasypros,
     sync_gng,
+    sync_local_ranking_source,
     sync_nflverse,
     sync_sleeper,
 )
@@ -63,44 +63,18 @@ async def sync_enabled_sources(db: Session, settings: Settings) -> dict[str, Any
                 league_id=league.id,
             )
 
-    fantasypros_calls = 0
-    if "fantasypros" in enabled:
-        for league in leagues:
-            if fantasypros_calls:
-                await asyncio.sleep(1.05)
-            await capture(
-                "fantasypros",
-                sync_fantasypros(
-                    db,
-                    league.id,
-                    league.season,
-                    league.scoring_rules_json or {},
-                    settings.fantasypros_api_key,
-                ),
-                league_id=league.id,
-            )
-            fantasypros_calls += 1
-
-    if "fantasypros_dynasty" in enabled:
-        for league in leagues:
-            if league.league_type != LeagueType.KEEPER:
-                continue
-            if fantasypros_calls:
-                await asyncio.sleep(1.05)
-            await capture(
-                "fantasypros_dynasty",
-                sync_fantasypros(
-                    db,
-                    league.id,
-                    league.season,
-                    league.scoring_rules_json or {},
-                    settings.fantasypros_api_key,
-                    source_id="fantasypros_dynasty",
-                    ranking_type="DYNASTY",
-                ),
-                league_id=league.id,
-            )
-            fantasypros_calls += 1
+    for source_id in LOCAL_RANKING_SOURCE_IDS:
+        if source_id not in enabled:
+            continue
+        try:
+            results.append({"source_id": source_id, **sync_local_ranking_source(db, source_id)})
+        except Exception as exc:
+            source = db.get(DataSource, source_id)
+            if source is not None:
+                source.last_attempt_at = datetime.now(UTC)
+                source.last_error = f"{type(exc).__name__}: {exc}"
+                db.commit()
+            results.append({"source_id": source_id, "error": f"{type(exc).__name__}: {exc}"})
 
     return {
         "sources": results,

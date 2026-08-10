@@ -35,7 +35,8 @@ def test_source_initialization_turns_every_source_on(db: Session) -> None:
     assert sources
     assert all(source.enabled for source in sources)
     assert all(Decimal(source.weight) > 0 for source in sources)
-    assert db.get(DataSource, "fantasypros_dynasty") is not None
+    assert db.get(DataSource, "espn_dynasty_csv") is not None
+    assert db.get(DataSource, "fantasypros_dynasty") is None
 
     response = update_source("sleeper", SourceUpdate(enabled=False, weight=Decimal("0.5")), db)
     assert response["enabled"] is False

@@ -22,7 +22,7 @@ from app.models import (
     SyncWarning,
 )
 from app.rankings import RankingInput, rank_players, scoring_warnings
-from app.sources import ensure_mfl_identities, initialize_sources
+from app.sources import ensure_mfl_identities, initialize_sources, sync_local_ranking_sources
 
 RULE_DESCRIPTIONS = {
     "FG": "Length of Field Goal Made",
@@ -575,4 +575,5 @@ async def sync_configured(
         )
         override = LeagueType(stored.league_type) if stored else None
         results.append(await sync_league(db, client, settings, league_id, override))
+    sync_local_ranking_sources(db)
     return results

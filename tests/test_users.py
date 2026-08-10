@@ -87,7 +87,7 @@ def test_initialize_sources_replaces_stale_global_weights_with_code_defaults(
     seeded: Session,
 ) -> None:
     initialize_sources(seeded)
-    source = seeded.get(DataSource, "fantasypros_dynasty")
+    source = seeded.get(DataSource, "espn_dynasty_csv")
     assert source is not None
     source.weight = Decimal("9.5")
     seeded.commit()

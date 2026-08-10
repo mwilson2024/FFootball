@@ -39,10 +39,11 @@ from app.models import (
 from app.schemas import DraftPickCreate, DraftPickUpdate, PurchaseCreate
 from app.settings_store import setup_status
 from app.sources import (
+    LOCAL_RANKING_SPECS,
     initialize_sources,
     normalize_player_name,
-    sync_fantasypros,
     sync_gng,
+    sync_local_ranking_source,
     sync_nflverse,
 )
 
@@ -145,11 +146,9 @@ def test_player_pool_only_contains_positions_draftable_in_selected_league(
     assert player_filters(seeded, "00999")["positions"] == ["QB", "RB", "DEF"]
     defense_detail = player_detail(seeded, "00999", "defense")
     assert defense_detail is not None
-    assert defense_detail["profile"]["external_links"][0] == {
-        "label": "FantasyPros defense news",
-        "url": "https://www.fantasypros.com/nfl/news/buffalo-defense.php",
-        "guessed": False,
-    }
+    assert all(
+        "fantasypros.com" not in link["url"] for link in defense_detail["profile"]["external_links"]
+    )
 
 
 def test_dynamic_bid_reacts_to_selected_players_and_remaining_money(seeded: Session) -> None:
@@ -454,51 +453,38 @@ def test_setup_redacts_secrets_and_no_mock_routes(seeded: Session, monkeypatch) 
     assert all("mock" not in path and "simulate" not in path for path in routes)
     assert "/api/draft/picks" in routes
     assert normalize_player_name("Smith, John Jr.") == "johnsmith"
+    assert normalize_player_name("Kenny Gainwell") == "kennethgainwell"
+    assert normalize_player_name("Ken Walker III") == "kennethwalker"
 
 
 @pytest.mark.asyncio
-async def test_gng_and_fantasypros_rankings_preserve_provenance(seeded: Session) -> None:
+async def test_gng_and_local_csv_rankings_preserve_provenance(
+    seeded: Session, tmp_path, monkeypatch
+) -> None:
     initialize_sources(seeded)
-    fantasypros_source = seeded.get(DataSource, "fantasypros")
-    assert fantasypros_source is not None
-    fantasypros_source.enabled = True
-    seeded.commit()
+    ranking_file = tmp_path / "redraft.csv"
+    ranking_file.write_text(
+        "player_name,team,position,overall_rank,tier\nLeading Zero,BUF,RB,3,1\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setitem(LOCAL_RANKING_SPECS["local_redraft_csv"], "path", ranking_file)
 
     def handler(request: httpx.Request) -> httpx.Response:
-        if request.url.host == "www.thegng.us":
-            return httpx.Response(
-                200,
-                json={
-                    "source": "The GNG, Pigskin rankings",
-                    "license": "CC BY 4.0",
-                    "url": "https://www.thegng.us/ranks",
-                    "board_version": "test-gng-v1",
-                    "generated_at": "2026-08-05T12:00:00Z",
-                    "players": [
-                        {
-                            "rank": 7,
-                            "player": "Leading Zero",
-                            "position": "RB",
-                            "team": "BUF",
-                            "tier": "starter",
-                        }
-                    ],
-                },
-            )
-        assert request.headers["x-api-key"] == "secret-key"
         return httpx.Response(
             200,
             json={
-                "last_updated_ts": 12345,
+                "source": "The GNG, Pigskin rankings",
+                "license": "CC BY 4.0",
+                "url": "https://www.thegng.us/ranks",
+                "board_version": "test-gng-v1",
+                "generated_at": "2026-08-05T12:00:00Z",
                 "players": [
                     {
-                        "player_id": 9001,
-                        "player_name": "Leading Zero",
-                        "player_position_id": "RB",
-                        "player_team_id": "BUF",
-                        "rank_ecr": 3,
-                        "rank_min": 1,
-                        "rank_max": 8,
+                        "rank": 7,
+                        "player": "Leading Zero",
+                        "position": "RB",
+                        "team": "BUF",
+                        "tier": "starter",
                     }
                 ],
             },
@@ -506,30 +492,23 @@ async def test_gng_and_fantasypros_rankings_preserve_provenance(seeded: Session)
 
     transport = httpx.MockTransport(handler)
     gng = await sync_gng(seeded, "00999", {"receptions": "0.5"}, transport=transport)
-    fantasypros = await sync_fantasypros(
-        seeded,
-        "00999",
-        2026,
-        {"receptions": "0.5"},
-        "secret-key",
-        transport=transport,
-    )
+    local = sync_local_ranking_source(seeded, "local_redraft_csv")
     rows = {row["player_id"]: row for row in build_consensus(seeded, "00999")}
 
     assert gng["matched"] == 1
-    assert fantasypros["matched"] == 1
+    assert local["matched"] == 1
     assert rows["0001234"]["source_ranks"]["gng"] == "7"
-    assert rows["0001234"]["source_ranks"]["fantasypros"] == "3"
+    assert rows["0001234"]["source_ranks"]["local_redraft_csv"] == "3"
     detail = player_detail(seeded, "00999", "0001234")
     assert detail is not None
-    assert detail["profile"]["fantasypros"]["rank_ecr"] == 3
-    assert detail["profile"]["external_links"][0]["url"].startswith(
-        "https://www.fantasypros.com/nfl/players/"
-    )
+    assert "fantasypros" not in detail["profile"]
+    assert all("fantasypros.com" not in link["url"] for link in detail["profile"]["external_links"])
 
 
 @pytest.mark.asyncio
-async def test_fantasypros_dynasty_rankings_are_scoped_to_adfl(seeded: Session) -> None:
+async def test_local_dynasty_rankings_are_scoped_to_adfl(
+    seeded: Session, tmp_path, monkeypatch
+) -> None:
     from app.models import League
 
     initialize_sources(seeded)
@@ -550,41 +529,19 @@ async def test_fantasypros_dynasty_rankings_are_scoped_to_adfl(seeded: Session) 
     )
     seeded.commit()
 
-    def handler(request: httpx.Request) -> httpx.Response:
-        assert request.url.params["type"] == "DYNASTY"
-        return httpx.Response(
-            200,
-            request=request,
-            json={
-                "last_updated_ts": 67890,
-                "players": [
-                    {
-                        "player_id": 9001,
-                        "player_name": "Leading Zero",
-                        "player_position_id": "RB",
-                        "player_team_id": "BUF",
-                        "rank_ecr": 2,
-                    }
-                ],
-            },
-        )
-
-    result = await sync_fantasypros(
-        seeded,
-        "adfl",
-        2026,
-        {"receptions": "1"},
-        "secret-key",
-        source_id="fantasypros_dynasty",
-        ranking_type="DYNASTY",
-        transport=httpx.MockTransport(handler),
+    ranking_file = tmp_path / "dynasty.csv"
+    ranking_file.write_text(
+        "player_name,team,position,overall_rank\nLeading Zero,BUF,RB,2\n",
+        encoding="utf-8",
     )
+    monkeypatch.setitem(LOCAL_RANKING_SPECS["espn_dynasty_csv"], "path", ranking_file)
+    result = sync_local_ranking_source(seeded, "espn_dynasty_csv")
     adfl = {row["player_id"]: row for row in build_consensus(seeded, "adfl")}
     tmfl = {row["player_id"]: row for row in build_consensus(seeded, "00999")}
 
-    assert result["ranking_type"] == "DYNASTY"
-    assert adfl["0001234"]["source_ranks"]["fantasypros_dynasty"] == "2"
-    assert "fantasypros_dynasty" not in tmfl["0001234"]["source_ranks"]
+    assert result["matched"] == 1
+    assert adfl["0001234"]["source_ranks"]["espn_dynasty_csv"] == "2"
+    assert "espn_dynasty_csv" not in tmfl["0001234"]["source_ranks"]
 
 
 def test_projection_aav_and_trend_affect_consensus_but_schedule_does_not(

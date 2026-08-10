@@ -37,8 +37,9 @@ SOURCE_FAMILIES = {
     "mfl_adp": "mfl",
     "mfl_aav": "mfl",
     "mfl_projection": "mfl",
-    "fantasypros": "fantasypros",
-    "fantasypros_dynasty": "fantasypros",
+    "espn_ppr_csv": "espn",
+    "espn_dynasty_csv": "espn",
+    "local_redraft_csv": "local_redraft",
     "gng": "gng",
     "sleeper": "sleeper",
     "nflverse": "nflverse",
@@ -245,7 +246,7 @@ def build_consensus(
         and Decimal(source_options.get(item.id, {}).get("weight", 0)) > 0
     }
     custom_ranks = _latest_user_ranks(db, league_id)
-    fantasypros_raw = _latest_source_raw(db, league_id, "fantasypros")
+    local_redraft_raw = _latest_source_raw(db, league_id, "local_redraft_csv")
     rank_values_by_source: dict[str, dict[str, Decimal]] = {}
     for player in players:
         ranking = rankings.get(player.id)
@@ -368,7 +369,7 @@ def build_consensus(
                 "tier": preference.manual_tier
                 if preference and preference.manual_tier
                 else (ranking.tier if ranking else None),
-                "fantasypros_tier": fantasypros_raw.get(player.id, {}).get("tier"),
+                "source_tier": local_redraft_raw.get(player.id, {}).get("tier"),
                 "custom_score": str(ranking.custom_score) if ranking else None,
                 "projected_points": str(ranking.projected_points)
                 if ranking and ranking.projected_points is not None

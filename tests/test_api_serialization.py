@@ -160,30 +160,26 @@ def test_admin_can_reset_local_auction_and_nomination_state(seeded):
         app.dependency_overrides.clear()
 
 
-def test_fantasypros_received_data_is_visible_without_secrets(seeded):
+def test_local_csv_received_data_is_visible_without_unapproved_fields(seeded):
     initialize_sources(seeded)
     seeded.add(
         SourcePlayerValue(
-            source_id="fantasypros",
+            source_id="local_redraft_csv",
             league_id="00999",
             player_id="0001234",
             value_type="rank",
             raw_value_json={
-                "player_id": 123,
                 "player_name": "Leading Zero",
-                "player_team_id": "BUF",
-                "player_position_id": "RB",
-                "rank_ecr": 4,
-                "rank_min": 1,
-                "rank_max": 9,
-                "pos_rank": "RB2",
+                "team": "BUF",
+                "position": "RB",
+                "overall_rank": "4",
+                "position_rank": "2",
                 "tier": 1,
-                "scoring": "PPR",
-                "ranking_type": "DRAFT",
+                "source_file": "redraft.csv",
                 "api_key": "must-never-be-returned",
             },
             normalized_value=Decimal("4"),
-            snapshot_id="fantasypros-test",
+            snapshot_id="local-csv-test",
         )
     )
     seeded.commit()
@@ -201,11 +197,11 @@ def test_fantasypros_received_data_is_visible_without_secrets(seeded):
                 max_age_seconds=3600,
             )
             client.cookies.set(SESSION_COOKIE, token)
-            response = client.get("/api/sources/fantasypros/data")
+            response = client.get("/api/sources/local_redraft_csv/data")
 
         assert response.status_code == 200
         assert response.json()["total_count"] == 1
-        assert response.json()["rows"][0]["raw"]["rank_ecr"] == 4
+        assert response.json()["rows"][0]["raw"]["overall_rank"] == "4"
         assert "api_key" not in response.json()["rows"][0]["raw"]
     finally:
         app.dependency_overrides.clear()

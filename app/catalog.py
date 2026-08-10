@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import math
 import re
-import unicodedata
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
@@ -62,40 +61,6 @@ POSITION_ALIASES = {
     "D/ST": "DEF",
     "K": "PK",
     "PK": "PK",
-}
-FANTASYPROS_DEFENSE_SLUGS = {
-    "ARI": "arizona-defense",
-    "ATL": "atlanta-defense",
-    "BAL": "baltimore-defense",
-    "BUF": "buffalo-defense",
-    "CAR": "carolina-defense",
-    "CHI": "chicago-defense",
-    "CIN": "cincinnati-defense",
-    "CLE": "cleveland-defense",
-    "DAL": "dallas-defense",
-    "DEN": "denver-defense",
-    "DET": "detroit-defense",
-    "GBP": "green-bay-defense",
-    "HOU": "houston-defense",
-    "IND": "indianapolis-defense",
-    "JAC": "jacksonville-defense",
-    "KCC": "kansas-city-defense",
-    "LAC": "los-angeles-chargers-defense",
-    "LAR": "los-angeles-rams-defense",
-    "LVR": "las-vegas-defense",
-    "MIA": "miami-defense",
-    "MIN": "minnesota-defense",
-    "NEP": "new-england-defense",
-    "NOS": "new-orleans-defense",
-    "NYG": "new-york-giants-defense",
-    "NYJ": "new-york-jets-defense",
-    "PHI": "philadelphia-defense",
-    "PIT": "pittsburgh-defense",
-    "SEA": "seattle-defense",
-    "SFO": "san-francisco-defense",
-    "TBB": "tampa-bay-defense",
-    "TEN": "tennessee-defense",
-    "WAS": "washington-defense",
 }
 
 
@@ -167,9 +132,9 @@ def draftable_consensus(
         calculated_tier = (
             1 if rank <= 24 else 2 if rank <= 60 else 3 if rank <= 120 else 4 if rank <= 200 else 5
         )
-        fantasypros_tier = _number(row.get("fantasypros_tier"))
-        if fantasypros_tier is not None:
-            calculated_tier = min(calculated_tier, max(1, int(fantasypros_tier)))
+        source_tier = _number(row.get("source_tier"))
+        if source_tier is not None:
+            calculated_tier = min(calculated_tier, max(1, int(source_tier)))
         manual_tier = row["preference"].get("manual_tier")
         initial_tier = _number(row.get("tier"))
         if manual_tier is not None:
@@ -566,10 +531,6 @@ def player_detail(db: Session, league_id: str, player_id: str) -> dict[str, Any]
         source.id: source
         for source in db.scalars(select(DataSource).where(DataSource.id.in_(source_ids)))
     }
-    fantasypros = next(
-        (value.raw_value_json or {} for value in latest_values if value.source_id == "fantasypros"),
-        {},
-    )
     gng = next(
         (value.raw_value_json or {} for value in latest_values if value.source_id == "gng"),
         {},
@@ -601,23 +562,7 @@ def player_detail(db: Session, league_id: str, player_id: str) -> dict[str, Any]
     )
     league = db.scalar(select(League).where(League.id == league_id).order_by(League.season.desc()))
     metadata = player.metadata_json or {}
-    is_team_defense = player.position.upper() in {"DEF", "DST", "D/ST"}
-    profile_url = fantasypros.get("player_page_url")
-    guessed_profile = not bool(profile_url)
-    if is_team_defense:
-        defense_slug = FANTASYPROS_DEFENSE_SLUGS.get(str(player.nfl_team or "").upper())
-        if defense_slug:
-            profile_url = f"https://www.fantasypros.com/nfl/news/{defense_slug}.php"
-            guessed_profile = False
-    elif not profile_url:
-        profile_url = f"https://www.fantasypros.com/nfl/players/{_profile_slug(player.name)}.php"
-    external_links = [
-        {
-            "label": "FantasyPros defense news" if is_team_defense else "FantasyPros profile",
-            "url": profile_url,
-            "guessed": guessed_profile,
-        }
-    ]
+    external_links: list[dict[str, Any]] = []
     if isinstance(gng.get("source_url"), str):
         external_links.append(
             {"label": "The GNG ranking", "url": gng["source_url"], "guessed": False}
@@ -718,19 +663,6 @@ def player_detail(db: Session, league_id: str, player_id: str) -> dict[str, Any]
             "headshot_url": (metadata.get("nflverse") or {}).get("headshot"),
             "flags": flags,
             "external_links": external_links,
-            "fantasypros": {
-                key: fantasypros.get(key)
-                for key in (
-                    "rank_ecr",
-                    "rank_min",
-                    "rank_max",
-                    "pos_rank",
-                    "tier",
-                    "player_owned_avg",
-                    "scoring",
-                )
-                if fantasypros.get(key) is not None
-            },
             "gng": {
                 key: gng.get(key)
                 for key in (
@@ -769,12 +701,3 @@ def player_detail(db: Session, league_id: str, player_id: str) -> dict[str, Any]
             for value in latest_values
         ],
     }
-
-
-def _profile_slug(name: str) -> str:
-    value = name.strip()
-    if "," in value:
-        last, first = value.split(",", 1)
-        value = f"{first.strip()} {last.strip()}"
-    value = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode()
-    return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")

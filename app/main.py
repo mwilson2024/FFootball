@@ -121,10 +121,11 @@ from app.schemas import (
 )
 from app.settings_store import CredentialStoreError, runtime_settings, save_setup, setup_status
 from app.sources import (
+    LOCAL_RANKING_SOURCE_IDS,
     initialize_sources,
     source_json,
-    sync_fantasypros,
     sync_gng,
+    sync_local_ranking_source,
     sync_nflverse,
     sync_sleeper,
 )
@@ -169,6 +170,12 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
     with SessionLocal() as db:
         initialize_sources(db)
+        for source_id in LOCAL_RANKING_SOURCE_IDS:
+            try:
+                sync_local_ranking_source(db, source_id)
+            except (OSError, UnicodeError, ValueError):
+                # The source card retains the exact error while the site remains usable.
+                pass
         for username in settings.admin_username_set or {"wilsonmw"}:
             bootstrap_user(db, username, admin_usernames=settings.admin_username_set)
         for league_item in db.scalars(select(League)):
@@ -745,12 +752,12 @@ def source_received_data(
     db: Db,
     limit: int = Query(default=100, ge=1, le=250),
 ) -> dict[str, Any]:
-    if source_id not in {"fantasypros", "fantasypros_dynasty"}:
+    if source_id not in LOCAL_RANKING_SOURCE_IDS:
         raise HTTPException(
             400,
             detail={
                 "code": "preview_not_supported",
-                "message": "Incoming-row preview is currently available for FantasyPros sources",
+                "message": "Row preview is available for bundled local ranking CSV sources",
             },
         )
     source = db.get(DataSource, source_id)
@@ -780,19 +787,17 @@ def source_received_data(
         if allowed is None or item.id in allowed
     }
     safe_fields = (
-        "player_id",
         "player_name",
-        "player_team_id",
-        "player_position_id",
-        "rank_ecr",
-        "rank",
-        "rank_min",
-        "rank_max",
-        "pos_rank",
+        "team",
+        "position",
+        "overall_rank",
+        "position_rank",
         "tier",
-        "player_owned_avg",
-        "scoring",
-        "ranking_type",
+        "projection",
+        "auction_value",
+        "bye_week",
+        "source_file",
+        "source_label",
     )
     rows = []
     for value, player in records:
@@ -875,33 +880,15 @@ async def sync_source(db: Db, source_id: str = Query(...)) -> dict[str, Any]:
             return {"source_id": source_id, **await sync_sleeper(db)}
         if source_id == "nflverse":
             return {"source_id": source_id, **await sync_nflverse(db)}
-        if source_id in {"gng", "fantasypros", "fantasypros_dynasty"}:
-            settings = runtime_settings(db)
+        if source_id in LOCAL_RANKING_SOURCE_IDS:
+            return {"source_id": source_id, **sync_local_ranking_source(db, source_id)}
+        if source_id == "gng":
             leagues_to_sync = list(
                 db.scalars(select(League).order_by(League.league_type, League.id))
             )
-            if source_id == "fantasypros_dynasty":
-                leagues_to_sync = [
-                    item for item in leagues_to_sync if item.league_type == LeagueType.KEEPER
-                ]
             results: list[dict[str, Any]] = []
-            for index, league_item in enumerate(leagues_to_sync):
-                if source_id == "gng":
-                    synced = await sync_gng(
-                        db, league_item.id, league_item.scoring_rules_json or {}
-                    )
-                else:
-                    if index:
-                        await asyncio.sleep(1.05)
-                    synced = await sync_fantasypros(
-                        db,
-                        league_item.id,
-                        league_item.season,
-                        league_item.scoring_rules_json or {},
-                        settings.fantasypros_api_key,
-                        source_id=source_id,
-                        ranking_type=("DYNASTY" if source_id == "fantasypros_dynasty" else "DRAFT"),
-                    )
+            for league_item in leagues_to_sync:
+                synced = await sync_gng(db, league_item.id, league_item.scoring_rules_json or {})
                 results.append({"league_id": league_item.id, **synced})
             return {
                 "source_id": source_id,

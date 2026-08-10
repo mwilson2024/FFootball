@@ -3,7 +3,7 @@
 DraftDesk is a local-first FastAPI drafting website for a real MyFantasyLeague keeper league and
 auction league. It includes the full MFL player pool, every roster, a transparent consensus cheat
 sheet, real non-auction pick tracking, keeper planning, live auction budgets, and guarded exports.
-It has no mock drafts, simulated opponents, paid rankings, or FantasyPros scraping.
+It has no mock drafts, simulated opponents, ranking-site scraping, or limited ranking API dependency.
 
 ## Start the website
 
@@ -22,6 +22,20 @@ league IDs, test each connection, save, then choose **Synchronize MFL**. Public 
 not need a key. Optional league API keys are saved in Windows Credential Manager and are never
 returned to the browser after saving. Environment variables in `.env` remain supported and take
 precedence.
+
+### Convert the ranking PDFs again
+
+The repository includes a reusable converter for the two PDFs under `PDF/`. It validates that the
+PPR sheet contains ranks 1-300 and the dynasty sheet contains ranks 1-240 before replacing either
+CSV. From PowerShell:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\convert_ranking_pdfs.py
+```
+
+The generated files are `CSV/NFL26_CS_PPR300.csv` and
+`CSV/espnDynastyNFL26_CS_Dyn.csv`. Those two files plus the existing full redraft CSV are loaded
+automatically at startup, after an MFL synchronization, and during the 1:00 AM daily refresh.
 
 ## Website guide
 
@@ -46,9 +60,8 @@ precedence.
   available same-position replacements using overall rank and the selected week's matchup.
 - **Data Sources:** inspect shared cached sources and privately preview, include, exclude, or weight
   each one for your board: MFL, the attributed CC-BY-4.0
-  GNG Pigskin board, FantasyPros ECR using your API key, free Sleeper metadata/trends, CC-BY-4.0
-  nflverse identity, weekly depth chart, schedule, and historical player-stat data, and user CSV
-  imports.
+  GNG Pigskin board, three full local ranking CSVs, free Sleeper metadata/trends, CC-BY-4.0 nflverse
+  identity, weekly depth chart, schedule, and historical player-stat data, and user CSV imports.
 - **Scoring:** grouped MFL scoring rules with every repeated range retained, readable event names,
   normalized values, mapping state, and the raw imported response.
 - **Settings:** configure both leagues without editing code and test public and protected access
@@ -68,11 +81,11 @@ VOR board. MFL ADP and AAV are market references; a weekly MFL projection is nev
 season projection. Missing values are ignored rather than treated as zero. “Consensus” means the
 configured local blend and never implies FantasyPros Expert Consensus Rank.
 
-The GNG rankings need no key and are attributed under CC BY 4.0. FantasyPros uses the official API
-and stores its key in Windows Credential Manager. ADFL receives both redraft and dynasty ECR;
-TMFL receives redraft ECR only. Sleeper trends and nflverse schedule difficulty use small ranking
-weights, while their metadata also enriches player profiles. Source health records last attempt,
-success, error, cache interval, license, and terms.
+The GNG rankings need no key and are attributed under CC BY 4.0. ADFL receives the supplied ESPN
+dynasty CSV; TMFL receives the supplied ESPN PPR Top 300 and full redraft CSV. The limited live
+FantasyPros API sources and API-key controls have been removed. Sleeper trends and nflverse schedule
+difficulty use small ranking weights, while their metadata also enriches player profiles. Source
+health records last attempt, success, error, cache interval, license, and terms.
 The site remains fully usable with MFL and the local league model alone.
 
 Both configured leagues and every automatic source refresh daily at **1:00 AM America/New_York**.
@@ -140,7 +153,7 @@ also runs that installation explicitly for deterministic Railpack builds. If dep
 
    Generate `SESSION_SECRET` locally with `python -c "import secrets;
    print(secrets.token_urlsafe(48))"`. Keep it unchanged across deployments or every active login
-   will be invalidated. Add optional MFL league keys and `FANTASYPROS_API_KEY` as Railway variables.
+   will be invalidated. Add optional MFL league keys as Railway variables.
    `wilsonmw` is the initial administrator; add more comma-separated MFL usernames to
    `ADMIN_USERNAMES`. To enable the optional league assistant, also add `OPENAI_API_KEY` and,
    optionally, `OPENAI_MODEL` (defaults to `gpt-5.6`). Source/player data stays in DraftDesk; only a
