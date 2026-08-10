@@ -56,6 +56,7 @@ from app.catalog import (
 from app.config import get_settings
 from app.consensus import create_consensus_snapshot, parse_ranking_csv
 from app.db import get_db, init_db
+from app.depth_charts import depth_chart_overview
 from app.draft import (
     DraftValidationError,
     add_pick,
@@ -143,7 +144,7 @@ from app.users import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260810.3"
+templates.env.globals["asset_version"] = "20260810.4"
 SESSION_SIGNING_SECRET = ""
 
 
@@ -570,6 +571,15 @@ def power_rankings_page(request: Request, db: Db, league_id: str | None = None) 
         request,
         "power_rankings.html",
         _page_context(db, "League power rankings", league_id),
+    )
+
+
+@app.get("/depth-charts", response_class=HTMLResponse)
+def depth_charts_page(request: Request, db: Db, league_id: str | None = None) -> Any:
+    return templates.TemplateResponse(
+        request,
+        "depth_charts.html",
+        _page_context(db, "NFL depth charts", league_id),
     )
 
 
@@ -1064,6 +1074,11 @@ def get_bye_week_advice(
 def get_power_rankings(league_id: str, db: Db) -> dict[str, Any]:
     _league_or_404(db, league_id)
     return build_power_rankings(db, league_id)
+
+
+@app.get("/api/depth-charts")
+def get_depth_charts(db: Db, team: str | None = None) -> dict[str, Any]:
+    return depth_chart_overview(db, team)
 
 
 @app.post("/api/leagues/{league_id}/power-rankings/chatgpt")

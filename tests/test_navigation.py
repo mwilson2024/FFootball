@@ -9,6 +9,7 @@ def test_primary_navigation_prioritizes_live_draft_workflows() -> None:
 
     assert navigation.index('href="/draft"') < navigation.index('href="/auction"')
     assert navigation.index('href="/auction"') < navigation.index('href="/cheat-sheet"')
+    assert navigation.index('href="/depth-charts"') < navigation.index('href="/power-rankings"')
     assert navigation.index('href="/power-rankings"') < navigation.index('href="/account"')
     assert 'href="/keepers"' not in navigation
     assert 'href="/scoring"' not in navigation

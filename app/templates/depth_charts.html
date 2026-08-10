@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-title compact"><div><p class="eyebrow">ALL 32 NFL TEAMS</p><h1>Depth Charts</h1><p>Compare starters and backups using the latest cached nflverse data with Sleeper as a fallback.</p></div><div class="depth-chart-controls"><label for="depth-team">NFL team<select id="depth-team" aria-label="Select an NFL team"></select></label><a id="depth-espn-link" class="button" href="https://www.espn.com/nfl/story/_/id/29098001/nfl-depth-charts-all-32-teams" target="_blank" rel="noreferrer">View on ESPN ↗</a></div></section>
+<div id="depth-chart-status" class="notice">Loading depth chart…</div>
+<section id="depth-chart-groups" class="depth-chart-groups"><article class="panel">Loading players…</article></section>
+{% endblock %}
+{% block scripts %}<script>window.SELECTED_LEAGUE_ID={{ selected_league_id|tojson }};initDepthCharts()</script>{% endblock %}
