@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 from decimal import Decimal
+from random import SystemRandom
 from typing import Any
 
 from sqlalchemy import delete, func, select
@@ -8,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.models import (
     AuctionAuditEvent,
+    AuctionNominationState,
     AuctionPurchase,
     Franchise,
     League,
@@ -20,6 +22,119 @@ from app.schemas import PurchaseCreate, PurchaseUpdate
 
 class AuctionValidationError(ValueError):
     pass
+
+
+def _nomination_franchises(db: Session, league_id: str) -> list[Franchise]:
+    return list(
+        db.scalars(
+            select(Franchise)
+            .where(Franchise.league_id == league_id)
+            .order_by(Franchise.name, Franchise.id)
+        )
+    )
+
+
+def _nomination_state_row(db: Session, league_id: str) -> AuctionNominationState:
+    if db.scalar(select(League.id).where(League.id == league_id)) is None:
+        raise AuctionValidationError("League does not exist")
+    franchises = _nomination_franchises(db, league_id)
+    valid_ids = {item.id for item in franchises}
+    state = db.get(AuctionNominationState, league_id)
+    if state is None:
+        state = AuctionNominationState(
+            league_id=league_id,
+            order_json=[item.id for item in franchises],
+        )
+        db.add(state)
+        db.commit()
+        db.refresh(state)
+        return state
+    stored = [str(item) for item in (state.order_json or [])]
+    order = [item for item in stored if item in valid_ids]
+    order.extend(item.id for item in franchises if item.id not in order)
+    if order != stored:
+        state.order_json = order
+        state.cursor = 0
+        state.updated_at = datetime.now(UTC)
+        db.commit()
+        db.refresh(state)
+    return state
+
+
+def _snake_slot(order: list[str], cursor: int) -> tuple[str | None, int, str]:
+    if not order:
+        return None, 0, "forward"
+    round_index, offset = divmod(max(0, cursor), len(order))
+    direction = "forward" if round_index % 2 == 0 else "reverse"
+    index = offset if direction == "forward" else len(order) - 1 - offset
+    return order[index], round_index + 1, direction
+
+
+def nomination_state(db: Session, league_id: str) -> dict[str, Any]:
+    state = _nomination_state_row(db, league_id)
+    order = [str(item) for item in (state.order_json or [])]
+    current_id, round_number, direction = _snake_slot(order, state.cursor)
+    next_id, next_round, next_direction = _snake_slot(order, state.cursor + 1)
+    names = {item.id: item.name for item in _nomination_franchises(db, league_id)}
+    return {
+        "order": [
+            {
+                "franchise_id": franchise_id,
+                "franchise_name": names.get(franchise_id, franchise_id),
+                "position": index,
+                "is_current": franchise_id == current_id,
+                "is_next": franchise_id == next_id,
+            }
+            for index, franchise_id in enumerate(order, start=1)
+        ],
+        "cursor": state.cursor,
+        "round": round_number,
+        "direction": direction,
+        "current_franchise_id": current_id,
+        "current_franchise_name": names.get(current_id) if current_id else None,
+        "next_franchise_id": next_id,
+        "next_franchise_name": names.get(next_id) if next_id else None,
+        "next_round": next_round,
+        "next_direction": next_direction,
+        "updated_at": state.updated_at,
+        "updated_by": state.updated_by,
+    }
+
+
+def set_nomination_order(
+    db: Session, league_id: str, franchise_ids: list[str], *, actor: str | None = None
+) -> dict[str, Any]:
+    state = _nomination_state_row(db, league_id)
+    available = {item.id for item in _nomination_franchises(db, league_id)}
+    requested = [str(item) for item in franchise_ids]
+    if len(requested) != len(set(requested)):
+        raise AuctionValidationError("Each franchise may appear only once in nomination order")
+    if set(requested) != available:
+        raise AuctionValidationError("Nomination order must include every franchise exactly once")
+    state.order_json = requested
+    state.cursor = 0
+    state.updated_by = actor
+    state.updated_at = datetime.now(UTC)
+    db.commit()
+    return nomination_state(db, league_id)
+
+
+def shuffle_nomination_order(
+    db: Session, league_id: str, *, actor: str | None = None
+) -> dict[str, Any]:
+    franchise_ids = [item.id for item in _nomination_franchises(db, league_id)]
+    SystemRandom().shuffle(franchise_ids)
+    return set_nomination_order(db, league_id, franchise_ids, actor=actor)
+
+
+def advance_nomination(db: Session, league_id: str, *, actor: str | None = None) -> None:
+    state = _nomination_state_row(db, league_id)
+    if not state.order_json:
+        return
+    state.cursor += 1
+    state.updated_by = actor
+    state.updated_at = datetime.now(UTC)
+    db.commit()
 
 
 def _purchase_dict(purchase: AuctionPurchase) -> dict[str, Any]:

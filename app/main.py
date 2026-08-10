@@ -26,9 +26,13 @@ from app.assistant import ask_assistant
 from app.auction import (
     AuctionValidationError,
     add_purchase,
+    advance_nomination,
     delete_purchase,
     franchise_budget,
+    nomination_state,
     redo,
+    set_nomination_order,
+    shuffle_nomination_order,
     undo,
     update_purchase,
 )
@@ -94,6 +98,7 @@ from app.power_rankings import build_power_rankings, chatgpt_power_rankings
 from app.schemas import (
     AssistantRequest,
     AuctionLiveUpdate,
+    AuctionNominationOrderUpdate,
     DraftPickCreate,
     DraftPickUpdate,
     IdentityUpdate,
@@ -145,7 +150,7 @@ from app.users import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260810.5"
+templates.env.globals["asset_version"] = "20260810.6"
 SESSION_SIGNING_SECRET = ""
 
 
@@ -1663,6 +1668,7 @@ def auction_state(db: Db, league_id: str | None = None) -> dict[str, Any]:
             "updated_at": live.updated_at,
             "updated_by": live.updated_by,
         },
+        "nomination": nomination_state(db, selected),
         "is_admin": is_current_admin(db),
     }
 
@@ -1683,10 +1689,49 @@ def set_auction_live(
     return {"is_live": state.is_live, "revision": state.revision}
 
 
+@app.put("/api/auction/nomination-order")
+def update_auction_nomination_order(
+    payload: AuctionNominationOrderUpdate, db: Db, league_id: str | None = None
+) -> dict[str, Any]:
+    _require_admin(db)
+    selected = league_id or runtime_settings(db).mfl_auction_league_id
+    before = nomination_state(db, selected)
+    result = set_nomination_order(db, selected, payload.franchise_ids, actor=active_username())
+    _bump_auction(db, selected)
+    _audit_mutation(
+        db,
+        stream="auction-nominations",
+        action="reorder",
+        league_id=selected,
+        before=before,
+        after=result,
+    )
+    return result
+
+
+@app.post("/api/auction/nomination-order/randomize")
+def randomize_auction_nomination_order(db: Db, league_id: str | None = None) -> dict[str, Any]:
+    _require_admin(db)
+    selected = league_id or runtime_settings(db).mfl_auction_league_id
+    before = nomination_state(db, selected)
+    result = shuffle_nomination_order(db, selected, actor=active_username())
+    _bump_auction(db, selected)
+    _audit_mutation(
+        db,
+        stream="auction-nominations",
+        action="randomize",
+        league_id=selected,
+        before=before,
+        after=result,
+    )
+    return result
+
+
 @app.post("/api/auction/purchases", status_code=201)
 def purchase(payload: PurchaseCreate, db: Db) -> dict[str, Any]:
     _require_admin(db)
     result = add_purchase(db, payload)
+    advance_nomination(db, payload.league_id, actor=active_username())
     _bump_auction(db, payload.league_id)
     created = _purchase_json(db, result)
     _audit_mutation(

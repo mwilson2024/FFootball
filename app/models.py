@@ -261,6 +261,16 @@ class AuctionLiveState(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class AuctionNominationState(Base):
+    __tablename__ = "auction_nomination_states"
+
+    league_id: Mapped[str] = mapped_column(String, primary_key=True)
+    order_json: Mapped[list[str]] = mapped_column(JSON, default=list)
+    cursor: Mapped[int] = mapped_column(Integer, default=0)
+    updated_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class DataSource(Base):
     __tablename__ = "data_sources"
 

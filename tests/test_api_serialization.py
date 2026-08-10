@@ -75,3 +75,41 @@ def test_authenticated_pages_render_persistent_chat_shell(seeded, monkeypatch):
         assert '"league_id": "00999"' in response.text
     finally:
         app.dependency_overrides.clear()
+
+
+def test_recording_purchase_advances_shared_nomination_state(seeded):
+    def override_db():
+        yield seeded
+
+    app.dependency_overrides[get_db] = override_db
+    try:
+        with TestClient(app) as client:
+            token, session = make_session_token(
+                main_module.SESSION_SIGNING_SECRET,
+                "wilsonmw",
+                {"00999"},
+                max_age_seconds=3600,
+            )
+            client.cookies.set(SESSION_COOKIE, token)
+            before = client.get("/api/auction/state?league_id=00999")
+            response = client.post(
+                "/api/auction/purchases",
+                headers={"X-CSRF-Token": session.csrf_token},
+                json={
+                    "league_id": "00999",
+                    "franchise_id": "0001",
+                    "player_id": "0001234",
+                    "amount": "2",
+                    "status": "ROSTER",
+                },
+            )
+            after = client.get("/api/auction/state?league_id=00999")
+
+        assert before.status_code == 200
+        assert before.json()["nomination"]["current_franchise_name"] == "Alpha"
+        assert response.status_code == 201
+        assert after.status_code == 200
+        assert after.json()["nomination"]["current_franchise_name"] == "Beta"
+        assert after.json()["nomination"]["cursor"] == 1
+    finally:
+        app.dependency_overrides.clear()

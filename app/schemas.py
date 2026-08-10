@@ -96,6 +96,17 @@ class AuctionLiveUpdate(BaseModel):
     is_live: bool
 
 
+class AuctionNominationOrderUpdate(BaseModel):
+    franchise_ids: list[str] = Field(min_length=1)
+
+    @field_validator("franchise_ids", mode="before")
+    @classmethod
+    def preserve_nomination_ids(cls, value: object) -> list[str]:
+        if not isinstance(value, list):
+            raise ValueError("Franchise order must be a list")
+        return [str(item) for item in value]
+
+
 class AssistantRequest(BaseModel):
     league_id: str
     message: str = Field(min_length=1, max_length=2000)

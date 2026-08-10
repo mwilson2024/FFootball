@@ -54,33 +54,25 @@ def _draft_order(
         .order_by(MFLSnapshot.fetched_at.desc())
     )
     if snapshot is None or not isinstance(snapshot.payload_json, dict):
-        return _local_snake_order(db, league_id, local_picks), None
+        return _local_recorded_order(db, league_id, local_picks), None
     root = snapshot.payload_json.get("draftResults", snapshot.payload_json)
     if not isinstance(root, dict):
-        return _local_snake_order(db, league_id, local_picks), snapshot.fetched_at.isoformat()
+        return _local_recorded_order(db, league_id, local_picks), snapshot.fetched_at.isoformat()
     units = [item for item in _as_list(root.get("draftUnit")) if isinstance(item, dict)]
     unit = next((item for item in units if item.get("draftPick") is not None), None)
     if unit is None:
-        return _local_snake_order(db, league_id, local_picks), snapshot.fetched_at.isoformat()
+        return _local_recorded_order(db, league_id, local_picks), snapshot.fetched_at.isoformat()
 
     raw_picks = [item for item in _as_list(unit.get("draftPick")) if isinstance(item, dict)]
     if not raw_picks:
-        return _local_snake_order(db, league_id, local_picks), snapshot.fetched_at.isoformat()
+        return _local_recorded_order(db, league_id, local_picks), snapshot.fetched_at.isoformat()
     indexed_picks = list(enumerate(raw_picks, start=1))
     has_explicit_overall = all(_number(item.get("overallPick")) for item in raw_picks)
     if has_explicit_overall:
         indexed_picks.sort(key=lambda item: _number(item[1].get("overallPick")) or item[0])
         order_source = "MFL draft order"
     else:
-        indexed_picks.sort(
-            key=lambda item: (
-                _number(item[1].get("round")) or 1,
-                (_number(item[1].get("pick")) or item[0])
-                * (1 if (_number(item[1].get("round")) or 1) % 2 else -1),
-                item[0],
-            )
-        )
-        order_source = "MFL snake order"
+        order_source = "MFL listed order"
 
     local_by_overall = {
         item.overall_pick: item for item in local_picks if item.overall_pick is not None
@@ -114,41 +106,34 @@ def _draft_order(
     return slots, snapshot.fetched_at.isoformat()
 
 
-def _local_snake_order(
+def _local_recorded_order(
     db: Session, league_id: str, local_picks: list[DraftPick]
 ) -> list[dict[str, Any]]:
-    league = db.scalar(select(League).where(League.id == league_id))
-    franchises = list(
-        db.scalars(select(Franchise).where(Franchise.league_id == league_id).order_by(Franchise.id))
-    )
-    if league is None or not franchises:
-        return []
-    franchise_names = {franchise.id: franchise.name for franchise in franchises}
-    local_by_overall = {
-        item.overall_pick: item for item in local_picks if item.overall_pick is not None
+    franchise_names = {
+        item.id: item.name
+        for item in db.scalars(select(Franchise).where(Franchise.league_id == league_id))
     }
+    ordered = sorted(
+        local_picks,
+        key=lambda item: (item.overall_pick is None, item.overall_pick or 0, item.selected_at),
+    )
     slots: list[dict[str, Any]] = []
-    overall = 0
-    for round_number in range(1, max(1, league.roster_size) + 1):
-        ordered = franchises if round_number % 2 else list(reversed(franchises))
-        for pick_number, franchise in enumerate(ordered, start=1):
-            overall += 1
-            local = local_by_overall.get(overall)
-            player = db.get(Player, local.player_id) if local else None
-            franchise_id = local.franchise_id if local and local.franchise_id else franchise.id
-            slots.append(
-                {
-                    "overall_pick": overall,
-                    "round": round_number,
-                    "pick": pick_number,
-                    "franchise_id": franchise_id,
-                    "franchise_name": franchise_names.get(franchise_id, franchise_id),
-                    "player_id": local.player_id if local else None,
-                    "player_name": player.name if player else None,
-                    "completed": local is not None,
-                    "order_source": "Local snake fallback",
-                }
-            )
+    for index, local in enumerate(ordered, start=1):
+        player = db.get(Player, local.player_id)
+        franchise_id = local.franchise_id or ""
+        slots.append(
+            {
+                "overall_pick": local.overall_pick or index,
+                "round": local.round,
+                "pick": local.pick,
+                "franchise_id": franchise_id or None,
+                "franchise_name": franchise_names.get(franchise_id, franchise_id or "Unknown"),
+                "player_id": local.player_id,
+                "player_name": player.name if player else local.player_id,
+                "completed": True,
+                "order_source": "Locally recorded picks",
+            }
+        )
     return slots
 
 

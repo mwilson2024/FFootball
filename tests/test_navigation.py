@@ -27,3 +27,15 @@ def test_sources_page_offers_ranking_reset() -> None:
 
     assert "Reset my rankings" in sources
     assert "resetMyRankings()" in sources
+
+
+def test_nomination_controls_live_in_admin_and_budget_boxes_show_turns() -> None:
+    settings = (TEMPLATES / "settings.html").read_text(encoding="utf-8")
+    auction = (TEMPLATES / "auction.html").read_text(encoding="utf-8")
+    script = (TEMPLATES.parent / "static" / "app.js").read_text(encoding="utf-8")
+
+    assert 'id="admin-nomination-panel"' in settings
+    assert "Randomize teams" in settings
+    assert 'id="nomination-board"' not in auction
+    assert "current-nominator" in script
+    assert "next-nominator" in script

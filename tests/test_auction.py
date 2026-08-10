@@ -2,7 +2,15 @@ from decimal import Decimal
 
 import pytest
 
-from app.auction import AuctionValidationError, add_purchase, franchise_budget, undo
+from app.auction import (
+    AuctionValidationError,
+    add_purchase,
+    advance_nomination,
+    franchise_budget,
+    nomination_state,
+    set_nomination_order,
+    undo,
+)
 from app.models import Franchise, League, RosterStatus
 from app.schemas import PurchaseCreate
 
@@ -47,3 +55,19 @@ def test_decimal_precision_and_undo(seeded):
     add_purchase(seeded, sale(amount="4"))
     undo(seeded, "00999")
     add_purchase(seeded, sale(franchise="0002", amount="3"))
+
+
+def test_nomination_order_can_be_arranged_and_advances_as_a_snake(seeded):
+    initial = nomination_state(seeded, "00999")
+    assert initial["current_franchise_name"] == "Alpha"
+    assert initial["next_franchise_name"] == "Beta"
+
+    arranged = set_nomination_order(seeded, "00999", ["0002", "0001"], actor="admin")
+    assert [item["franchise_id"] for item in arranged["order"]] == ["0002", "0001"]
+    assert arranged["current_franchise_name"] == "Beta"
+    assert arranged["cursor"] == 0
+
+    advance_nomination(seeded, "00999", actor="admin")
+    advanced = nomination_state(seeded, "00999")
+    assert advanced["current_franchise_name"] == "Alpha"
+    assert advanced["round"] == 1

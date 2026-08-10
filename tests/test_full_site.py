@@ -342,7 +342,7 @@ def test_draft_state_uses_mfl_traded_pick_order_and_current_drafter(seeded: Sess
     assert after["current_drafter"]["franchise_name"] == "Beta"
 
 
-def test_mfl_round_slots_are_snaked_and_assignment_advances_to_next_pick(
+def test_mfl_round_slots_keep_listed_order_and_assignment_advances_to_next_pick(
     seeded: Session,
 ) -> None:
     now = datetime.now(UTC)
@@ -375,10 +375,10 @@ def test_mfl_round_slots_are_snaked_and_assignment_advances_to_next_pick(
     assert [slot["franchise_id"] for slot in before["draft_order"][:4]] == [
         "0001",
         "0002",
-        "0002",
         "0001",
+        "0002",
     ]
-    assert before["order_source"] == "MFL snake order"
+    assert before["order_source"] == "MFL listed order"
 
     add_pick(
         seeded,
@@ -405,13 +405,13 @@ def test_mfl_round_slots_are_snaked_and_assignment_advances_to_next_pick(
 
     after = draft_state(seeded, "00999")
     session = seeded.scalar(select(DraftSession).where(DraftSession.league_id == "00999"))
-    assert after["current_drafter"]["franchise_id"] == "0002"
+    assert after["current_drafter"]["franchise_id"] == "0001"
     assert after["current_drafter"]["overall_pick"] == 3
     assert after["session"]["current_round"] == 2
-    assert after["session"]["current_pick"] == 2
+    assert after["session"]["current_pick"] == 1
     assert session is not None
     assert session.current_round == 2
-    assert session.current_pick == 2
+    assert session.current_pick == 1
 
 
 def test_user_csv_preview_import_and_queue_persist(seeded: Session, tmp_path) -> None:
