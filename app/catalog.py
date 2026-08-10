@@ -120,6 +120,8 @@ def draftable_consensus(
     league_id: str,
     source_overrides: dict[str, dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
+    league = db.scalar(select(League).where(League.id == league_id).order_by(League.season.desc()))
+    stable_keeper_tiers = bool(league and league.league_type == LeagueType.KEEPER)
     allowed = draftable_positions(db, league_id)
     rows = [
         row
@@ -150,8 +152,16 @@ def draftable_consensus(
         if fantasypros_tier is not None:
             calculated_tier = min(calculated_tier, max(1, int(fantasypros_tier)))
         manual_tier = row["preference"].get("manual_tier")
-        tier_source = "manual" if manual_tier is not None else "consensus"
-        tier = int(manual_tier) if manual_tier is not None else calculated_tier
+        initial_tier = _number(row.get("tier"))
+        if manual_tier is not None:
+            tier = int(manual_tier)
+            tier_source = "manual"
+        elif stable_keeper_tiers and initial_tier is not None:
+            tier = int(initial_tier)
+            tier_source = "initial synced board"
+        else:
+            tier = calculated_tier
+            tier_source = "consensus"
         if row["position"].upper() == "DEF":
             defense_index += 1
             tier = max(6, tier, 6 + min(3, (defense_index - 1) // 8))

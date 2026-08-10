@@ -20,3 +20,10 @@ def test_account_contains_keeper_and_scoring_links() -> None:
 
     assert 'href="/keepers"' in account
     assert 'href="/scoring"' in account
+
+
+def test_sources_page_offers_ranking_reset() -> None:
+    sources = (TEMPLATES / "sources.html").read_text(encoding="utf-8")
+
+    assert "Reset my rankings" in sources
+    assert "resetMyRankings()" in sources

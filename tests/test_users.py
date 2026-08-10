@@ -13,6 +13,7 @@ from app.users import (
     bootstrap_user,
     effective_auction_strategy,
     effective_source_settings,
+    reset_source_settings,
     save_mfl_memberships,
     save_source_setting,
 )
@@ -59,6 +60,27 @@ def test_wilsonmw_is_admin_and_balanced_strategy_is_default(seeded: Session) -> 
     assert account.is_admin is True
     assert strategy["template"] == "balanced"
     assert strategy["priority_order"] != ["WR", "QB", "RB", "TE", "DEF"]
+
+
+def test_reset_source_settings_restores_defaults_for_only_current_user(
+    seeded: Session,
+) -> None:
+    initialize_sources(seeded)
+    alice = set_active_username("Alice")
+    try:
+        save_source_setting(seeded, "sleeper", enabled=False, weight=Decimal("8.5"))
+        assert effective_source_settings(seeded)["sleeper"] == {
+            "enabled": False,
+            "weight": Decimal("8.5000"),
+        }
+
+        assert reset_source_settings(seeded) == 1
+        assert effective_source_settings(seeded)["sleeper"] == {
+            "enabled": True,
+            "weight": Decimal("0.25"),
+        }
+    finally:
+        reset_active_username(alice)
 
 
 def test_mfl_membership_sets_the_users_franchise(seeded: Session) -> None:

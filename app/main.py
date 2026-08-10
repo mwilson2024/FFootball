@@ -137,6 +137,7 @@ from app.users import (
     league_setting,
     mfl_memberships_for_user,
     record_login,
+    reset_source_settings,
     save_mfl_memberships,
     save_source_setting,
     strategy_json,
@@ -144,7 +145,7 @@ from app.users import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260810.4"
+templates.env.globals["asset_version"] = "20260810.5"
 SESSION_SIGNING_SECRET = ""
 
 
@@ -714,6 +715,11 @@ def update_source(source_id: str, payload: SourceUpdate, db: Db) -> dict[str, An
         raise HTTPException(404, detail={"code": "source_not_found", "message": "Source not found"})
     setting = save_source_setting(db, source_id, enabled=payload.enabled, weight=payload.weight)
     return {**source_json(source), "enabled": setting.enabled, "weight": str(setting.weight)}
+
+
+@app.post("/api/sources/reset")
+def reset_sources(db: Db) -> dict[str, int]:
+    return {"reset_count": reset_source_settings(db)}
 
 
 @app.post("/api/sources/preview")

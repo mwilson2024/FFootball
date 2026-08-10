@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.models import (
@@ -212,6 +212,18 @@ def save_source_setting(
     setting.updated_at = datetime.now(UTC)
     db.commit()
     return setting
+
+
+def reset_source_settings(db: Session) -> int:
+    username = active_username()
+    count = db.scalar(
+        select(func.count())
+        .select_from(UserSourceSetting)
+        .where(UserSourceSetting.username == username)
+    )
+    db.execute(delete(UserSourceSetting).where(UserSourceSetting.username == username))
+    db.commit()
+    return int(count or 0)
 
 
 def league_setting(db: Session, league_id: str) -> UserLeagueSetting:

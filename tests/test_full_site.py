@@ -27,6 +27,8 @@ from app.main import _purchase_json, app
 from app.models import (
     DataSource,
     DraftPick,
+    DraftSession,
+    League,
     MFLSnapshot,
     PersonalPlayerPreference,
     Player,
@@ -182,6 +184,52 @@ def test_dynamic_bid_reacts_to_selected_players_and_remaining_money(seeded: Sess
     assert after["99"]["suggested_auction_value"] == before["99"]["suggested_auction_value"]
 
 
+def test_keeper_tier_stays_on_initial_synced_board_after_a_pick(seeded: Session) -> None:
+    initialize_sources(seeded)
+    league = seeded.scalar(select(League).where(League.id == "00999"))
+    assert league is not None
+    league.league_type = "keeper"
+    seeded.add_all(
+        [
+            RankingSnapshot(
+                league_id="00999",
+                player_id="0001234",
+                overall_rank=1,
+                position_rank=1,
+                tier=4,
+                custom_score=Decimal("99"),
+                value_over_replacement=Decimal("19"),
+            ),
+            RankingSnapshot(
+                league_id="00999",
+                player_id="99",
+                overall_rank=2,
+                position_rank=1,
+                tier=1,
+                custom_score=Decimal("98"),
+                value_over_replacement=Decimal("18"),
+            ),
+        ]
+    )
+    seeded.commit()
+
+    before = {row["player_id"]: row for row in query_players(seeded, "00999")["items"]}
+    add_pick(
+        seeded,
+        DraftPickCreate(
+            league_id="00999",
+            player_id="99",
+            franchise_id="0001",
+            overall_pick=1,
+        ),
+    )
+    after = {row["player_id"]: row for row in query_players(seeded, "00999")["items"]}
+
+    assert before["0001234"]["tier"] == 4
+    assert after["0001234"]["tier"] == 4
+    assert after["0001234"]["tier_source"] == "initial synced board"
+
+
 def test_auction_purchase_payload_includes_player_and_franchise_names(seeded: Session) -> None:
     purchase = add_purchase(
         seeded,
@@ -292,6 +340,78 @@ def test_draft_state_uses_mfl_traded_pick_order_and_current_drafter(seeded: Sess
     after = draft_state(seeded, "00999")
     assert after["draft_order"][0]["completed"] is True
     assert after["current_drafter"]["franchise_name"] == "Beta"
+
+
+def test_mfl_round_slots_are_snaked_and_assignment_advances_to_next_pick(
+    seeded: Session,
+) -> None:
+    now = datetime.now(UTC)
+    seeded.add(
+        MFLSnapshot(
+            league_id="00999",
+            season=2026,
+            export_type="draftResults",
+            source_url="https://api.myfantasyleague.com/2026/export",
+            parameters_json={},
+            payload_json={
+                "draftResults": {
+                    "draftUnit": {
+                        "draftPick": [
+                            {"round": "1", "pick": "1", "franchise": "0001"},
+                            {"round": "1", "pick": "2", "franchise": "0002"},
+                            {"round": "2", "pick": "1", "franchise": "0001"},
+                            {"round": "2", "pick": "2", "franchise": "0002"},
+                        ]
+                    }
+                }
+            },
+            fetched_at=now,
+            expires_at=now + timedelta(minutes=15),
+        )
+    )
+    seeded.commit()
+
+    before = draft_state(seeded, "00999")
+    assert [slot["franchise_id"] for slot in before["draft_order"][:4]] == [
+        "0001",
+        "0002",
+        "0002",
+        "0001",
+    ]
+    assert before["order_source"] == "MFL snake order"
+
+    add_pick(
+        seeded,
+        DraftPickCreate(
+            league_id="00999",
+            player_id="0001234",
+            franchise_id="0001",
+            round=1,
+            pick=1,
+            overall_pick=1,
+        ),
+    )
+    add_pick(
+        seeded,
+        DraftPickCreate(
+            league_id="00999",
+            player_id="99",
+            franchise_id="0002",
+            round=1,
+            pick=2,
+            overall_pick=2,
+        ),
+    )
+
+    after = draft_state(seeded, "00999")
+    session = seeded.scalar(select(DraftSession).where(DraftSession.league_id == "00999"))
+    assert after["current_drafter"]["franchise_id"] == "0002"
+    assert after["current_drafter"]["overall_pick"] == 3
+    assert after["session"]["current_round"] == 2
+    assert after["session"]["current_pick"] == 2
+    assert session is not None
+    assert session.current_round == 2
+    assert session.current_pick == 2
 
 
 def test_user_csv_preview_import_and_queue_persist(seeded: Session, tmp_path) -> None:

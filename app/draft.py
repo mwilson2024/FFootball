@@ -54,14 +54,33 @@ def _draft_order(
         .order_by(MFLSnapshot.fetched_at.desc())
     )
     if snapshot is None or not isinstance(snapshot.payload_json, dict):
-        return [], None
+        return _local_snake_order(db, league_id, local_picks), None
     root = snapshot.payload_json.get("draftResults", snapshot.payload_json)
     if not isinstance(root, dict):
-        return [], snapshot.fetched_at.isoformat()
+        return _local_snake_order(db, league_id, local_picks), snapshot.fetched_at.isoformat()
     units = [item for item in _as_list(root.get("draftUnit")) if isinstance(item, dict)]
     unit = next((item for item in units if item.get("draftPick") is not None), None)
     if unit is None:
-        return [], snapshot.fetched_at.isoformat()
+        return _local_snake_order(db, league_id, local_picks), snapshot.fetched_at.isoformat()
+
+    raw_picks = [item for item in _as_list(unit.get("draftPick")) if isinstance(item, dict)]
+    if not raw_picks:
+        return _local_snake_order(db, league_id, local_picks), snapshot.fetched_at.isoformat()
+    indexed_picks = list(enumerate(raw_picks, start=1))
+    has_explicit_overall = all(_number(item.get("overallPick")) for item in raw_picks)
+    if has_explicit_overall:
+        indexed_picks.sort(key=lambda item: _number(item[1].get("overallPick")) or item[0])
+        order_source = "MFL draft order"
+    else:
+        indexed_picks.sort(
+            key=lambda item: (
+                _number(item[1].get("round")) or 1,
+                (_number(item[1].get("pick")) or item[0])
+                * (1 if (_number(item[1].get("round")) or 1) % 2 else -1),
+                item[0],
+            )
+        )
+        order_source = "MFL snake order"
 
     local_by_overall = {
         item.overall_pick: item for item in local_picks if item.overall_pick is not None
@@ -71,9 +90,7 @@ def _draft_order(
         for item in db.scalars(select(Franchise).where(Franchise.league_id == league_id))
     }
     slots: list[dict[str, Any]] = []
-    for index, raw in enumerate(_as_list(unit.get("draftPick")), start=1):
-        if not isinstance(raw, dict):
-            continue
+    for index, (_, raw) in enumerate(indexed_picks, start=1):
         overall = _number(raw.get("overallPick")) or index
         local = local_by_overall.get(overall)
         franchise_id = str(raw.get("franchise") or (local.franchise_id if local else ""))
@@ -91,9 +108,48 @@ def _draft_order(
                 "player_id": player_id,
                 "player_name": player.name if player else None,
                 "completed": bool(player_id),
+                "order_source": order_source,
             }
         )
     return slots, snapshot.fetched_at.isoformat()
+
+
+def _local_snake_order(
+    db: Session, league_id: str, local_picks: list[DraftPick]
+) -> list[dict[str, Any]]:
+    league = db.scalar(select(League).where(League.id == league_id))
+    franchises = list(
+        db.scalars(select(Franchise).where(Franchise.league_id == league_id).order_by(Franchise.id))
+    )
+    if league is None or not franchises:
+        return []
+    franchise_names = {franchise.id: franchise.name for franchise in franchises}
+    local_by_overall = {
+        item.overall_pick: item for item in local_picks if item.overall_pick is not None
+    }
+    slots: list[dict[str, Any]] = []
+    overall = 0
+    for round_number in range(1, max(1, league.roster_size) + 1):
+        ordered = franchises if round_number % 2 else list(reversed(franchises))
+        for pick_number, franchise in enumerate(ordered, start=1):
+            overall += 1
+            local = local_by_overall.get(overall)
+            player = db.get(Player, local.player_id) if local else None
+            franchise_id = local.franchise_id if local and local.franchise_id else franchise.id
+            slots.append(
+                {
+                    "overall_pick": overall,
+                    "round": round_number,
+                    "pick": pick_number,
+                    "franchise_id": franchise_id,
+                    "franchise_name": franchise_names.get(franchise_id, franchise_id),
+                    "player_id": local.player_id if local else None,
+                    "player_name": player.name if player else None,
+                    "completed": local is not None,
+                    "order_source": "Local snake fallback",
+                }
+            )
+    return slots
 
 
 def get_or_create_session(db: Session, league: League) -> DraftSession:
@@ -236,8 +292,17 @@ def add_pick(db: Session, payload: DraftPickCreate, *, source: str = "local") ->
         )
         if session.status not in {"live", "paused"}:
             session.status = "in_progress"
-        session.current_round = payload.round
-        session.current_pick = payload.pick
+        current_picks = list(
+            db.scalars(
+                select(DraftPick)
+                .where(DraftPick.session_id == session.id)
+                .order_by(DraftPick.overall_pick, DraftPick.selected_at)
+            )
+        )
+        order, _ = _draft_order(db, payload.league_id, current_picks)
+        next_slot = next((slot for slot in order if not slot["completed"]), None)
+        session.current_round = next_slot["round"] if next_slot else None
+        session.current_pick = next_slot["pick"] if next_slot else None
         db.commit()
         db.refresh(pick)
         return pick
@@ -360,8 +425,8 @@ def draft_state(db: Session, league_id: str) -> dict[str, Any]:
             "league_id": session.league_id,
             "season": session.season,
             "status": session.status,
-            "current_round": session.current_round,
-            "current_pick": session.current_pick,
+            "current_round": current_drafter["round"] if current_drafter else None,
+            "current_pick": current_drafter["pick"] if current_drafter else None,
             "source": session.source,
             "synced_at": session.synced_at.isoformat() if session.synced_at else None,
         },
@@ -372,6 +437,7 @@ def draft_state(db: Session, league_id: str) -> dict[str, Any]:
         "picks": [pick_json(db, item) for item in picks],
         "draft_order": order,
         "current_drafter": current_drafter,
+        "order_source": order[0]["order_source"] if order else "Unavailable",
         "order_fetched_at": order_fetched_at,
         "queue": [
             {
