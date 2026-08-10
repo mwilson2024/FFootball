@@ -70,11 +70,44 @@ def _snake_slot(order: list[str], cursor: int) -> tuple[str | None, int, str]:
     return order[index], round_index + 1, direction
 
 
+def _completed_nomination_teams(db: Session, league_id: str) -> set[str]:
+    league = db.scalar(select(League).where(League.id == league_id))
+    if league is None:
+        return set()
+    return {
+        franchise.id
+        for franchise in _nomination_franchises(db, league_id)
+        if franchise_budget(db, league, franchise)["slots_remaining"] <= 0
+    }
+
+
+def _next_open_snake_slot(
+    order: list[str], cursor: int, completed: set[str]
+) -> tuple[str | None, int, str, int]:
+    start = max(0, cursor)
+    for candidate in range(start, start + max(1, len(order) * 2)):
+        franchise_id, round_number, direction = _snake_slot(order, candidate)
+        if franchise_id is not None and franchise_id not in completed:
+            return franchise_id, round_number, direction, candidate
+    return None, 0, "forward", start
+
+
 def nomination_state(db: Session, league_id: str) -> dict[str, Any]:
     state = _nomination_state_row(db, league_id)
     order = [str(item) for item in (state.order_json or [])]
-    current_id, round_number, direction = _snake_slot(order, state.cursor)
-    next_id, next_round, next_direction = _snake_slot(order, state.cursor + 1)
+    completed = _completed_nomination_teams(db, league_id)
+    current_id, round_number, direction, current_cursor = _next_open_snake_slot(
+        order, state.cursor, completed
+    )
+    if current_cursor != state.cursor:
+        state.cursor = current_cursor
+        state.updated_at = datetime.now(UTC)
+        db.commit()
+    next_id, next_round, next_direction, _ = (
+        _next_open_snake_slot(order, current_cursor + 1, completed)
+        if current_id is not None
+        else (None, 0, "forward", current_cursor)
+    )
     names = {item.id: item.name for item in _nomination_franchises(db, league_id)}
     return {
         "order": [
@@ -84,6 +117,7 @@ def nomination_state(db: Session, league_id: str) -> dict[str, Any]:
                 "position": index,
                 "is_current": franchise_id == current_id,
                 "is_next": franchise_id == next_id,
+                "is_complete": franchise_id in completed,
             }
             for index, franchise_id in enumerate(order, start=1)
         ],
@@ -98,6 +132,8 @@ def nomination_state(db: Session, league_id: str) -> dict[str, Any]:
         "next_direction": next_direction,
         "updated_at": state.updated_at,
         "updated_by": state.updated_by,
+        "completed_count": len(completed),
+        "all_complete": bool(order) and len(completed) == len(order),
     }
 
 
@@ -129,12 +165,26 @@ def shuffle_nomination_order(
 
 def advance_nomination(db: Session, league_id: str, *, actor: str | None = None) -> None:
     state = _nomination_state_row(db, league_id)
-    if not state.order_json:
+    order = [str(item) for item in (state.order_json or [])]
+    if not order:
         return
-    state.cursor += 1
+    completed = _completed_nomination_teams(db, league_id)
+    _, _, _, next_cursor = _next_open_snake_slot(order, state.cursor + 1, completed)
+    state.cursor = next_cursor
     state.updated_by = actor
     state.updated_at = datetime.now(UTC)
     db.commit()
+
+
+def reset_nomination_cursor(
+    db: Session, league_id: str, *, actor: str | None = None
+) -> dict[str, Any]:
+    state = _nomination_state_row(db, league_id)
+    state.cursor = 0
+    state.updated_by = actor
+    state.updated_at = datetime.now(UTC)
+    db.commit()
+    return nomination_state(db, league_id)
 
 
 def _purchase_dict(purchase: AuctionPurchase) -> dict[str, Any]:
@@ -262,11 +312,13 @@ def _validate(
     if not _precision_valid(payload.amount, minimum_bid, league.settings_json.get("precision")):
         raise AuctionValidationError("Bid has more precision than this league permits")
     budget = franchise_budget(db, league, franchise)
+    keeps_existing_slot = False
     if ignore_purchase_id:
         current = db.get(AuctionPurchase, ignore_purchase_id)
         if current and current.franchise_id == franchise.id:
+            keeps_existing_slot = True
             budget["maximum_bid"] = Decimal(budget["maximum_bid"]) + Decimal(current.amount)
-    if budget["slots_remaining"] <= 0 and not ignore_purchase_id:
+    if budget["slots_remaining"] <= 0 and not keeps_existing_slot:
         raise AuctionValidationError("Franchise has no open roster slot")
     if payload.amount > Decimal(budget["maximum_bid"]):
         raise AuctionValidationError(f"Bid exceeds maximum legal bid of {budget['maximum_bid']}")
@@ -326,12 +378,13 @@ def update_purchase(db: Session, purchase_id: str, update: PurchaseUpdate) -> Au
     payload = PurchaseCreate(
         league_id=purchase.league_id,
         franchise_id=update.franchise_id or purchase.franchise_id,
-        player_id=purchase.player_id,
+        player_id=update.player_id or purchase.player_id,
         amount=update.amount if update.amount is not None else purchase.amount,
         status=update.status or RosterStatus(purchase.status),
     )
     _validate(db, payload, ignore_purchase_id=purchase.id)
     purchase.franchise_id = payload.franchise_id
+    purchase.player_id = payload.player_id
     purchase.amount = payload.amount
     purchase.status = payload.status.value
     purchase.version += 1
@@ -345,9 +398,30 @@ def update_purchase(db: Session, purchase_id: str, update: PurchaseUpdate) -> Au
             after_json=_purchase_dict(purchase),
         )
     )
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise AuctionValidationError("Replacement player is already sold") from exc
     db.refresh(purchase)
     return purchase
+
+
+def reset_auction(db: Session, league_id: str) -> int:
+    purchases = list(
+        db.scalars(select(AuctionPurchase).where(AuctionPurchase.league_id == league_id))
+    )
+    if purchases:
+        db.add(
+            AuctionAuditEvent(
+                league_id=league_id,
+                action="reset",
+                before_json={"purchases": [_purchase_dict(item) for item in purchases]},
+            )
+        )
+        db.execute(delete(AuctionPurchase).where(AuctionPurchase.league_id == league_id))
+        db.commit()
+    return len(purchases)
 
 
 def delete_purchase(db: Session, purchase_id: str) -> None:
@@ -401,9 +475,13 @@ def undo(db: Session, league_id: str) -> None:
         if purchase:
             previous = event.before_json
             purchase.franchise_id = str(previous["franchise_id"])
+            purchase.player_id = str(previous["player_id"])
             purchase.amount = Decimal(str(previous["amount"]))
             purchase.status = str(previous["status"])
             purchase.version = int(previous["version"])
+    elif event.action == "reset" and event.before_json:
+        for purchase_data in event.before_json.get("purchases", []):
+            _restore(db, purchase_data)
     event.undone = True
     db.commit()
 
@@ -425,8 +503,11 @@ def redo(db: Session, league_id: str) -> None:
         if purchase:
             after = event.after_json
             purchase.franchise_id = str(after["franchise_id"])
+            purchase.player_id = str(after["player_id"])
             purchase.amount = Decimal(str(after["amount"]))
             purchase.status = str(after["status"])
             purchase.version = int(after["version"])
+    elif event.action == "reset":
+        db.execute(delete(AuctionPurchase).where(AuctionPurchase.league_id == league_id))
     event.undone = False
     db.commit()

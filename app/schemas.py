@@ -22,9 +22,15 @@ class PurchaseCreate(BaseModel):
 
 class PurchaseUpdate(BaseModel):
     franchise_id: str | None = None
+    player_id: str | None = None
     amount: Decimal | None = Field(default=None, gt=0)
     status: RosterStatus | None = None
     version: int
+
+    @field_validator("franchise_id", "player_id", mode="before")
+    @classmethod
+    def preserve_update_ids(cls, value: object) -> str | None:
+        return None if value is None else str(value)
 
 
 class KeeperCreate(BaseModel):

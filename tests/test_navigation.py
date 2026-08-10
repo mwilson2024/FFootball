@@ -36,9 +36,13 @@ def test_nomination_controls_live_in_admin_and_budget_boxes_show_turns() -> None
 
     assert 'id="admin-nomination-panel"' in settings
     assert "Randomize teams" in settings
+    assert "Reset auction" in settings
     assert 'id="nomination-board"' not in auction
     assert "current-nominator" in script
     assert "next-nominator" in script
+    assert "auction-complete" in script
+    assert "changeAuctionPurchasePlayer" in script
+    assert "Finished':`max" in script
 
 
 def test_auction_activity_strip_keeps_latest_purchase_and_live_state_separate() -> None:

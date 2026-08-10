@@ -31,6 +31,8 @@ from app.auction import (
     franchise_budget,
     nomination_state,
     redo,
+    reset_auction,
+    reset_nomination_cursor,
     set_nomination_order,
     shuffle_nomination_order,
     undo,
@@ -150,7 +152,7 @@ from app.users import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260810.7"
+templates.env.globals["asset_version"] = "20260810.8"
 SESSION_SIGNING_SECRET = ""
 
 
@@ -1725,6 +1727,39 @@ def randomize_auction_nomination_order(db: Db, league_id: str | None = None) -> 
         after=result,
     )
     return result
+
+
+@app.post("/api/auction/reset")
+def reset_local_auction(db: Db, league_id: str | None = None) -> dict[str, Any]:
+    _require_admin(db)
+    selected = league_id or runtime_settings(db).mfl_auction_league_id
+    _league_or_404(db, selected)
+    before = [
+        _purchase_json(db, item)
+        for item in db.scalars(select(AuctionPurchase).where(AuctionPurchase.league_id == selected))
+    ]
+    reset_count = reset_auction(db, selected)
+    nomination = reset_nomination_cursor(db, selected, actor=active_username())
+    live = _auction_live(db, selected)
+    live.is_live = False
+    live.revision += 1
+    live.updated_by = active_username()
+    live.updated_at = datetime.now(UTC)
+    db.commit()
+    _audit_mutation(
+        db,
+        stream="auction-purchases",
+        action="reset",
+        league_id=selected,
+        before=before,
+        after=[],
+        details={"reset_count": reset_count},
+    )
+    return {
+        "reset_count": reset_count,
+        "nomination": nomination,
+        "live": {"is_live": False, "revision": live.revision},
+    }
 
 
 @app.post("/api/auction/purchases", status_code=201)

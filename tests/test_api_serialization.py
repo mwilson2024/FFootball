@@ -113,3 +113,45 @@ def test_recording_purchase_advances_shared_nomination_state(seeded):
         assert after.json()["nomination"]["cursor"] == 1
     finally:
         app.dependency_overrides.clear()
+
+
+def test_admin_can_reset_local_auction_and_nomination_state(seeded):
+    def override_db():
+        yield seeded
+
+    app.dependency_overrides[get_db] = override_db
+    try:
+        with TestClient(app) as client:
+            token, session = make_session_token(
+                main_module.SESSION_SIGNING_SECRET,
+                "wilsonmw",
+                {"00999"},
+                max_age_seconds=3600,
+            )
+            client.cookies.set(SESSION_COOKIE, token)
+            created = client.post(
+                "/api/auction/purchases",
+                headers={"X-CSRF-Token": session.csrf_token},
+                json={
+                    "league_id": "00999",
+                    "franchise_id": "0001",
+                    "player_id": "0001234",
+                    "amount": "2",
+                    "status": "ROSTER",
+                },
+            )
+            reset = client.post(
+                "/api/auction/reset?league_id=00999",
+                headers={"X-CSRF-Token": session.csrf_token},
+            )
+            after = client.get("/api/auction/state?league_id=00999")
+
+        assert created.status_code == 201
+        assert reset.status_code == 200
+        assert reset.json()["reset_count"] == 1
+        assert reset.json()["live"]["is_live"] is False
+        assert reset.json()["nomination"]["cursor"] == 0
+        assert after.json()["purchases"] == []
+        assert after.json()["nomination"]["current_franchise_name"] == "Alpha"
+    finally:
+        app.dependency_overrides.clear()
