@@ -18,7 +18,7 @@ from fastapi import Body, Depends, FastAPI, File, Form, HTTPException, Query, Re
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
@@ -92,9 +92,11 @@ from app.models import (
     MFLSnapshot,
     Player,
     PlayerIdentity,
+    SourcePlayerValue,
     SyncWarning,
     UserMFLMembership,
     UserPlayerPreference,
+    UserSourceSetting,
 )
 from app.power_rankings import build_power_rankings, chatgpt_power_rankings
 from app.schemas import (
@@ -152,7 +154,7 @@ from app.users import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260810.8"
+templates.env.globals["asset_version"] = "20260810.9"
 SESSION_SIGNING_SECRET = ""
 
 
@@ -705,14 +707,120 @@ async def sync(db: Db) -> dict[str, Any]:
 def sources(db: Db) -> list[dict[str, Any]]:
     initialize_sources(db)
     effective = effective_source_settings(db)
+    allowed = authorized_league_ids(db)
+    count_query = select(
+        SourcePlayerValue.source_id,
+        SourcePlayerValue.league_id,
+        func.count(SourcePlayerValue.id),
+    ).group_by(SourcePlayerValue.source_id, SourcePlayerValue.league_id)
+    if allowed is not None:
+        count_query = count_query.where(SourcePlayerValue.league_id.in_(allowed))
+    counts: dict[str, dict[str, int]] = {}
+    for source_id, league_id, count in db.execute(count_query):
+        counts.setdefault(str(source_id), {})[str(league_id or "global")] = int(count)
+    saved_ids = set(
+        db.scalars(
+            select(UserSourceSetting.source_id).where(
+                UserSourceSetting.username == active_username()
+            )
+        )
+    )
     return [
         {
             **source_json(item),
             "enabled": effective[item.id]["enabled"],
             "weight": str(effective[item.id]["weight"]),
+            "default_weight": str(item.weight),
+            "personalized": item.id in saved_ids,
+            "received_count": sum(counts.get(item.id, {}).values()),
+            "league_counts": counts.get(item.id, {}),
         }
         for item in db.scalars(select(DataSource).order_by(DataSource.name))
     ]
+
+
+@app.get("/api/sources/{source_id}/data")
+def source_received_data(
+    source_id: str,
+    db: Db,
+    limit: int = Query(default=100, ge=1, le=250),
+) -> dict[str, Any]:
+    if source_id not in {"fantasypros", "fantasypros_dynasty"}:
+        raise HTTPException(
+            400,
+            detail={
+                "code": "preview_not_supported",
+                "message": "Incoming-row preview is currently available for FantasyPros sources",
+            },
+        )
+    source = db.get(DataSource, source_id)
+    if source is None:
+        raise HTTPException(404, detail={"code": "source_not_found", "message": "Source not found"})
+    filters = [SourcePlayerValue.source_id == source_id]
+    allowed = authorized_league_ids(db)
+    if allowed is not None:
+        filters.append(SourcePlayerValue.league_id.in_(allowed))
+    total = int(db.scalar(select(func.count(SourcePlayerValue.id)).where(*filters)) or 0)
+    records = list(
+        db.execute(
+            select(SourcePlayerValue, Player)
+            .join(Player, Player.id == SourcePlayerValue.player_id)
+            .where(*filters)
+            .order_by(
+                SourcePlayerValue.league_id,
+                SourcePlayerValue.normalized_value,
+                Player.name,
+            )
+            .limit(limit)
+        )
+    )
+    league_names = {
+        item.id: item.name
+        for item in db.scalars(select(League).order_by(League.name, League.id))
+        if allowed is None or item.id in allowed
+    }
+    safe_fields = (
+        "player_id",
+        "player_name",
+        "player_team_id",
+        "player_position_id",
+        "rank_ecr",
+        "rank",
+        "rank_min",
+        "rank_max",
+        "pos_rank",
+        "tier",
+        "player_owned_avg",
+        "scoring",
+        "ranking_type",
+    )
+    rows = []
+    for value, player in records:
+        raw = value.raw_value_json or {}
+        rows.append(
+            {
+                "league_id": value.league_id,
+                "league_name": league_names.get(str(value.league_id), str(value.league_id)),
+                "player_id": player.id,
+                "player_name": player.name,
+                "nfl_team": player.nfl_team,
+                "position": player.position,
+                "rank_signal": str(value.normalized_value)
+                if value.normalized_value is not None
+                else None,
+                "raw": {key: raw[key] for key in safe_fields if raw.get(key) is not None},
+                "snapshot_id": value.snapshot_id,
+                "source_updated_at": value.source_updated_at,
+                "fetched_at": value.fetched_at,
+            }
+        )
+    return {
+        "source_id": source.id,
+        "source_name": source.name,
+        "total_count": total,
+        "returned_count": len(rows),
+        "rows": rows,
+    }
 
 
 @app.put("/api/setup/sources/{source_id}")

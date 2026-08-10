@@ -83,6 +83,20 @@ def test_reset_source_settings_restores_defaults_for_only_current_user(
         reset_active_username(alice)
 
 
+def test_initialize_sources_replaces_stale_global_weights_with_code_defaults(
+    seeded: Session,
+) -> None:
+    initialize_sources(seeded)
+    source = seeded.get(DataSource, "fantasypros_dynasty")
+    assert source is not None
+    source.weight = Decimal("9.5")
+    seeded.commit()
+
+    initialize_sources(seeded)
+
+    assert Decimal(source.weight) == Decimal("1")
+
+
 def test_mfl_membership_sets_the_users_franchise(seeded: Session) -> None:
     save_mfl_memberships(
         seeded,

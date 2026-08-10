@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from fastapi.testclient import TestClient
 
 import app.main as main_module
@@ -5,7 +7,8 @@ from app.auth import SESSION_COOKIE, make_session_token
 from app.config import get_settings
 from app.db import get_db
 from app.main import app
-from app.models import UserLeagueSetting
+from app.models import SourcePlayerValue, UserLeagueSetting
+from app.sources import initialize_sources
 
 
 def test_league_and_auction_state_are_json_serializable(seeded):
@@ -153,5 +156,56 @@ def test_admin_can_reset_local_auction_and_nomination_state(seeded):
         assert reset.json()["nomination"]["cursor"] == 0
         assert after.json()["purchases"] == []
         assert after.json()["nomination"]["current_franchise_name"] == "Alpha"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_fantasypros_received_data_is_visible_without_secrets(seeded):
+    initialize_sources(seeded)
+    seeded.add(
+        SourcePlayerValue(
+            source_id="fantasypros",
+            league_id="00999",
+            player_id="0001234",
+            value_type="rank",
+            raw_value_json={
+                "player_id": 123,
+                "player_name": "Leading Zero",
+                "player_team_id": "BUF",
+                "player_position_id": "RB",
+                "rank_ecr": 4,
+                "rank_min": 1,
+                "rank_max": 9,
+                "pos_rank": "RB2",
+                "tier": 1,
+                "scoring": "PPR",
+                "ranking_type": "DRAFT",
+                "api_key": "must-never-be-returned",
+            },
+            normalized_value=Decimal("4"),
+            snapshot_id="fantasypros-test",
+        )
+    )
+    seeded.commit()
+
+    def override_db():
+        yield seeded
+
+    app.dependency_overrides[get_db] = override_db
+    try:
+        with TestClient(app) as client:
+            token, _ = make_session_token(
+                main_module.SESSION_SIGNING_SECRET,
+                "tester",
+                {"00999"},
+                max_age_seconds=3600,
+            )
+            client.cookies.set(SESSION_COOKIE, token)
+            response = client.get("/api/sources/fantasypros/data")
+
+        assert response.status_code == 200
+        assert response.json()["total_count"] == 1
+        assert response.json()["rows"][0]["raw"]["rank_ecr"] == 4
+        assert "api_key" not in response.json()["rows"][0]["raw"]
     finally:
         app.dependency_overrides.clear()

@@ -168,8 +168,9 @@ def initialize_sources(db: Session) -> None:
         ):
             setattr(source, field, values[field])
         source.enabled = True
-        if Decimal(source.weight) <= 0 and Decimal(values["weight"]) > 0:
-            source.weight = values["weight"]
+        # Global rows are canonical defaults. Personal slider values live in
+        # UserSourceSetting and must not depend on stale weights in a deployed DB.
+        source.weight = values["weight"]
     db.commit()
 
 
