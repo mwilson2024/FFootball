@@ -158,6 +158,15 @@ def initialize_sources(db: Session) -> None:
         if source is None:
             db.add(DataSource(**values))
             continue
+        for field in (
+            "name",
+            "kind",
+            "terms_url",
+            "license",
+            "attribution",
+            "cache_ttl_seconds",
+        ):
+            setattr(source, field, values[field])
         source.enabled = True
         if Decimal(source.weight) <= 0 and Decimal(values["weight"]) > 0:
             source.weight = values["weight"]

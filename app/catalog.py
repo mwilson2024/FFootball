@@ -622,15 +622,41 @@ def player_detail(db: Session, league_id: str, player_id: str) -> dict[str, Any]
         flags.append("Limited source coverage")
     source_rank_details = []
     latest_lookup = {(value.source_id, value.value_type): value for value in latest_values}
+    signal_descriptions = {
+        "league_model": (
+            "League model rank",
+            "Overall rank from this league's scoring, lineup, and value-over-replacement model.",
+        ),
+        "mfl_rank": ("MFL rank", "Overall player rank supplied by MyFantasyLeague."),
+        "mfl_adp": ("MFL ADP", "Average MFL draft position; lower means selected earlier."),
+        "mfl_projection": (
+            "Projection rank",
+            "Rank derived from MFL's current weekly projected points for this league.",
+        ),
+        "mfl_aav": ("Auction-value rank", "Rank derived from MFL average auction values."),
+        "sleeper": (
+            "Add-trend rank",
+            "Recent Sleeper add-trend rank; lower means the player is being added more often.",
+        ),
+        "nflverse": (
+            "Schedule rank",
+            "Small supporting schedule signal; 1 is the easiest schedule.",
+        ),
+    }
     for source_id, rank in (row.get("source_ranks") or {}).items():
         source = sources.get(source_id)
         rank_value = latest_lookup.get((source_id, "rank"))
+        signal_label, meaning = signal_descriptions.get(
+            source_id,
+            ("Published overall rank", "Published overall player rank; lower is better."),
+        )
         source_rank_details.append(
             {
                 "source_id": source_id,
                 "source_name": source.name if source else source_id,
                 "rank": str(rank),
-                "meaning": "Lower is better; this is the source's supplied overall rank signal.",
+                "signal_label": signal_label,
+                "meaning": meaning,
                 "source_updated_at": rank_value.source_updated_at if rank_value else None,
                 "fetched_at": rank_value.fetched_at if rank_value else None,
                 "attribution": source.attribution if source else None,

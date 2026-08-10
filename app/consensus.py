@@ -45,6 +45,11 @@ SOURCE_FAMILIES = {
 }
 
 
+def _display_rank(value: Decimal) -> str:
+    rounded = value.quantize(Decimal("0.01"))
+    return format(rounded, "f").rstrip("0").rstrip(".")
+
+
 def _preference_json(
     preference: PersonalPlayerPreference | UserPlayerPreference | None,
 ) -> dict[str, Any]:
@@ -330,7 +335,7 @@ def build_consensus(
             or availability["purchased_by"].get(player.id)
             or availability["drafted_by"].get(player.id)
         )
-        owner_name = franchise_names.get(owner, owner) if owner else None
+        owner_name = franchise_names.get(owner, "Team name unavailable") if owner else None
         preference = preferences.get(player.id)
         rows.append(
             {
@@ -350,7 +355,7 @@ def build_consensus(
                     "high" if family_count >= 3 else "medium" if family_count == 2 else "low"
                 ),
                 "source_count": len(raw_ranks),
-                "source_ranks": {key: str(value) for key, value in raw_ranks.items()},
+                "source_ranks": {key: _display_rank(value) for key, value in raw_ranks.items()},
                 "average_rank": round(mean(rank_numbers), 2) if rank_numbers else None,
                 "median_rank": round(median(rank_numbers), 2) if rank_numbers else None,
                 "best_rank": min(rank_numbers) if rank_numbers else None,

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="csrf-token" content="{{ request.state.user.csrf_token if request.state.user else '' }}">
   <title>{{ title }} · MFL Draft Manager</title>
-  <link rel="stylesheet" href="/static/app.css">
+  <link rel="stylesheet" href="/static/app.css?v={{ asset_version }}">
 </head>
 <body>
   <header class="topbar">
@@ -33,7 +33,7 @@
   <script>window.DRAFTDESK_CHAT_CONTEXT={{ chat_context|tojson }};</script>
   {% endif %}
   <dialog id="shortcut-help"><h2>Keyboard shortcuts</h2><dl><dt>/</dt><dd>Focus search</dd><dt>?</dt><dd>Show this help</dd><dt>Esc</dt><dd>Close detail or help</dd></dl><button onclick="this.closest('dialog').close()">Close</button></dialog>
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v={{ asset_version }}"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

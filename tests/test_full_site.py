@@ -398,8 +398,8 @@ async def test_gng_and_fantasypros_rankings_preserve_provenance(seeded: Session)
 
     assert gng["matched"] == 1
     assert fantasypros["matched"] == 1
-    assert rows["0001234"]["source_ranks"]["gng"] == "7.000000"
-    assert rows["0001234"]["source_ranks"]["fantasypros"] == "3.000000"
+    assert rows["0001234"]["source_ranks"]["gng"] == "7"
+    assert rows["0001234"]["source_ranks"]["fantasypros"] == "3"
     detail = player_detail(seeded, "00999", "0001234")
     assert detail is not None
     assert detail["profile"]["fantasypros"]["rank_ecr"] == 3
@@ -463,7 +463,7 @@ async def test_fantasypros_dynasty_rankings_are_scoped_to_adfl(seeded: Session) 
     tmfl = {row["player_id"]: row for row in build_consensus(seeded, "00999")}
 
     assert result["ranking_type"] == "DYNASTY"
-    assert adfl["0001234"]["source_ranks"]["fantasypros_dynasty"] == "2.000000"
+    assert adfl["0001234"]["source_ranks"]["fantasypros_dynasty"] == "2"
     assert "fantasypros_dynasty" not in tmfl["0001234"]["source_ranks"]
 
 
