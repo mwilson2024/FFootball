@@ -32,6 +32,25 @@ def _number(value: Any) -> float | None:
         return None
 
 
+def _visible_stat_value(value: Any) -> bool:
+    if value in (None, ""):
+        return False
+    try:
+        return Decimal(str(value).replace(",", "")) != 0
+    except Exception:  # noqa: BLE001 - textual nflverse fields should remain visible
+        return True
+
+
+def _without_zero_stats(snapshot: dict[str, Any]) -> dict[str, Any]:
+    stats = snapshot.get("stats")
+    if not isinstance(stats, dict):
+        return snapshot
+    return {
+        **snapshot,
+        "stats": {key: value for key, value in stats.items() if _visible_stat_value(value)},
+    }
+
+
 POSITION_ORDER = {
     position: index for index, position in enumerate(("QB", "RB", "WR", "TE", "PK", "DEF"))
 }
@@ -571,6 +590,7 @@ def player_detail(db: Session, league_id: str, player_id: str) -> dict[str, Any]
         ),
         {},
     )
+    player_stats = _without_zero_stats(player_stats)
     depth_chart = next(
         (
             value.raw_value_json or {}
@@ -725,6 +745,13 @@ def player_detail(db: Session, league_id: str, player_id: str) -> dict[str, Any]
             "schedule": schedule,
             "depth_chart": depth_chart,
             "nerdy_stats": player_stats,
+            "fantasy_value": {
+                "vorp": row.get("value_over_replacement"),
+                "projection_signal": row.get("projected_points"),
+                "replacement_signal": row.get("replacement_points"),
+                "league_value_score": row.get("custom_score"),
+                "projection_note": row.get("projection_note"),
+            },
             "source_rank_details": source_rank_details,
         },
         "source_values": [

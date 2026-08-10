@@ -7,6 +7,6 @@
 <section id="schedule-profile" class="panel profile-section"><h2>NFL schedule</h2><div id="profile-schedule"></div></section>
 <section id="auction-profile" class="panel profile-section"><h2>Auction plan</h2><div id="profile-auction"></div></section>
 <section id="source-analysis" class="panel profile-section"><h2>Source analysis</h2><div id="profile-sources"></div></section>
-<section id="nerdy-stats" class="panel profile-section"><h2>Nerdy stats</h2><p class="muted">Every non-empty regular-season field available for this player from the latest nflverse snapshot.</p><div id="profile-nerdy-stats"></div></section>
+<section id="nerdy-stats" class="panel profile-section"><h2>Nerdy stats</h2><p class="muted">League-specific value above replacement plus every non-zero regular-season field available from the latest nflverse snapshot.</p><div id="profile-nerdy-stats"></div></section>
 {% endblock %}
 {% block scripts %}<script>window.SELECTED_LEAGUE_ID={{ selected_league_id|tojson }};window.PROFILE_PLAYER_ID={{ player_id|tojson }};initPlayerProfileV2()</script>{% endblock %}

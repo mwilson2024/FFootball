@@ -20,7 +20,8 @@ def _rank(db: Session, player_id: str, rank: int, value: int) -> None:
             tier=1,
             custom_score=Decimal(value),
             projected_points=Decimal(value),
-            value_over_replacement=Decimal(value),
+            replacement_points=Decimal("5"),
+            value_over_replacement=Decimal(value - 5),
         )
     )
 
@@ -88,7 +89,12 @@ def test_player_profile_lists_source_rank_depth_and_all_stats(seeded: Session) -
                 "season": 2025,
                 "summary_level": "regular season",
                 "team": "BUF",
-                "stats": {"carries": "201", "rushing_yards": "1105", "targets": "52"},
+                "stats": {
+                    "carries": "201",
+                    "rushing_yards": "1105",
+                    "targets": "52",
+                    "passing_tds": "0",
+                },
             },
             snapshot_id="stats-2025",
         )
@@ -101,6 +107,9 @@ def test_player_profile_lists_source_rank_depth_and_all_stats(seeded: Session) -
     assert detail["profile"]["source_rank_details"][0]["source_name"]
     assert detail["profile"]["depth_chart"]["depth_team"] == 1
     assert detail["profile"]["nerdy_stats"]["stats"]["rushing_yards"] == "1105"
+    assert "passing_tds" not in detail["profile"]["nerdy_stats"]["stats"]
+    assert detail["profile"]["fantasy_value"]["vorp"] == "20.0000"
+    assert detail["profile"]["fantasy_value"]["replacement_signal"] == "5.0000"
 
 
 def test_power_rankings_reward_starter_strength_and_depth(seeded: Session) -> None:

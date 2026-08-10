@@ -373,6 +373,9 @@ def build_consensus(
                 "projected_points": str(ranking.projected_points)
                 if ranking and ranking.projected_points is not None
                 else None,
+                "replacement_points": str(ranking.replacement_points)
+                if ranking and ranking.replacement_points is not None
+                else None,
                 "value_over_replacement": str(ranking.value_over_replacement) if ranking else None,
                 "adp": str(ranking.adp) if ranking and ranking.adp is not None else None,
                 "mfl_aav": str(ranking.mfl_aav)
