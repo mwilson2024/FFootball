@@ -39,3 +39,13 @@ def test_nomination_controls_live_in_admin_and_budget_boxes_show_turns() -> None
     assert 'id="nomination-board"' not in auction
     assert "current-nominator" in script
     assert "next-nominator" in script
+
+
+def test_auction_activity_strip_keeps_latest_purchase_and_live_state_separate() -> None:
+    auction = (TEMPLATES / "auction.html").read_text(encoding="utf-8")
+    script = (TEMPLATES.parent / "static" / "app.js").read_text(encoding="utf-8")
+
+    assert 'id="auction-last-purchase"' in auction
+    assert 'id="auction-live-status"' in auction
+    assert "auction-live-badge ${live.is_live?'live':'offline'}" in script
+    assert "recent-purchases" in script

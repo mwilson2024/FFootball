@@ -587,7 +587,9 @@ async def test_fantasypros_dynasty_rankings_are_scoped_to_adfl(seeded: Session) 
     assert "fantasypros_dynasty" not in tmfl["0001234"]["source_ranks"]
 
 
-def test_projection_aav_trend_and_schedule_sources_affect_consensus(seeded: Session) -> None:
+def test_projection_aav_and_trend_affect_consensus_but_schedule_does_not(
+    seeded: Session,
+) -> None:
     initialize_sources(seeded)
     add_rank(seeded, "0001234", 1)
     add_rank(seeded, "99", 2)
@@ -628,7 +630,8 @@ def test_projection_aav_trend_and_schedule_sources_affect_consensus(seeded: Sess
 
     row = next(item for item in build_consensus(seeded, "00999") if item["player_id"] == "0001234")
 
-    assert {"mfl_projection", "mfl_aav", "sleeper", "nflverse"}.issubset(row["source_ranks"])
+    assert {"mfl_projection", "mfl_aav", "sleeper"}.issubset(row["source_ranks"])
+    assert "nflverse" not in row["source_ranks"]
 
 
 @pytest.mark.asyncio

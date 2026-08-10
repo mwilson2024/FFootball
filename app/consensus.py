@@ -282,10 +282,9 @@ def build_consensus(
     if "sleeper" in sources:
         sleeper_values = _latest_metric_values(db, league_id, "sleeper", "trend_add_24h")
         rank_values_by_source["sleeper"] = _ordinal_ranks(sleeper_values, higher_is_better=True)
-    if "nflverse" in sources:
-        rank_values_by_source["nflverse"] = _latest_metric_values(
-            db, league_id, "nflverse", "schedule"
-        )
+    # Schedule difficulty is contextual matchup data, not an overall player-rank signal.
+    # It remains available on profiles and in the Bye Advisor, but must not promote a
+    # player above actual ranking, projection, ADP, or market sources.
     rank_values_by_source = {
         source_id: values for source_id, values in rank_values_by_source.items() if values
     }
