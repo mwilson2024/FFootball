@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-title compact"><div><p class="eyebrow">LEAGUE STRENGTH</p><h1>Power Rankings</h1><p>Starting lineup value, roster depth, and missing lineup spots—calculated from this league's active rosters.</p></div>{% include "league_select.html" %}</section>
+<div class="toolbar spaced"><p id="power-method" class="muted">Calculating roster strength…</p><button id="power-chatgpt" class="primary" type="button" onclick="judgePowerRankings()">Ask ChatGPT to judge</button></div>
+<section id="power-rankings" class="power-ranking-grid"><article class="panel">Loading rankings…</article></section>
+<dialog id="power-judge-dialog"><h2>ChatGPT's league judgment</h2><p id="power-judge-model" class="muted"></p><div id="power-judge-output" class="assistant-answer"></div><div class="toolbar"><button type="button" onclick="this.closest('dialog').close()">Close</button></div></dialog>
+{% endblock %}
+{% block scripts %}<script>window.SELECTED_LEAGUE_ID={{ selected_league_id|tojson }};initPowerRankings()</script>{% endblock %}

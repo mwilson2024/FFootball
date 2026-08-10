@@ -7,9 +7,7 @@ Revises: 0002_full_drafting_website
 from __future__ import annotations
 
 from alembic import op
-
 from app.models import SyncWarning
-
 
 revision = "0003_diagnostics_and_sources"
 down_revision = "0002_full_drafting_website"

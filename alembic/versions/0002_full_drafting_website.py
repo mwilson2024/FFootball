@@ -7,10 +7,9 @@ Revises: 0001_initial
 from __future__ import annotations
 
 import sqlalchemy as sa
+
 from alembic import op
-
 from app.db import Base
-
 
 revision = "0002_full_drafting_website"
 down_revision = "0001_initial"

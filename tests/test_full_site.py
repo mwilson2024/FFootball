@@ -526,9 +526,26 @@ async def test_nflverse_sync_handles_new_identity_json_defaults(seeded: Session)
         "2025_01_BUF_NYJ,2025,REG,1,2025-09-07,Sunday,13:00,BUF,20,NYJ,10\n"
         "2026_01_BUF_NYJ,2026,REG,1,2026-09-13,Sunday,13:00,BUF,,NYJ,\n"
     )
+    depth_body = (
+        "season,week,dt,club_code,gsis_id,position,depth_position,depth_team\n"
+        "2026,1,2026-09-01,BUF,00-0012345,RB,RB,1\n"
+    )
+    stats_body = (
+        "player_id,player_name,season,season_type,team,position,carries,rushing_yards,"
+        "fantasy_points_ppr\n"
+        "00-0012345,Leading Zero,2025,REG,BUF,RB,201,1105,245.5\n"
+    )
 
     def handler(request: httpx.Request) -> httpx.Response:
-        body = schedule_body if "schedules" in str(request.url) else csv_body
+        url = str(request.url)
+        if "schedules" in url:
+            body = schedule_body
+        elif "depth_charts" in url:
+            body = depth_body
+        elif "stats_player" in url:
+            body = stats_body
+        else:
+            body = csv_body
         return httpx.Response(200, text=body, request=request)
 
     result = await sync_nflverse(seeded, transport=httpx.MockTransport(handler))
@@ -553,3 +570,5 @@ async def test_nflverse_sync_handles_new_identity_json_defaults(seeded: Session)
     detail = player_detail(seeded, "00999", "0001234")
     assert detail is not None
     assert detail["profile"]["schedule"]["schedule_rank_label"] == "1 of 2"
+    assert detail["profile"]["depth_chart"]["depth_team"] == "1"
+    assert detail["profile"]["nerdy_stats"]["stats"]["rushing_yards"] == "1105"

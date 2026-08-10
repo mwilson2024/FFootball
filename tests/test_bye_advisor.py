@@ -104,3 +104,31 @@ def test_bye_advisor_requests_team_selection_when_missing(seeded: Session) -> No
     assert result["configured"] is False
     assert result["franchise"] is None
     assert result["conflicts"] == []
+
+
+def test_bye_advisor_can_compare_one_selected_roster_player(seeded: Session) -> None:
+    initialize_sources(seeded)
+    seeded.add_all(
+        [
+            RosterAssignment(
+                league_id="00999",
+                franchise_id="0001",
+                player_id="99",
+                status="ROSTER",
+            ),
+            UserLeagueSetting(
+                username="wilsonmw",
+                league_id="00999",
+                franchise_id="0001",
+                auction_strategy_json={"template": "balanced"},
+            ),
+        ]
+    )
+    _ranking(seeded, "99", 1)
+    seeded.commit()
+
+    result = bye_week_advice(seeded, "00999", 5, "99")
+
+    assert result["selected_player_id"] == "99"
+    assert result["conflicts"][0]["selected_manually"] is True
+    assert result["conflicts"][0]["is_bye"] is False

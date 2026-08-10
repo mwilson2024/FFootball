@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     auction_default_budget: Decimal = Decimal("200")
     auction_min_bid: Decimal = Decimal("1")
     export_directory: Path = Field(default=Path("exports"))
+    audit_directory: Path = Field(default=Path("data/audit"))
     mfl_enable_imports: bool = False
 
     @field_validator("mfl_keeper_league_id", "mfl_auction_league_id", mode="before")

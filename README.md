@@ -38,11 +38,17 @@ precedence.
 - **Keepers:** MFL-selected keepers and the available league board. Local choices remain distinct
   until an explicit export or submission.
 - **Auction:** admin-controlled live status, shared three-second viewer updates, atomic purchases,
-  correction/reassignment tools, strategy-aware dynamic pricing, undo/redo, CSV, and MFL XML.
+  correction/reassignment tools, strategy-aware dynamic pricing, undo/redo, CSV, MFL XML, and a
+  commissioner-only MFL import that requires a fresh XML preview plus explicit confirmation.
+- **Power Rankings:** a deterministic league-strength board based on legal starting-lineup value,
+  bench depth, and unfilled lineup spots, with an optional on-demand ChatGPT league judgment.
+- **Bye Advisor:** compare every active bye or choose one roster player manually, then see the best
+  available same-position replacements using overall rank and the selected week's matchup.
 - **Data Sources:** inspect shared cached sources and privately preview, include, exclude, or weight
   each one for your board: MFL, the attributed CC-BY-4.0
   GNG Pigskin board, FantasyPros ECR using your API key, free Sleeper metadata/trends, CC-BY-4.0
-  nflverse identity and schedule data, and user CSV imports.
+  nflverse identity, weekly depth chart, schedule, and historical player-stat data, and user CSV
+  imports.
 - **Scoring:** grouped MFL scoring rules with every repeated range retained, readable event names,
   normalized values, mapping state, and the raw imported response.
 - **Settings:** configure both leagues without editing code and test public and protected access
@@ -86,6 +92,11 @@ Auction CSV/XML, checksums, manifests, and draft recaps are written atomically t
 imports and checksums are retained under `data/imports/`. IDs remain strings so leading zeroes are
 preserved.
 
+Every local draft-pick and auction-purchase create, correction, removal, undo, redo, reconciliation,
+or confirmed MFL import is also appended to a separate hash-chained JSONL backup under `data/audit/`.
+These records include before/after state and actor, contain no credentials, and are kept outside the
+SQLite transaction history so a later correction does not erase the original record.
+
 ## Quality checks
 
 ```powershell
@@ -116,6 +127,7 @@ also runs that installation explicitly for deterministic Railpack builds. If dep
    SESSION_SECRET=<a stable random value of at least 32 characters>
    DATABASE_URL=sqlite:////app/data/fantasy_draft.db
    EXPORT_DIRECTORY=/app/data/exports
+   AUDIT_DIRECTORY=/app/data/audit
    MFL_SEASON=2026
    MFL_KEEPER_LEAGUE_ID=<ADFL league id>
    MFL_AUCTION_LEAGUE_ID=<TMFL league id>
@@ -136,6 +148,10 @@ also runs that installation explicitly for deterministic Railpack builds. If dep
 4. Generate a Railway domain, open the HTTPS URL, and sign in with an MFL account that belongs to
    both configured leagues. MFL credentials are verified directly with MFL and are not retained by
    DraftDesk.
+
+The `/app/data` volume holds the SQLite database, generated exports, and append-only audit backups.
+Railway redeploys can replace application files, so do not mount the volume over `/app`; mount it at
+exactly `/app/data` and include it in your normal Railway volume backup routine.
 
 The production cookie is HTTP-only, secure, SameSite=Lax, HMAC-signed, and valid for 30 days.
 Mutating requests require a CSRF token; login attempts are rate-limited; host validation and common

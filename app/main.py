@@ -32,6 +32,7 @@ from app.auction import (
     undo,
     update_purchase,
 )
+from app.audit_backup import append_audit_event
 from app.auth import (
     SESSION_COOKIE,
     clear_login_failures,
@@ -75,6 +76,7 @@ from app.models import (
     AuctionLiveState,
     AuctionPurchase,
     DataSource,
+    DraftPick,
     Franchise,
     ImportRecord,
     KeeperSelection,
@@ -87,6 +89,7 @@ from app.models import (
     UserMFLMembership,
     UserPlayerPreference,
 )
+from app.power_rankings import build_power_rankings, chatgpt_power_rankings
 from app.schemas import (
     AssistantRequest,
     AuctionLiveUpdate,
@@ -162,7 +165,9 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
             ):
                 record_sync_warnings(db, league_item.id, league_item.warnings_json)
         db.commit()
-        runtime_settings(db).export_directory.mkdir(parents=True, exist_ok=True)
+        stored_settings = runtime_settings(db)
+        stored_settings.export_directory.mkdir(parents=True, exist_ok=True)
+        stored_settings.audit_directory.mkdir(parents=True, exist_ok=True)
     auto_sync_task: asyncio.Task[None] | None = None
     if settings.auto_sync_enabled:
         auto_sync_task = asyncio.create_task(daily_sync_loop(settings), name="daily-mfl-sync")
@@ -330,6 +335,30 @@ def _require_admin(db: Session) -> None:
             403,
             detail={"code": "admin_required", "message": "An administrator must do that"},
         )
+
+
+def _audit_mutation(
+    db: Session,
+    *,
+    stream: str,
+    action: str,
+    league_id: str,
+    entity_id: str | None = None,
+    before: Any = None,
+    after: Any = None,
+    details: Any = None,
+) -> dict[str, Any]:
+    return append_audit_event(
+        runtime_settings(db).audit_directory,
+        stream=stream,
+        action=action,
+        league_id=league_id,
+        actor=active_username(),
+        entity_id=entity_id,
+        before=before,
+        after=after,
+        details=details,
+    )
 
 
 def _auction_live(db: Session, league_id: str) -> AuctionLiveState:
@@ -529,6 +558,15 @@ def bye_advisor_page(request: Request, db: Db, league_id: str | None = None) -> 
         request,
         "bye_advisor.html",
         _page_context(db, "Bye Week Advisor", league_id),
+    )
+
+
+@app.get("/power-rankings", response_class=HTMLResponse)
+def power_rankings_page(request: Request, db: Db, league_id: str | None = None) -> Any:
+    return templates.TemplateResponse(
+        request,
+        "power_rankings.html",
+        _page_context(db, "League power rankings", league_id),
     )
 
 
@@ -1013,9 +1051,36 @@ def get_bye_week_advice(
     league_id: str,
     db: Db,
     week: int = Query(1, ge=1, le=18),
+    player_id: str | None = None,
 ) -> dict[str, Any]:
     _league_or_404(db, league_id)
-    return bye_week_advice(db, league_id, week)
+    return bye_week_advice(db, league_id, week, player_id)
+
+
+@app.get("/api/leagues/{league_id}/power-rankings")
+def get_power_rankings(league_id: str, db: Db) -> dict[str, Any]:
+    _league_or_404(db, league_id)
+    return build_power_rankings(db, league_id)
+
+
+@app.post("/api/leagues/{league_id}/power-rankings/chatgpt")
+async def judge_power_rankings(league_id: str, db: Db) -> dict[str, Any]:
+    _league_or_404(db, league_id)
+    try:
+        return await chatgpt_power_rankings(db, get_settings(), league_id)
+    except RuntimeError as exc:
+        raise HTTPException(
+            503,
+            detail={"code": "power_judge_unavailable", "message": str(exc)},
+        ) from exc
+    except httpx.HTTPError as exc:
+        raise HTTPException(
+            502,
+            detail={
+                "code": "power_judge_failed",
+                "message": "ChatGPT could not judge the rankings right now",
+            },
+        ) from exc
 
 
 @app.get("/api/leagues/{league_id}/franchises")
@@ -1231,31 +1296,64 @@ def api_draft_state(league_id: str, db: Db) -> dict[str, Any]:
 
 
 @app.put("/api/draft/live")
-def api_set_draft_live(
-    payload: AuctionLiveUpdate, league_id: str, db: Db
-) -> dict[str, Any]:
+def api_set_draft_live(payload: AuctionLiveUpdate, league_id: str, db: Db) -> dict[str, Any]:
     _require_admin(db)
     return set_draft_live(db, league_id, payload.is_live)
 
 
 @app.post("/api/draft/picks", status_code=201)
 def create_draft_pick(payload: DraftPickCreate, db: Db) -> dict[str, Any]:
-    return pick_json(db, add_pick(db, payload))
+    result = pick_json(db, add_pick(db, payload))
+    _audit_mutation(
+        db,
+        stream="draft-picks",
+        action="create",
+        league_id=payload.league_id,
+        entity_id=result["id"],
+        after=result,
+    )
+    return result
 
 
 @app.patch("/api/draft/picks/{pick_id}")
 def patch_draft_pick(pick_id: str, payload: DraftPickUpdate, db: Db) -> dict[str, Any]:
-    return pick_json(db, update_pick(db, pick_id, payload))
+    current = db.get(DraftPick, pick_id)
+    before = pick_json(db, current) if current else None
+    result = pick_json(db, update_pick(db, pick_id, payload))
+    _audit_mutation(
+        db,
+        stream="draft-picks",
+        action="update",
+        league_id=result["league_id"],
+        entity_id=pick_id,
+        before=before,
+        after=result,
+    )
+    return result
 
 
 @app.delete("/api/draft/picks/{pick_id}", status_code=204)
 def delete_draft_pick(pick_id: str, db: Db) -> None:
+    current = db.get(DraftPick, pick_id)
+    if current is None:
+        raise DraftValidationError("Draft pick does not exist")
+    before = pick_json(db, current)
+    league_id = current.league_id
     remove_pick(db, pick_id)
+    _audit_mutation(
+        db,
+        stream="draft-picks",
+        action="delete",
+        league_id=league_id,
+        entity_id=pick_id,
+        before=before,
+    )
 
 
 @app.post("/api/draft/undo", status_code=204)
 def api_draft_undo(league_id: str, db: Db) -> None:
     undo_draft(db, league_id)
+    _audit_mutation(db, stream="draft-picks", action="undo", league_id=league_id)
 
 
 @app.get("/api/draft/recommendations")
@@ -1282,6 +1380,13 @@ async def reconcile_draft(
     if not apply:
         return {"applied": False, **preview}
     count = apply_reconciliation(db, league_id, preview)
+    _audit_mutation(
+        db,
+        stream="draft-picks",
+        action="mfl_reconcile",
+        league_id=league_id,
+        details={"applied_count": count, "preview": preview},
+    )
     return {"applied": True, "applied_count": count, **preview}
 
 
@@ -1559,24 +1664,54 @@ def purchase(payload: PurchaseCreate, db: Db) -> dict[str, Any]:
     _require_admin(db)
     result = add_purchase(db, payload)
     _bump_auction(db, payload.league_id)
-    return _purchase_json(db, result)
+    created = _purchase_json(db, result)
+    _audit_mutation(
+        db,
+        stream="auction-purchases",
+        action="create",
+        league_id=payload.league_id,
+        entity_id=result.id,
+        after=created,
+    )
+    return created
 
 
 @app.patch("/api/auction/purchases/{purchase_id}")
 def patch_purchase(purchase_id: str, payload: PurchaseUpdate, db: Db) -> dict[str, Any]:
     _require_admin(db)
+    current = db.get(AuctionPurchase, purchase_id)
+    before = _purchase_json(db, current) if current else None
     result = update_purchase(db, purchase_id, payload)
     _bump_auction(db, result.league_id)
-    return _purchase_json(db, result)
+    updated = _purchase_json(db, result)
+    _audit_mutation(
+        db,
+        stream="auction-purchases",
+        action="update",
+        league_id=result.league_id,
+        entity_id=purchase_id,
+        before=before,
+        after=updated,
+    )
+    return updated
 
 
 @app.delete("/api/auction/purchases/{purchase_id}", status_code=204)
 def remove_purchase(purchase_id: str, db: Db) -> None:
     _require_admin(db)
     current = db.get(AuctionPurchase, purchase_id)
+    before = _purchase_json(db, current) if current else None
     league_id = current.league_id if current else runtime_settings(db).mfl_auction_league_id
     delete_purchase(db, purchase_id)
     _bump_auction(db, league_id)
+    _audit_mutation(
+        db,
+        stream="auction-purchases",
+        action="delete",
+        league_id=league_id,
+        entity_id=purchase_id,
+        before=before,
+    )
 
 
 @app.post("/api/auction/undo", status_code=204)
@@ -1586,6 +1721,7 @@ def undo_purchase(db: Db, league_id: str | None = None) -> None:
     selected = league_id or settings.mfl_auction_league_id
     undo(db, selected)
     _bump_auction(db, selected)
+    _audit_mutation(db, stream="auction-purchases", action="undo", league_id=selected)
 
 
 @app.post("/api/auction/redo", status_code=204)
@@ -1595,6 +1731,7 @@ def redo_purchase(db: Db, league_id: str | None = None) -> None:
     selected = league_id or settings.mfl_auction_league_id
     redo(db, selected)
     _bump_auction(db, selected)
+    _audit_mutation(db, stream="auction-purchases", action="redo", league_id=selected)
 
 
 @app.get("/api/auction/export.csv")
@@ -1613,6 +1750,7 @@ def download_xml(db: Db, league_id: str | None = None) -> FileResponse:
 
 @app.get("/api/auction/import-preview")
 def import_preview(db: Db, league_id: str | None = None) -> dict[str, Any]:
+    _require_admin(db)
     settings = runtime_settings(db)
     selected = league_id or settings.mfl_auction_league_id
     _, xml, count = build_xml(db, selected)
@@ -1656,4 +1794,16 @@ async def push_to_mfl(payload: ImportConfirmation, db: Db) -> dict[str, str]:
         ImportRecord(league_id=payload.league_id, payload_xml=xml.decode(), response_text=response)
     )
     db.commit()
+    _audit_mutation(
+        db,
+        stream="mfl-imports",
+        action="auction_results_import",
+        league_id=payload.league_id,
+        details={
+            "clear": payload.clear,
+            "overwrite": payload.overwrite,
+            "confirmation_token": payload.confirmation_token,
+            "response": response,
+        },
+    )
     return {"response": response}

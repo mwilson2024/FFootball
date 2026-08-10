@@ -18,6 +18,14 @@ NFLVERSE_PLAYERS_URL = (
 NFLVERSE_SCHEDULE_URL = (
     "https://github.com/nflverse/nflverse-data/releases/download/schedules/games.csv"
 )
+NFLVERSE_DEPTH_CHART_URL = (
+    "https://github.com/nflverse/nflverse-data/releases/download/depth_charts/"
+    "depth_charts_{season}.csv"
+)
+NFLVERSE_PLAYER_STATS_URL = (
+    "https://github.com/nflverse/nflverse-data/releases/download/stats_player/"
+    "stats_player_reg_{season}.csv"
+)
 
 DEFAULT_SOURCES: list[dict[str, Any]] = [
     {
@@ -110,24 +118,24 @@ DEFAULT_SOURCES: list[dict[str, Any]] = [
     },
     {
         "id": "sleeper",
-        "name": "Sleeper Player Metadata & Trends",
+        "name": "Sleeper Player Metadata, Depth Charts & Trends",
         "kind": "metadata",
         "enabled": True,
         "weight": Decimal("0.25"),
         "terms_url": "https://docs.sleeper.com/",
         "license": "Sleeper API terms",
-        "attribution": "Player metadata and trends by Sleeper",
+        "attribution": "Player metadata, depth chart and trends by Sleeper",
         "cache_ttl_seconds": 86400,
     },
     {
         "id": "nflverse",
-        "name": "nflverse Player Identity",
+        "name": "nflverse Identity, Schedule & Historical Stats",
         "kind": "metadata",
         "enabled": True,
         "weight": Decimal("0.15"),
         "terms_url": "https://github.com/nflverse/nflverse-data",
         "license": "CC-BY-4.0",
-        "attribution": "Data provided by nflverse",
+        "attribution": "Identity, schedule and historical statistics provided by nflverse",
         "cache_ttl_seconds": 86400,
     },
     {
@@ -199,6 +207,20 @@ TEAM_ALIASES = {
 def normalize_team(value: str | None) -> str:
     team = (value or "").upper().strip()
     return TEAM_ALIASES.get(team, team)
+
+
+def _safe_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _safe_decimal(value: Any) -> Decimal | None:
+    try:
+        return Decimal(str(value)) if value not in (None, "", "NA") else None
+    except (ValueError, TypeError):
+        return None
 
 
 def _schedule_data(
@@ -630,6 +652,7 @@ async def sync_sleeper(
                 **(player.metadata_json or {}),
                 "sleeper": {
                     "depth_chart_position": row.get("depth_chart_position"),
+                    "depth_chart_order": row.get("depth_chart_order"),
                     "years_exp": row.get("years_exp"),
                     "number": row.get("number"),
                 },
@@ -694,7 +717,14 @@ async def sync_nflverse(
             response.raise_for_status()
             schedule_response = await client.get(NFLVERSE_SCHEDULE_URL)
             schedule_response.raise_for_status()
-        selected_season = season or max(list(db.scalars(select(League.season))), default=2026)
+            selected_season = season or max(list(db.scalars(select(League.season))), default=2026)
+            depth_response = await client.get(
+                NFLVERSE_DEPTH_CHART_URL.format(season=selected_season)
+            )
+            stats_season = selected_season - 1
+            stats_response = await client.get(NFLVERSE_PLAYER_STATS_URL.format(season=stats_season))
+        depth_text = depth_response.text if depth_response.is_success else ""
+        stats_text = stats_response.text if stats_response.is_success else ""
         (
             schedules,
             offense_ranks,
@@ -751,6 +781,135 @@ async def sync_nflverse(
                 },
             }
             player.updated_at = datetime.now(UTC)
+        identities_by_gsis = {
+            identity.gsis_id: db.get(Player, identity.player_id)
+            for identity in db.scalars(
+                select(PlayerIdentity).where(PlayerIdentity.gsis_id.is_not(None))
+            )
+            if identity.gsis_id
+        }
+        depth_rows: dict[str, dict[str, Any]] = {}
+        for row in csv.DictReader(io.StringIO(depth_text)):
+            gsis_id = str(row.get("gsis_id") or row.get("player_id") or "")
+            player = identities_by_gsis.get(gsis_id)
+            if player is None or not (row.get("depth_position") or row.get("depth_team")):
+                continue
+            key = str(player.id)
+            current = depth_rows.get(key)
+            marker = (
+                _safe_int(row.get("week")),
+                str(row.get("dt") or row.get("date") or ""),
+            )
+            current_marker = (
+                (
+                    _safe_int(current.get("week")),
+                    str(current.get("date") or ""),
+                )
+                if current
+                else (-1, "")
+            )
+            if marker >= current_marker:
+                depth_rows[key] = {
+                    "season": selected_season,
+                    "week": row.get("week"),
+                    "team": row.get("club_code") or row.get("team"),
+                    "formation": row.get("formation"),
+                    "depth_team": row.get("depth_team"),
+                    "depth_position": row.get("depth_position"),
+                    "position": row.get("position"),
+                    "date": row.get("dt") or row.get("date"),
+                    "source_url": NFLVERSE_DEPTH_CHART_URL.format(season=selected_season),
+                    "license": "CC-BY-4.0",
+                }
+        if depth_rows:
+            db.execute(
+                delete(SourcePlayerValue).where(
+                    SourcePlayerValue.source_id == "nflverse",
+                    SourcePlayerValue.value_type == "depth_chart",
+                )
+            )
+            depth_snapshot = (
+                f"nflverse-depth-{selected_season}-{int(datetime.now(UTC).timestamp())}"
+            )
+            for player_id, depth in depth_rows.items():
+                player = db.get(Player, player_id)
+                if player is None:
+                    continue
+                player.metadata_json = {
+                    **(player.metadata_json or {}),
+                    "nflverse": {
+                        **((player.metadata_json or {}).get("nflverse") or {}),
+                        "depth_chart": depth,
+                    },
+                }
+                db.add(
+                    SourcePlayerValue(
+                        source_id="nflverse",
+                        player_id=player_id,
+                        value_type="depth_chart",
+                        raw_value_json=depth,
+                        source_updated_at=datetime.now(UTC),
+                        fetched_at=datetime.now(UTC),
+                        snapshot_id=depth_snapshot,
+                    )
+                )
+        stats_rows: dict[str, dict[str, Any]] = {}
+        ignored_stats = {
+            "player_id",
+            "player_name",
+            "player_display_name",
+            "position",
+            "position_group",
+            "headshot_url",
+            "season",
+            "season_type",
+            "team",
+        }
+        for row in csv.DictReader(io.StringIO(stats_text)):
+            player = identities_by_gsis.get(str(row.get("player_id") or ""))
+            if player is None:
+                continue
+            stats = {
+                key: value
+                for key, value in row.items()
+                if key not in ignored_stats and value not in (None, "", "NA")
+            }
+            if not stats:
+                continue
+            stats_rows[player.id] = {
+                "season": _safe_int(row.get("season"), stats_season),
+                "season_type": row.get("season_type") or "REG",
+                "team": row.get("team") or player.nfl_team,
+                "position": row.get("position") or player.position,
+                "stats": stats,
+                "source_url": NFLVERSE_PLAYER_STATS_URL.format(season=stats_season),
+                "license": "CC-BY-4.0",
+                "summary_level": "regular season",
+            }
+        if stats_rows:
+            db.execute(
+                delete(SourcePlayerValue).where(
+                    SourcePlayerValue.source_id == "nflverse",
+                    SourcePlayerValue.value_type == "player_stats",
+                )
+            )
+            stats_snapshot = f"nflverse-stats-{stats_season}-{int(datetime.now(UTC).timestamp())}"
+            for player_id, values in stats_rows.items():
+                normalized = values["stats"].get("fantasy_points_ppr") or values["stats"].get(
+                    "fantasy_points"
+                )
+                db.add(
+                    SourcePlayerValue(
+                        source_id="nflverse",
+                        player_id=player_id,
+                        value_type="player_stats",
+                        raw_value_json=values,
+                        normalized_value=_safe_decimal(normalized),
+                        source_updated_at=datetime.now(UTC),
+                        fetched_at=datetime.now(UTC),
+                        snapshot_id=stats_snapshot,
+                    )
+                )
         db.execute(
             delete(SourcePlayerValue).where(
                 SourcePlayerValue.source_id == "nflverse",

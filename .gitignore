@@ -7,6 +7,8 @@ __pycache__/
 *.pyc
 data/*.db
 data/.session_secret
+data/audit/
+data/backups/
 exports/*.csv
 exports/*.xml
 exports/*.json

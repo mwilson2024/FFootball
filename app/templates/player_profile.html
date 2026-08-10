@@ -1,11 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
 <section id="profile-hero" class="profile-hero panel"><div class="profile-loading">Loading player profile…</div></section>
-<nav class="profile-nav" aria-label="Player profile sections"><a href="#overview">Overview</a><a href="#rankings">Rankings</a><a href="#schedule-profile">Schedule</a><a href="#auction-profile">Auction</a><a href="#source-analysis">Sources</a></nav>
+<nav class="profile-nav" aria-label="Player profile sections"><a href="#overview">Overview</a><a href="#rankings">Rankings</a><a href="#schedule-profile">Schedule</a><a href="#auction-profile">Auction</a><a href="#source-analysis">Sources</a><a href="#nerdy-stats">Nerdy stats</a></nav>
 <section id="overview" class="profile-grid"></section>
 <section id="rankings" class="panel profile-section"><h2>Rankings</h2><div id="profile-rankings"></div></section>
 <section id="schedule-profile" class="panel profile-section"><h2>NFL schedule</h2><div id="profile-schedule"></div></section>
 <section id="auction-profile" class="panel profile-section"><h2>Auction plan</h2><div id="profile-auction"></div></section>
 <section id="source-analysis" class="panel profile-section"><h2>Source analysis</h2><div id="profile-sources"></div></section>
+<section id="nerdy-stats" class="panel profile-section"><h2>Nerdy stats</h2><p class="muted">Every non-empty regular-season field available for this player from the latest nflverse snapshot.</p><div id="profile-nerdy-stats"></div></section>
 {% endblock %}
 {% block scripts %}<script>window.SELECTED_LEAGUE_ID={{ selected_league_id|tojson }};window.PROFILE_PLAYER_ID={{ player_id|tojson }};initPlayerProfileV2()</script>{% endblock %}

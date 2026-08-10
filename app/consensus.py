@@ -16,6 +16,7 @@ from app.models import (
     ConsensusSnapshot,
     DataSource,
     DraftPick,
+    Franchise,
     KeeperSelection,
     League,
     LeagueType,
@@ -294,6 +295,10 @@ def build_consensus(
             for index, (player_id, _) in enumerate(ordered)
         }
     availability = availability_maps(db, league_id)
+    franchise_names = {
+        franchise.id: franchise.name
+        for franchise in db.scalars(select(Franchise).where(Franchise.league_id == league_id))
+    }
     rows: list[dict[str, Any]] = []
     for player in players:
         ranking = rankings.get(player.id)
@@ -325,6 +330,7 @@ def build_consensus(
             or availability["purchased_by"].get(player.id)
             or availability["drafted_by"].get(player.id)
         )
+        owner_name = franchise_names.get(owner, owner) if owner else None
         preference = preferences.get(player.id)
         rows.append(
             {
@@ -375,7 +381,8 @@ def build_consensus(
                 if ranking and ranking.suggested_auction_value is not None
                 else None,
                 "available": player.id not in availability["unavailable"],
-                "rostered_by": owner,
+                "owner_id": owner,
+                "rostered_by": owner_name,
                 "keeper": player.id in availability["keepers"],
                 "drafted": player.id in availability["drafted_by"],
                 "preference": _preference_json(preference),

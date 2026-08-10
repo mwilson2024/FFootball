@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.auction import franchise_budget
 from app.consensus import build_consensus
 from app.models import (
+    DataSource,
     Franchise,
     KeeperSelection,
     League,
@@ -322,7 +323,7 @@ def query_players(
             return False
         if selected_team and (row["nfl_team"] or "").upper() != selected_team:
             return False
-        if owner and row["rostered_by"] != owner:
+        if owner and row["owner_id"] != owner:
             return False
         if rookie is not None and bool(row["rookie"]) != rookie:
             return False
@@ -531,6 +532,11 @@ def player_detail(db: Session, league_id: str, player_id: str) -> dict[str, Any]
         if key not in seen_values:
             seen_values.add(key)
             latest_values.append(value)
+    source_ids = {value.source_id for value in latest_values} | set(row.get("source_ranks") or {})
+    sources = {
+        source.id: source
+        for source in db.scalars(select(DataSource).where(DataSource.id.in_(source_ids)))
+    }
     fantasypros = next(
         (value.raw_value_json or {} for value in latest_values if value.source_id == "fantasypros"),
         {},
@@ -544,6 +550,22 @@ def player_detail(db: Session, league_id: str, player_id: str) -> dict[str, Any]
             value.raw_value_json or {}
             for value in latest_values
             if value.source_id == "nflverse" and value.value_type == "schedule"
+        ),
+        {},
+    )
+    player_stats = next(
+        (
+            value.raw_value_json or {}
+            for value in latest_values
+            if value.source_id == "nflverse" and value.value_type == "player_stats"
+        ),
+        {},
+    )
+    depth_chart = next(
+        (
+            value.raw_value_json or {}
+            for value in latest_values
+            if value.value_type == "depth_chart"
         ),
         {},
     )
@@ -598,6 +620,32 @@ def player_detail(db: Session, league_id: str, player_id: str) -> dict[str, Any]
         flags.append("Rank disagreement")
     if row.get("source_confidence") == "low":
         flags.append("Limited source coverage")
+    source_rank_details = []
+    latest_lookup = {(value.source_id, value.value_type): value for value in latest_values}
+    for source_id, rank in (row.get("source_ranks") or {}).items():
+        source = sources.get(source_id)
+        rank_value = latest_lookup.get((source_id, "rank"))
+        source_rank_details.append(
+            {
+                "source_id": source_id,
+                "source_name": source.name if source else source_id,
+                "rank": str(rank),
+                "meaning": "Lower is better; this is the source's supplied overall rank signal.",
+                "source_updated_at": rank_value.source_updated_at if rank_value else None,
+                "fetched_at": rank_value.fetched_at if rank_value else None,
+                "attribution": source.attribution if source else None,
+            }
+        )
+    source_rank_details.sort(key=lambda item: float(item["rank"]))
+    sleeper_depth = metadata.get("sleeper") or {}
+    if not depth_chart and (
+        sleeper_depth.get("depth_chart_position") or sleeper_depth.get("depth_chart_order")
+    ):
+        depth_chart = {
+            "depth_position": sleeper_depth.get("depth_chart_position"),
+            "depth_team": sleeper_depth.get("depth_chart_order"),
+            "source": "Sleeper",
+        }
     return {
         **row,
         "identity": {
@@ -639,6 +687,9 @@ def player_detail(db: Session, league_id: str, player_id: str) -> dict[str, Any]
                 if gng.get(key) is not None
             },
             "schedule": schedule,
+            "depth_chart": depth_chart,
+            "nerdy_stats": player_stats,
+            "source_rank_details": source_rank_details,
         },
         "source_values": [
             {

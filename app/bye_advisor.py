@@ -62,7 +62,9 @@ def _matchup_label(quality: float, known: bool) -> str:
     return "Tough"
 
 
-def bye_week_advice(db: Session, league_id: str, week: int) -> dict[str, Any]:
+def bye_week_advice(
+    db: Session, league_id: str, week: int, player_id: str | None = None
+) -> dict[str, Any]:
     league = db.scalar(select(League).where(League.id == league_id).order_by(League.season.desc()))
     if league is None:
         raise ValueError("League not found")
@@ -80,6 +82,7 @@ def bye_week_advice(db: Session, league_id: str, week: int) -> dict[str, Any]:
     base = {
         "league": {"id": league.id, "name": league.name, "type": league.league_type},
         "selected_week": week,
+        "selected_player_id": player_id,
         "franchise": (
             {"id": franchise.id, "name": franchise.name} if franchise is not None else None
         ),
@@ -141,7 +144,14 @@ def bye_week_advice(db: Session, league_id: str, week: int) -> dict[str, Any]:
         }
         for item_week in range(1, 19)
     ]
-    conflicts = [player for player in roster if player["bye_week"] == week]
+    manually_selected = next(
+        (player for player in roster if player["player_id"] == player_id), None
+    )
+    conflicts = (
+        [manually_selected]
+        if manually_selected is not None
+        else [player for player in roster if player["bye_week"] == week]
+    )
     recommendations: dict[str, list[dict[str, Any]]] = {}
 
     for conflict in conflicts:
@@ -238,7 +248,12 @@ def bye_week_advice(db: Session, league_id: str, week: int) -> dict[str, Any]:
             ),
         ),
         "conflicts": [
-            {**conflict, "recommendations": recommendations[str(conflict["player_id"])]}
+            {
+                **conflict,
+                "is_bye": conflict["bye_week"] == week,
+                "selected_manually": manually_selected is not None,
+                "recommendations": recommendations[str(conflict["player_id"])],
+            }
             for conflict in conflicts
         ],
         "schedule_available": bool(schedules),
