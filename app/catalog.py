@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import re
+import unicodedata
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 from urllib.parse import urlparse
@@ -63,6 +64,49 @@ POSITION_ALIASES = {
     "K": "PK",
     "PK": "PK",
 }
+FANTASYPROS_DEFENSE_SLUGS = {
+    "ARI": "arizona-defense",
+    "ATL": "atlanta-defense",
+    "BAL": "baltimore-defense",
+    "BUF": "buffalo-defense",
+    "CAR": "carolina-defense",
+    "CHI": "chicago-defense",
+    "CIN": "cincinnati-defense",
+    "CLE": "cleveland-defense",
+    "DAL": "dallas-defense",
+    "DEN": "denver-defense",
+    "DET": "detroit-defense",
+    "GBP": "green-bay-defense",
+    "HOU": "houston-defense",
+    "IND": "indianapolis-defense",
+    "JAC": "jacksonville-defense",
+    "KCC": "kansas-city-defense",
+    "LAC": "los-angeles-chargers-defense",
+    "LAR": "los-angeles-rams-defense",
+    "LVR": "las-vegas-defense",
+    "MIA": "miami-defense",
+    "MIN": "minnesota-defense",
+    "NEP": "new-england-defense",
+    "NOS": "new-orleans-defense",
+    "NYG": "new-york-giants-defense",
+    "NYJ": "new-york-jets-defense",
+    "PHI": "philadelphia-defense",
+    "PIT": "pittsburgh-defense",
+    "SEA": "seattle-defense",
+    "SFO": "san-francisco-defense",
+    "TBB": "tampa-bay-defense",
+    "TEN": "tennessee-defense",
+    "WAS": "washington-defense",
+}
+
+
+def _fantasypros_profile_slug(name: str) -> str:
+    value = name.strip()
+    if "," in value:
+        last, first = value.split(",", 1)
+        value = f"{first.strip()} {last.strip()}"
+    value = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode()
+    return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
 
 
 def draftable_positions(db: Session, league_id: str) -> set[str]:
@@ -575,6 +619,27 @@ def player_detail(db: Session, league_id: str, player_id: str) -> dict[str, Any]
     league = db.scalar(select(League).where(League.id == league_id).order_by(League.season.desc()))
     metadata = player.metadata_json or {}
     external_links: list[dict[str, Any]] = []
+    is_team_defense = player.position.upper() in {"DEF", "DST", "D/ST"}
+    defense_slug = FANTASYPROS_DEFENSE_SLUGS.get(str(player.nfl_team or "").upper())
+    if is_team_defense and defense_slug:
+        external_links.append(
+            {
+                "label": "FantasyPros defense news",
+                "url": f"https://www.fantasypros.com/nfl/news/{defense_slug}.php",
+                "guessed": False,
+            }
+        )
+    elif not is_team_defense:
+        external_links.append(
+            {
+                "label": "FantasyPros profile",
+                "url": (
+                    "https://www.fantasypros.com/nfl/players/"
+                    f"{_fantasypros_profile_slug(player.name)}.php"
+                ),
+                "guessed": True,
+            }
+        )
     if isinstance(gng.get("source_url"), str):
         external_links.append(
             {"label": "The GNG ranking", "url": gng["source_url"], "guessed": False}

@@ -146,9 +146,11 @@ def test_player_pool_only_contains_positions_draftable_in_selected_league(
     assert player_filters(seeded, "00999")["positions"] == ["QB", "RB", "DEF"]
     defense_detail = player_detail(seeded, "00999", "defense")
     assert defense_detail is not None
-    assert all(
-        "fantasypros.com" not in link["url"] for link in defense_detail["profile"]["external_links"]
-    )
+    assert {
+        "label": "FantasyPros defense news",
+        "url": "https://www.fantasypros.com/nfl/news/buffalo-defense.php",
+        "guessed": False,
+    } in defense_detail["profile"]["external_links"]
 
 
 def test_dynamic_bid_reacts_to_selected_players_and_remaining_money(seeded: Session) -> None:
@@ -502,7 +504,11 @@ async def test_gng_and_local_csv_rankings_preserve_provenance(
     detail = player_detail(seeded, "00999", "0001234")
     assert detail is not None
     assert "fantasypros" not in detail["profile"]
-    assert all("fantasypros.com" not in link["url"] for link in detail["profile"]["external_links"])
+    assert {
+        "label": "FantasyPros profile",
+        "url": "https://www.fantasypros.com/nfl/players/leading-zero.php",
+        "guessed": True,
+    } in detail["profile"]["external_links"]
 
 
 @pytest.mark.asyncio
