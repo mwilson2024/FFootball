@@ -4,6 +4,7 @@ import math
 import re
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
+from urllib.parse import urlparse
 
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
@@ -535,6 +536,17 @@ def player_detail(db: Session, league_id: str, player_id: str) -> dict[str, Any]
         (value.raw_value_json or {} for value in latest_values if value.source_id == "gng"),
         {},
     )
+    fantasysharks_value = db.scalar(
+        select(SourcePlayerValue)
+        .where(
+            SourcePlayerValue.player_id == player_id,
+            SourcePlayerValue.source_id == "fantasysharks_dynasty_csv",
+            SourcePlayerValue.value_type == "rank",
+        )
+        .order_by(SourcePlayerValue.fetched_at.desc(), SourcePlayerValue.id.desc())
+        .limit(1)
+    )
+    fantasysharks = fantasysharks_value.raw_value_json or {} if fantasysharks_value else {}
     schedule = next(
         (
             value.raw_value_json or {}
@@ -567,6 +579,28 @@ def player_detail(db: Session, league_id: str, player_id: str) -> dict[str, Any]
         external_links.append(
             {"label": "The GNG ranking", "url": gng["source_url"], "guessed": False}
         )
+    fantasysharks_id = str(
+        fantasysharks.get("FantasySharks PID") or fantasysharks.get("fantasysharks_pid") or ""
+    ).strip()
+    fantasysharks_url = str(
+        fantasysharks.get("Player Page") or fantasysharks.get("player_page") or ""
+    ).strip()
+    if not fantasysharks_url and fantasysharks_id.isdigit():
+        fantasysharks_url = (
+            f"https://www.fantasysharks.com/players/playerpage.php?PID={fantasysharks_id}"
+        )
+    parsed_fantasysharks = urlparse(fantasysharks_url)
+    if parsed_fantasysharks.scheme == "https" and parsed_fantasysharks.hostname in {
+        "fantasysharks.com",
+        "www.fantasysharks.com",
+    }:
+        external_links.append(
+            {
+                "label": "FantasySharks profile",
+                "url": fantasysharks_url,
+                "guessed": False,
+            }
+        )
     if identity and identity.espn_id:
         external_links.append(
             {
@@ -595,6 +629,13 @@ def player_detail(db: Session, league_id: str, player_id: str) -> dict[str, Any]
         flags.append("Rank disagreement")
     if row.get("source_confidence") == "low":
         flags.append("Limited source coverage")
+    preference = row.get("preference") or {}
+    if preference.get("target"):
+        flags.append("Target")
+    if preference.get("fade"):
+        flags.append("Fade")
+    if "sleeper" in (preference.get("tags") or []):
+        flags.append("Sleeper")
     source_rank_details = []
     latest_lookup = {(value.source_id, value.value_type): value for value in latest_values}
     signal_descriptions = {
@@ -663,6 +704,10 @@ def player_detail(db: Session, league_id: str, player_id: str) -> dict[str, Any]
             "headshot_url": (metadata.get("nflverse") or {}).get("headshot"),
             "flags": flags,
             "external_links": external_links,
+            "fantasysharks": {
+                "player_id": fantasysharks_id or None,
+                "player_page": fantasysharks_url or None,
+            },
             "gng": {
                 key: gng.get(key)
                 for key in (

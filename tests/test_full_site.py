@@ -541,8 +541,10 @@ async def test_local_dynasty_rankings_are_scoped_to_adfl(
     )
     fantasysharks_file = tmp_path / "fantasysharks-dynasty.csv"
     fantasysharks_file.write_text(
-        "Position,Position Rank,Player,Team,Bye Week,Projected Points\n"
-        "RB,1,Leading Zero,BUF,7,325\n",
+        "Position,Position Rank,Player,Team,Bye Week,Projected Points,"
+        "FantasySharks PID,Player Page\n"
+        "RB,1,Leading Zero,BUF,7,325,14777,"
+        "https://www.fantasysharks.com/players/playerpage.php?PID=14777\n",
         encoding="utf-8",
     )
     monkeypatch.setitem(LOCAL_RANKING_SPECS["espn_dynasty_csv"], "path", ranking_file)
@@ -565,6 +567,20 @@ async def test_local_dynasty_rankings_are_scoped_to_adfl(
     assert "espn_dynasty_csv" not in tmfl["0001234"]["source_ranks"]
     assert "fantasypros_dynasty_csv" not in tmfl["0001234"]["source_ranks"]
     assert "fantasysharks_dynasty_csv" not in tmfl["0001234"]["source_ranks"]
+    detail = player_detail(seeded, "adfl", "0001234")
+    assert detail is not None
+    assert detail["profile"]["fantasysharks"]["player_id"] == "14777"
+    assert {
+        "label": "FantasySharks profile",
+        "url": "https://www.fantasysharks.com/players/playerpage.php?PID=14777",
+        "guessed": False,
+    } in detail["profile"]["external_links"]
+    tmfl_detail = player_detail(seeded, "00999", "0001234")
+    assert tmfl_detail is not None
+    assert any(
+        link["label"] == "FantasySharks profile"
+        for link in tmfl_detail["profile"]["external_links"]
+    )
 
 
 def test_projection_aav_and_trend_affect_consensus_but_schedule_does_not(

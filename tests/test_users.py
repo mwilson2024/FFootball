@@ -3,6 +3,7 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.catalog import player_detail
 from app.consensus import build_consensus, parse_ranking_csv
 from app.main import update_preference
 from app.models import DataSource, UserLeagueSetting, UserMFLMembership, UserPlayerPreference
@@ -27,7 +28,7 @@ def test_source_and_player_settings_are_isolated_by_username(seeded: Session) ->
         update_preference(
             "00999",
             "0001234",
-            PreferenceUpdate(target=True, tags=["sleeper"]),
+            PreferenceUpdate(target=True, fade=True, tags=["sleeper"]),
             seeded,
         )
         assert effective_source_settings(seeded)["sleeper"]["enabled"] is False
@@ -35,7 +36,11 @@ def test_source_and_player_settings_are_isolated_by_username(seeded: Session) ->
             row for row in build_consensus(seeded, "00999") if row["player_id"] == "0001234"
         )
         assert alice_row["preference"]["target"] is True
+        assert alice_row["preference"]["fade"] is True
         assert alice_row["preference"]["tags"] == ["sleeper"]
+        detail = player_detail(seeded, "00999", "0001234")
+        assert detail is not None
+        assert {"Target", "Fade", "Sleeper"}.issubset(detail["profile"]["flags"])
     finally:
         reset_active_username(alice)
 
