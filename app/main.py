@@ -132,10 +132,12 @@ from app.sources import (
 from app.sync import RULE_DESCRIPTIONS, record_sync_warnings, sync_configured, sync_league
 from app.user_context import (
     active_username,
+    is_personal_source_id,
     reset_active_league_ids,
     reset_active_username,
     set_active_league_ids,
     set_active_username,
+    source_visible_to_user,
 )
 from app.users import (
     AUCTION_STRATEGIES,
@@ -714,12 +716,20 @@ async def sync(db: Db) -> dict[str, Any]:
 def sources(db: Db) -> list[dict[str, Any]]:
     initialize_sources(db)
     effective = effective_source_settings(db)
+    username = active_username()
+    visible_sources = [
+        item
+        for item in db.scalars(select(DataSource).order_by(DataSource.name))
+        if source_visible_to_user(item.id, username)
+    ]
+    visible_source_ids = [item.id for item in visible_sources]
     allowed = authorized_league_ids(db)
     count_query = select(
         SourcePlayerValue.source_id,
         SourcePlayerValue.league_id,
         func.count(SourcePlayerValue.id),
     ).group_by(SourcePlayerValue.source_id, SourcePlayerValue.league_id)
+    count_query = count_query.where(SourcePlayerValue.source_id.in_(visible_source_ids))
     if allowed is not None:
         count_query = count_query.where(SourcePlayerValue.league_id.in_(allowed))
     counts: dict[str, dict[str, int]] = {}
@@ -739,10 +749,11 @@ def sources(db: Db) -> list[dict[str, Any]]:
             "weight": str(effective[item.id]["weight"]),
             "default_weight": str(item.weight),
             "personalized": item.id in saved_ids,
+            "visibility": "personal" if is_personal_source_id(item.id) else "shared",
             "received_count": sum(counts.get(item.id, {}).values()),
             "league_counts": counts.get(item.id, {}),
         }
-        for item in db.scalars(select(DataSource).order_by(DataSource.name))
+        for item in visible_sources
     ]
 
 
@@ -831,7 +842,7 @@ def source_received_data(
 @app.put("/api/setup/sources/{source_id}")
 def update_source(source_id: str, payload: SourceUpdate, db: Db) -> dict[str, Any]:
     source = db.get(DataSource, source_id)
-    if source is None:
+    if source is None or not source_visible_to_user(source_id, active_username()):
         raise HTTPException(404, detail={"code": "source_not_found", "message": "Source not found"})
     setting = save_source_setting(db, source_id, enabled=payload.enabled, weight=payload.weight)
     return {**source_json(source), "enabled": setting.enabled, "weight": str(setting.weight)}
@@ -869,7 +880,7 @@ def preview_sources(payload: SourcePreview, db: Db) -> dict[str, Any]:
 @app.post("/api/sources/sync")
 async def sync_source(db: Db, source_id: str = Query(...)) -> dict[str, Any]:
     source = db.get(DataSource, source_id)
-    if source is None:
+    if source is None or not source_visible_to_user(source_id, active_username()):
         raise HTTPException(404, detail={"code": "source_not_found", "message": "Source not found"})
     if not source.enabled:
         raise HTTPException(

@@ -3,7 +3,7 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.consensus import build_consensus
+from app.consensus import build_consensus, parse_ranking_csv
 from app.main import update_preference
 from app.models import DataSource, UserLeagueSetting, UserMFLMembership, UserPlayerPreference
 from app.schemas import PreferenceUpdate
@@ -51,6 +51,52 @@ def test_source_and_player_settings_are_isolated_by_username(seeded: Session) ->
 
     assert seeded.scalar(select(DataSource).where(DataSource.id == "sleeper")).enabled is True
     assert seeded.scalar(select(UserPlayerPreference)).username == "alice"
+
+
+def test_uploaded_csv_is_private_while_bundled_sources_are_shared(
+    seeded: Session, tmp_path
+) -> None:
+    initialize_sources(seeded)
+    content = b"player_name,team,position,overall_rank\nLeading Zero,BUF,RB,1\n"
+
+    alice_token = set_active_username("Alice")
+    try:
+        alice_import = parse_ranking_csv(
+            seeded,
+            "00999",
+            content,
+            "My draft board",
+            confirm=True,
+            import_directory=tmp_path,
+        )
+        alice_source_id = alice_import["source_id"]
+        alice_settings = effective_source_settings(seeded)
+        assert alice_source_id in alice_settings
+        assert "fantasypros_redraft_csv" in alice_settings
+    finally:
+        reset_active_username(alice_token)
+
+    bob_token = set_active_username("Bob")
+    try:
+        assert alice_source_id not in effective_source_settings(seeded)
+        bob_import = parse_ranking_csv(
+            seeded,
+            "00999",
+            content,
+            "My draft board",
+            confirm=True,
+            import_directory=tmp_path,
+        )
+        bob_source_id = bob_import["source_id"]
+        assert bob_source_id != alice_source_id
+        assert bob_source_id in effective_source_settings(seeded)
+        bob_row = next(
+            row for row in build_consensus(seeded, "00999") if row["player_id"] == "0001234"
+        )
+        assert bob_source_id in bob_row["source_ranks"]
+        assert alice_source_id not in bob_row["source_ranks"]
+    finally:
+        reset_active_username(bob_token)
 
 
 def test_wilsonmw_is_admin_and_balanced_strategy_is_default(seeded: Session) -> None:

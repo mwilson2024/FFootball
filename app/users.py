@@ -14,7 +14,12 @@ from app.models import (
     UserMFLMembership,
     UserSourceSetting,
 )
-from app.user_context import active_league_ids, active_username, normalize_username
+from app.user_context import (
+    active_league_ids,
+    active_username,
+    normalize_username,
+    source_visible_to_user,
+)
 
 DEFAULT_AUCTION_STRATEGY = "balanced"
 AUCTION_STRATEGIES: dict[str, dict[str, Any]] = {
@@ -191,6 +196,7 @@ def effective_source_settings(db: Session) -> dict[str, dict[str, Any]]:
             else Decimal(source.weight),
         }
         for source in db.scalars(select(DataSource))
+        if source_visible_to_user(source.id, username)
     }
 
 
@@ -198,6 +204,8 @@ def save_source_setting(
     db: Session, source_id: str, *, enabled: bool, weight: Decimal
 ) -> UserSourceSetting:
     username = active_username()
+    if not source_visible_to_user(source_id, username):
+        raise ValueError("Ranking source is not available to this account")
     setting = db.scalar(
         select(UserSourceSetting).where(
             UserSourceSetting.username == username,

@@ -36,6 +36,10 @@ def test_source_initialization_turns_every_source_on(db: Session) -> None:
     assert all(source.enabled for source in sources)
     assert all(Decimal(source.weight) > 0 for source in sources)
     assert db.get(DataSource, "espn_dynasty_csv") is not None
+    assert db.get(DataSource, "fantasypros_redraft_csv") is not None
+    assert db.get(DataSource, "fantasypros_dynasty_csv") is not None
+    assert db.get(DataSource, "fantasysharks_dynasty_csv") is not None
+    assert db.get(DataSource, "local_redraft_csv") is None
     assert db.get(DataSource, "fantasypros_dynasty") is None
 
     response = update_source("sleeper", SourceUpdate(enabled=False, weight=Decimal("0.5")), db)

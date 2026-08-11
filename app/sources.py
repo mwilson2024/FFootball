@@ -38,7 +38,12 @@ NFLVERSE_PLAYER_STATS_URL = (
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-LEGACY_FANTASYPROS_SOURCE_IDS = {"fantasypros", "fantasypros_dynasty"}
+LEGACY_SOURCE_IDS = {
+    "fantasypros",
+    "fantasypros_dynasty",
+    "local_redraft_csv",
+    "user_csv",
+}
 LOCAL_RANKING_SPECS: dict[str, dict[str, Any]] = {
     "espn_ppr_csv": {
         "path": PROJECT_ROOT / "CSV" / "NFL26_CS_PPR300.csv",
@@ -48,9 +53,18 @@ LOCAL_RANKING_SPECS: dict[str, dict[str, Any]] = {
         "path": PROJECT_ROOT / "CSV" / "espnDynastyNFL26_CS_Dyn.csv",
         "league_types": {LeagueType.KEEPER},
     },
-    "local_redraft_csv": {
+    "fantasypros_redraft_csv": {
         "path": PROJECT_ROOT / "CSV" / "FantasyPros_2026_Draft_ALL_Rankings.csv",
         "league_types": {LeagueType.AUCTION},
+    },
+    "fantasypros_dynasty_csv": {
+        "path": PROJECT_ROOT / "CSV" / "FantasyPros_2026_Dynasty_ALL_Rankings.csv",
+        "league_types": {LeagueType.KEEPER},
+    },
+    "fantasysharks_dynasty_csv": {
+        "path": PROJECT_ROOT / "CSV" / "fantasysharks_2026_rankings_dyn.csv",
+        "league_types": {LeagueType.KEEPER},
+        "rank_by": "projected_points_desc",
     },
 }
 LOCAL_RANKING_SOURCE_IDS = tuple(LOCAL_RANKING_SPECS)
@@ -129,8 +143,8 @@ DEFAULT_SOURCES: list[dict[str, Any]] = [
         "enabled": True,
         "weight": Decimal("1"),
         "terms_url": None,
-        "license": "User-provided ranking file; personal use",
-        "attribution": "ESPN 2026 PPR Top 300 supplied locally",
+        "license": "Site owner-provided file; shared in this DraftDesk instance",
+        "attribution": "ESPN 2026 PPR Top 300 — NFL26_CS_PPR300.csv",
         "cache_ttl_seconds": 0,
     },
     {
@@ -140,19 +154,41 @@ DEFAULT_SOURCES: list[dict[str, Any]] = [
         "enabled": True,
         "weight": Decimal("1"),
         "terms_url": None,
-        "license": "User-provided ranking file; personal use",
-        "attribution": "ESPN 2026 dynasty rankings supplied locally",
+        "license": "Site owner-provided file; shared in this DraftDesk instance",
+        "attribution": "ESPN 2026 Dynasty Top 240 — espnDynastyNFL26_CS_Dyn.csv",
         "cache_ttl_seconds": 0,
     },
     {
-        "id": "local_redraft_csv",
-        "name": "Full Redraft Rankings (local CSV)",
+        "id": "fantasypros_redraft_csv",
+        "name": "FantasyPros 2026 Redraft Rankings",
         "kind": "ranking",
         "enabled": True,
         "weight": Decimal("1"),
         "terms_url": None,
-        "license": "User-provided ranking file; personal use",
-        "attribution": "User-provided 2026 full redraft ranking CSV",
+        "license": "Site owner-provided file; shared in this DraftDesk instance",
+        "attribution": "FantasyPros — FantasyPros_2026_Draft_ALL_Rankings.csv",
+        "cache_ttl_seconds": 0,
+    },
+    {
+        "id": "fantasypros_dynasty_csv",
+        "name": "FantasyPros 2026 Dynasty Rankings",
+        "kind": "ranking",
+        "enabled": True,
+        "weight": Decimal("1"),
+        "terms_url": None,
+        "license": "Site owner-provided file; shared in this DraftDesk instance",
+        "attribution": "FantasyPros — FantasyPros_2026_Dynasty_ALL_Rankings.csv",
+        "cache_ttl_seconds": 0,
+    },
+    {
+        "id": "fantasysharks_dynasty_csv",
+        "name": "FantasySharks 2026 Dynasty Rankings",
+        "kind": "ranking",
+        "enabled": True,
+        "weight": Decimal("1"),
+        "terms_url": None,
+        "license": "Site owner-provided file; shared in this DraftDesk instance",
+        "attribution": "FantasySharks — fantasysharks_2026_rankings_dyn.csv",
         "cache_ttl_seconds": 0,
     },
     {
@@ -177,32 +213,13 @@ DEFAULT_SOURCES: list[dict[str, Any]] = [
         "attribution": "Identity, schedule and historical statistics provided by nflverse",
         "cache_ttl_seconds": 86400,
     },
-    {
-        "id": "user_csv",
-        "name": "User Ranking Imports",
-        "kind": "ranking",
-        "enabled": True,
-        "weight": Decimal("1"),
-        "terms_url": None,
-        "license": "User supplied",
-        "attribution": "User-supplied ranking sheet",
-        "cache_ttl_seconds": 0,
-    },
 ]
 
 
 def initialize_sources(db: Session) -> None:
-    db.execute(
-        delete(UserSourceSetting).where(
-            UserSourceSetting.source_id.in_(LEGACY_FANTASYPROS_SOURCE_IDS)
-        )
-    )
-    db.execute(
-        delete(SourcePlayerValue).where(
-            SourcePlayerValue.source_id.in_(LEGACY_FANTASYPROS_SOURCE_IDS)
-        )
-    )
-    for source_id in LEGACY_FANTASYPROS_SOURCE_IDS:
+    db.execute(delete(UserSourceSetting).where(UserSourceSetting.source_id.in_(LEGACY_SOURCE_IDS)))
+    db.execute(delete(SourcePlayerValue).where(SourcePlayerValue.source_id.in_(LEGACY_SOURCE_IDS)))
+    for source_id in LEGACY_SOURCE_IDS:
         legacy_source = db.get(DataSource, source_id)
         if legacy_source is not None:
             db.delete(legacy_source)
@@ -464,6 +481,15 @@ def _csv_value(row: dict[str, Any], *names: str) -> str:
         value = row.get(name)
         if value not in (None, ""):
             return str(value).strip()
+    normalized = {
+        re.sub(r"[^a-z0-9]+", "_", str(key).casefold()).strip("_"): value
+        for key, value in row.items()
+    }
+    for name in names:
+        key = re.sub(r"[^a-z0-9]+", "_", name.casefold()).strip("_")
+        value = normalized.get(key)
+        if value not in (None, ""):
+            return str(value).strip()
     return ""
 
 
@@ -489,6 +515,22 @@ def sync_local_ranking_source(db: Session, source_id: str) -> dict[str, Any]:
         ]
         if not rows:
             raise ValueError(f"Local ranking CSV is empty: {path.name}")
+        if spec.get("rank_by") == "projected_points_desc":
+            ranked_rows = [
+                (row, projection)
+                for row in rows
+                if (projection := _safe_decimal(_csv_value(row, "projected_points"))) is not None
+            ]
+            ranked_rows.sort(
+                key=lambda item: (
+                    -item[1],
+                    _csv_value(item[0], "player_name", "player").casefold(),
+                )
+            )
+            rows = [
+                {**row, "derived_overall_rank": str(index)}
+                for index, (row, _) in enumerate(ranked_rows, 1)
+            ]
         checksum = hashlib.sha256(content).hexdigest()
         updated_at = datetime.fromtimestamp(path.stat().st_mtime, UTC)
         players = list(db.scalars(select(Player)))
@@ -510,7 +552,9 @@ def sync_local_ranking_source(db: Session, source_id: str) -> dict[str, Any]:
             matched: dict[str, tuple[Player, dict[str, Any], Decimal]] = {}
             unresolved = 0
             for raw_row in rows:
-                rank = _safe_decimal(_csv_value(raw_row, "overall_rank", "RK", "rank"))
+                rank = _safe_decimal(
+                    _csv_value(raw_row, "overall_rank", "derived_overall_rank", "RK", "rank")
+                )
                 if rank is None or rank <= 0:
                     unresolved += 1
                     continue
@@ -545,6 +589,8 @@ def sync_local_ranking_source(db: Session, source_id: str) -> dict[str, Any]:
                         "overall_rank": str(rank),
                         "position_rank": _csv_value(raw_row, "position_rank", "POS"),
                         "tier": _csv_value(raw_row, "tier", "TIERS"),
+                        "projection": _csv_value(raw_row, "projection", "projected_points"),
+                        "bye_week": _csv_value(raw_row, "bye_week"),
                         "auction_value": _csv_value(raw_row, "auction_value"),
                         "source_file": path.name,
                         "source_label": source.name,

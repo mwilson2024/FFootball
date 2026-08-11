@@ -164,7 +164,7 @@ def test_local_csv_received_data_is_visible_without_unapproved_fields(seeded):
     initialize_sources(seeded)
     seeded.add(
         SourcePlayerValue(
-            source_id="local_redraft_csv",
+            source_id="fantasypros_redraft_csv",
             league_id="00999",
             player_id="0001234",
             value_type="rank",
@@ -197,11 +197,18 @@ def test_local_csv_received_data_is_visible_without_unapproved_fields(seeded):
                 max_age_seconds=3600,
             )
             client.cookies.set(SESSION_COOKIE, token)
-            response = client.get("/api/sources/local_redraft_csv/data")
+            response = client.get("/api/sources/fantasypros_redraft_csv/data")
+            source_list = client.get("/api/sources")
 
         assert response.status_code == 200
         assert response.json()["total_count"] == 1
         assert response.json()["rows"][0]["raw"]["overall_rank"] == "4"
         assert "api_key" not in response.json()["rows"][0]["raw"]
+        fantasypros = next(
+            item for item in source_list.json() if item["id"] == "fantasypros_redraft_csv"
+        )
+        assert fantasypros["name"] == "FantasyPros 2026 Redraft Rankings"
+        assert fantasypros["visibility"] == "shared"
+        assert "FantasyPros_2026_Draft_ALL_Rankings.csv" in fantasypros["attribution"]
     finally:
         app.dependency_overrides.clear()

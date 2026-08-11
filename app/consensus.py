@@ -28,7 +28,7 @@ from app.models import (
     UserPlayerPreference,
 )
 from app.sources import normalize_player_name
-from app.user_context import active_username
+from app.user_context import active_username, personal_source_prefix
 from app.users import effective_source_settings
 
 SOURCE_FAMILIES = {
@@ -39,7 +39,9 @@ SOURCE_FAMILIES = {
     "mfl_projection": "mfl",
     "espn_ppr_csv": "espn",
     "espn_dynasty_csv": "espn",
-    "local_redraft_csv": "local_redraft",
+    "fantasypros_redraft_csv": "fantasypros",
+    "fantasypros_dynasty_csv": "fantasypros",
+    "fantasysharks_dynasty_csv": "fantasysharks",
     "gng": "gng",
     "sleeper": "sleeper",
     "nflverse": "nflverse",
@@ -246,7 +248,10 @@ def build_consensus(
         and Decimal(source_options.get(item.id, {}).get("weight", 0)) > 0
     }
     custom_ranks = _latest_user_ranks(db, league_id)
-    local_redraft_raw = _latest_source_raw(db, league_id, "local_redraft_csv")
+    fantasypros_source_id = (
+        "fantasypros_dynasty_csv" if league_type == LeagueType.KEEPER else "fantasypros_redraft_csv"
+    )
+    fantasypros_raw = _latest_source_raw(db, league_id, fantasypros_source_id)
     rank_values_by_source: dict[str, dict[str, Decimal]] = {}
     for player in players:
         ranking = rankings.get(player.id)
@@ -369,7 +374,7 @@ def build_consensus(
                 "tier": preference.manual_tier
                 if preference and preference.manual_tier
                 else (ranking.tier if ranking else None),
-                "source_tier": local_redraft_raw.get(player.id, {}).get("tier"),
+                "source_tier": fantasypros_raw.get(player.id, {}).get("tier"),
                 "custom_score": str(ranking.custom_score) if ranking else None,
                 "projected_points": str(ranking.projected_points)
                 if ranking and ranking.projected_points is not None
@@ -434,10 +439,10 @@ def create_consensus_snapshot(
     return snapshot
 
 
-def _source_id(name: str) -> str:
-    slug = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")[:30]
+def _source_id(name: str, username: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")[:12] or "rankings"
     digest = hashlib.sha256(name.encode()).hexdigest()[:8]
-    return f"user_{slug}_{digest}"
+    return f"{personal_source_prefix(username)}{slug}_{digest}"
 
 
 def parse_ranking_csv(
@@ -482,7 +487,8 @@ def parse_ranking_csv(
         return result
     if unresolved:
         raise ValueError("Resolve ambiguous or incomplete rows before importing")
-    source_id = _source_id(source_name)
+    username = active_username()
+    source_id = _source_id(source_name, username)
     source = db.get(DataSource, source_id)
     if source is None:
         source = DataSource(
@@ -491,8 +497,8 @@ def parse_ranking_csv(
             kind="ranking",
             enabled=True,
             weight=Decimal("1"),
-            license="User supplied",
-            attribution=source_name,
+            license="Private user upload",
+            attribution="Private CSV uploaded through your account",
             cache_ttl_seconds=0,
         )
         db.add(source)

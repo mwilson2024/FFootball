@@ -467,7 +467,7 @@ async def test_gng_and_local_csv_rankings_preserve_provenance(
         "player_name,team,position,overall_rank,tier\nLeading Zero,BUF,RB,3,1\n",
         encoding="utf-8",
     )
-    monkeypatch.setitem(LOCAL_RANKING_SPECS["local_redraft_csv"], "path", ranking_file)
+    monkeypatch.setitem(LOCAL_RANKING_SPECS["fantasypros_redraft_csv"], "path", ranking_file)
 
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
@@ -492,13 +492,13 @@ async def test_gng_and_local_csv_rankings_preserve_provenance(
 
     transport = httpx.MockTransport(handler)
     gng = await sync_gng(seeded, "00999", {"receptions": "0.5"}, transport=transport)
-    local = sync_local_ranking_source(seeded, "local_redraft_csv")
+    local = sync_local_ranking_source(seeded, "fantasypros_redraft_csv")
     rows = {row["player_id"]: row for row in build_consensus(seeded, "00999")}
 
     assert gng["matched"] == 1
     assert local["matched"] == 1
     assert rows["0001234"]["source_ranks"]["gng"] == "7"
-    assert rows["0001234"]["source_ranks"]["local_redraft_csv"] == "3"
+    assert rows["0001234"]["source_ranks"]["fantasypros_redraft_csv"] == "3"
     detail = player_detail(seeded, "00999", "0001234")
     assert detail is not None
     assert "fantasypros" not in detail["profile"]
@@ -534,14 +534,37 @@ async def test_local_dynasty_rankings_are_scoped_to_adfl(
         "player_name,team,position,overall_rank\nLeading Zero,BUF,RB,2\n",
         encoding="utf-8",
     )
+    fantasypros_file = tmp_path / "fantasypros-dynasty.csv"
+    fantasypros_file.write_text(
+        "RK,TIERS,PLAYER NAME,TEAM,POS\n4,1,Leading Zero,BUF,RB1\n",
+        encoding="utf-8",
+    )
+    fantasysharks_file = tmp_path / "fantasysharks-dynasty.csv"
+    fantasysharks_file.write_text(
+        "Position,Position Rank,Player,Team,Bye Week,Projected Points\n"
+        "RB,1,Leading Zero,BUF,7,325\n",
+        encoding="utf-8",
+    )
     monkeypatch.setitem(LOCAL_RANKING_SPECS["espn_dynasty_csv"], "path", ranking_file)
-    result = sync_local_ranking_source(seeded, "espn_dynasty_csv")
+    monkeypatch.setitem(LOCAL_RANKING_SPECS["fantasypros_dynasty_csv"], "path", fantasypros_file)
+    monkeypatch.setitem(
+        LOCAL_RANKING_SPECS["fantasysharks_dynasty_csv"], "path", fantasysharks_file
+    )
+    espn_result = sync_local_ranking_source(seeded, "espn_dynasty_csv")
+    fantasypros_result = sync_local_ranking_source(seeded, "fantasypros_dynasty_csv")
+    fantasysharks_result = sync_local_ranking_source(seeded, "fantasysharks_dynasty_csv")
     adfl = {row["player_id"]: row for row in build_consensus(seeded, "adfl")}
     tmfl = {row["player_id"]: row for row in build_consensus(seeded, "00999")}
 
-    assert result["matched"] == 1
+    assert espn_result["matched"] == 1
+    assert fantasypros_result["matched"] == 1
+    assert fantasysharks_result["matched"] == 1
     assert adfl["0001234"]["source_ranks"]["espn_dynasty_csv"] == "2"
+    assert adfl["0001234"]["source_ranks"]["fantasypros_dynasty_csv"] == "4"
+    assert adfl["0001234"]["source_ranks"]["fantasysharks_dynasty_csv"] == "1"
     assert "espn_dynasty_csv" not in tmfl["0001234"]["source_ranks"]
+    assert "fantasypros_dynasty_csv" not in tmfl["0001234"]["source_ranks"]
+    assert "fantasysharks_dynasty_csv" not in tmfl["0001234"]["source_ranks"]
 
 
 def test_projection_aav_and_trend_affect_consensus_but_schedule_does_not(

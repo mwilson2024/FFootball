@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from contextvars import ContextVar, Token
 
 _username: ContextVar[str] = ContextVar("draftdesk_username", default="wilsonmw")
@@ -12,6 +13,26 @@ def normalize_username(value: str) -> str:
 
 def active_username() -> str:
     return _username.get()
+
+
+def personal_source_prefix(username: str | None = None) -> str:
+    normalized = normalize_username(username or active_username())
+    owner_token = hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:10]
+    return f"personal_{owner_token}_"
+
+
+def is_personal_source_id(source_id: str) -> bool:
+    return source_id.startswith("personal_") or source_id.startswith("user_")
+
+
+def source_visible_to_user(source_id: str, username: str | None = None) -> bool:
+    if source_id.startswith("personal_"):
+        return source_id.startswith(personal_source_prefix(username))
+    # Older imports did not record an owner. Hide them rather than expose one
+    # account's rankings to every other account.
+    if source_id.startswith("user_"):
+        return False
+    return True
 
 
 def set_active_username(value: str) -> Token[str]:

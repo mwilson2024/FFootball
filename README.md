@@ -34,8 +34,10 @@ CSV. From PowerShell:
 ```
 
 The generated files are `CSV/NFL26_CS_PPR300.csv` and
-`CSV/espnDynastyNFL26_CS_Dyn.csv`. Those two files plus the existing full redraft CSV are loaded
-automatically at startup, after an MFL synchronization, and during the 1:00 AM daily refresh.
+`CSV/espnDynastyNFL26_CS_Dyn.csv`. Those two files plus the FantasyPros redraft, FantasyPros dynasty,
+and FantasySharks dynasty CSVs are loaded automatically at startup, after an MFL synchronization,
+and during the 1:00 AM daily refresh. Repository CSVs are shared with every signed-in account. A CSV
+imported through the Cheat Sheet belongs only to the account that uploaded it.
 
 ## Website guide
 
@@ -60,8 +62,9 @@ automatically at startup, after an MFL synchronization, and during the 1:00 AM d
   available same-position replacements using overall rank and the selected week's matchup.
 - **Data Sources:** inspect shared cached sources and privately preview, include, exclude, or weight
   each one for your board: MFL, the attributed CC-BY-4.0
-  GNG Pigskin board, three full local ranking CSVs, free Sleeper metadata/trends, CC-BY-4.0 nflverse
-  identity, weekly depth chart, schedule, and historical player-stat data, and user CSV imports.
+  GNG Pigskin board, five full shared ranking CSVs, free Sleeper metadata/trends, CC-BY-4.0 nflverse
+  identity, weekly depth chart, schedule, and historical player-stat data, and private user CSV
+  imports.
 - **Scoring:** grouped MFL scoring rules with every repeated range retained, readable event names,
   normalized values, mapping state, and the raw imported response.
 - **Settings:** configure both leagues without editing code and test public and protected access
@@ -81,11 +84,14 @@ VOR board. MFL ADP and AAV are market references; a weekly MFL projection is nev
 season projection. Missing values are ignored rather than treated as zero. “Consensus” means the
 configured local blend and never implies FantasyPros Expert Consensus Rank.
 
-The GNG rankings need no key and are attributed under CC BY 4.0. ADFL receives the supplied ESPN
-dynasty CSV; TMFL receives the supplied ESPN PPR Top 300 and full redraft CSV. The limited live
-FantasyPros API sources and API-key controls have been removed. Sleeper trends and nflverse schedule
-difficulty use small ranking weights, while their metadata also enriches player profiles. Source
-health records last attempt, success, error, cache interval, license, and terms.
+The GNG rankings need no key and are attributed under CC BY 4.0. ADFL receives the shared ESPN,
+FantasyPros, and FantasySharks dynasty CSVs; TMFL receives the shared ESPN PPR Top 300 and
+FantasyPros redraft CSV.
+The limited live FantasyPros API and API-key controls remain removed; FantasyPros data now comes
+from the complete uploaded files and is attributed with its filename. Sleeper trends and nflverse
+schedule difficulty use small ranking weights, while their metadata also enriches player profiles.
+Source health records last attempt, success, error, cache interval, license, terms, and whether the
+source is shared or private.
 The site remains fully usable with MFL and the local league model alone.
 
 Both configured leagues and every automatic source refresh daily at **1:00 AM America/New_York**.
