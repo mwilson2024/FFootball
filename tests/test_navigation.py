@@ -56,6 +56,9 @@ def test_auction_activity_strip_keeps_latest_purchase_and_live_state_separate() 
     script = (TEMPLATES.parent / "static" / "app.js").read_text(encoding="utf-8")
 
     assert 'id="auction-last-purchase"' in auction
+    assert 'id="auction-pick-status"' in auction
     assert 'id="auction-live-status"' in auction
+    assert "Current pick" in auction
+    assert "nomination.overall_pick" in script
     assert "auction-live-badge ${live.is_live?'live':'offline'}" in script
     assert "recent-purchases" in script

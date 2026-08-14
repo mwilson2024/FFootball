@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, datetime
 from decimal import Decimal
 from random import SystemRandom
@@ -8,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import (
+    AppSetting,
     AuctionAuditEvent,
     AuctionNominationState,
     AuctionPurchase,
@@ -22,6 +24,39 @@ from app.schemas import PurchaseCreate, PurchaseUpdate
 
 class AuctionValidationError(ValueError):
     pass
+
+
+def _nomination_baseline_key(league_id: str) -> str:
+    return f"auction_nomination_baseline:{league_id}"
+
+
+def _nomination_purchase_baseline(db: Session, league_id: str) -> set[str]:
+    setting = db.get(AppSetting, _nomination_baseline_key(league_id))
+    if setting is None:
+        return set()
+    try:
+        value = json.loads(setting.value)
+    except (json.JSONDecodeError, TypeError):
+        return set()
+    return {str(item) for item in value} if isinstance(value, list) else set()
+
+
+def _set_nomination_purchase_baseline(db: Session, league_id: str) -> None:
+    key = _nomination_baseline_key(league_id)
+    setting = db.get(AppSetting, key)
+    if setting is None:
+        setting = AppSetting(key=key, value="[]")
+        db.add(setting)
+    purchase_ids = list(
+        db.scalars(
+            select(AuctionPurchase.id).where(
+                AuctionPurchase.league_id == league_id,
+                AuctionPurchase.active.is_(True),
+            )
+        )
+    )
+    setting.value = json.dumps(sorted(str(item) for item in purchase_ids))
+    setting.updated_at = datetime.now(UTC)
 
 
 def _nomination_franchises(db: Session, league_id: str) -> list[Franchise]:
@@ -55,6 +90,7 @@ def _nomination_state_row(db: Session, league_id: str) -> AuctionNominationState
     if order != stored:
         state.order_json = order
         state.cursor = 0
+        _set_nomination_purchase_baseline(db, league_id)
         state.updated_at = datetime.now(UTC)
         db.commit()
         db.refresh(state)
@@ -70,17 +106,6 @@ def _snake_slot(order: list[str], cursor: int) -> tuple[str | None, int, str]:
     return order[index], round_index + 1, direction
 
 
-def _completed_nomination_teams(db: Session, league_id: str) -> set[str]:
-    league = db.scalar(select(League).where(League.id == league_id))
-    if league is None:
-        return set()
-    return {
-        franchise.id
-        for franchise in _nomination_franchises(db, league_id)
-        if franchise_budget(db, league, franchise)["slots_remaining"] <= 0
-    }
-
-
 def _next_open_snake_slot(
     order: list[str], cursor: int, completed: set[str]
 ) -> tuple[str | None, int, str, int]:
@@ -92,12 +117,104 @@ def _next_open_snake_slot(
     return None, 0, "forward", start
 
 
+def _synced_roster_counts(db: Session, league_id: str) -> dict[str, int]:
+    return {
+        str(franchise_id): int(count)
+        for franchise_id, count in db.execute(
+            select(RosterAssignment.franchise_id, func.count())
+            .where(RosterAssignment.league_id == league_id)
+            .group_by(RosterAssignment.franchise_id)
+        )
+    }
+
+
+def _completed_from_counts(franchises: list[Franchise], roster_counts: dict[str, int]) -> set[str]:
+    return {
+        franchise.id
+        for franchise in franchises
+        if roster_counts.get(franchise.id, 0) >= franchise.roster_slots
+    }
+
+
+def _reconciled_nomination_position(
+    db: Session, league_id: str, order: list[str]
+) -> tuple[int, set[str]]:
+    """Replay active purchases so removals and undo/redo cannot desynchronize the turn."""
+    franchises = _nomination_franchises(db, league_id)
+    roster_counts = _synced_roster_counts(db, league_id)
+    synchronized_player_ids = set(
+        db.scalars(
+            select(RosterAssignment.player_id).where(RosterAssignment.league_id == league_id)
+        )
+    )
+    baseline_ids = _nomination_purchase_baseline(db, league_id)
+    purchases = list(
+        db.scalars(
+            select(AuctionPurchase)
+            .where(
+                AuctionPurchase.league_id == league_id,
+                AuctionPurchase.active.is_(True),
+            )
+            .order_by(
+                AuctionPurchase.purchase_order, AuctionPurchase.created_at, AuctionPurchase.id
+            )
+        )
+    )
+    cursor = 0
+    for purchase in purchases:
+        if purchase.id in baseline_ids and purchase.player_id not in synchronized_player_ids:
+            roster_counts[purchase.franchise_id] = roster_counts.get(purchase.franchise_id, 0) + 1
+    for purchase in purchases:
+        if purchase.id in baseline_ids:
+            continue
+        completed = _completed_from_counts(franchises, roster_counts)
+        current_id, _, _, current_cursor = _next_open_snake_slot(order, cursor, completed)
+        if current_id is None:
+            break
+        if purchase.player_id not in synchronized_player_ids:
+            roster_counts[purchase.franchise_id] = roster_counts.get(purchase.franchise_id, 0) + 1
+        cursor = current_cursor + 1
+    completed = _completed_from_counts(franchises, roster_counts)
+    _, _, _, current_cursor = _next_open_snake_slot(order, cursor, completed)
+    return current_cursor, completed
+
+
+def auction_progress(db: Session, league_id: str) -> dict[str, int | None]:
+    franchises = _nomination_franchises(db, league_id)
+    total_capacity = sum(max(0, item.roster_slots) for item in franchises)
+    synchronized_player_ids = set(
+        db.scalars(
+            select(RosterAssignment.player_id).where(RosterAssignment.league_id == league_id)
+        )
+    )
+    auction_player_ids = set(
+        db.scalars(
+            select(AuctionPurchase.player_id).where(
+                AuctionPurchase.league_id == league_id, AuctionPurchase.active.is_(True)
+            )
+        )
+    )
+    synchronized_players = len(synchronized_player_ids)
+    auction_purchases = len(auction_player_ids)
+    filled_slots = len(synchronized_player_ids | auction_player_ids)
+    remaining_slots = max(0, total_capacity - filled_slots)
+    return {
+        "total_capacity": total_capacity,
+        "synchronized_players": synchronized_players,
+        "auction_purchases": auction_purchases,
+        "filled_slots": filled_slots,
+        "remaining_slots": remaining_slots,
+        "overall_pick": filled_slots + 1 if remaining_slots else None,
+        "auction_pick": auction_purchases + 1 if remaining_slots else None,
+    }
+
+
 def nomination_state(db: Session, league_id: str) -> dict[str, Any]:
     state = _nomination_state_row(db, league_id)
     order = [str(item) for item in (state.order_json or [])]
-    completed = _completed_nomination_teams(db, league_id)
+    reconciled_cursor, completed = _reconciled_nomination_position(db, league_id, order)
     current_id, round_number, direction, current_cursor = _next_open_snake_slot(
-        order, state.cursor, completed
+        order, reconciled_cursor, completed
     )
     if current_cursor != state.cursor:
         state.cursor = current_cursor
@@ -109,6 +226,7 @@ def nomination_state(db: Session, league_id: str) -> dict[str, Any]:
         else (None, 0, "forward", current_cursor)
     )
     names = {item.id: item.name for item in _nomination_franchises(db, league_id)}
+    progress = auction_progress(db, league_id)
     return {
         "order": [
             {
@@ -134,6 +252,7 @@ def nomination_state(db: Session, league_id: str) -> dict[str, Any]:
         "updated_by": state.updated_by,
         "completed_count": len(completed),
         "all_complete": bool(order) and len(completed) == len(order),
+        **progress,
     }
 
 
@@ -149,6 +268,7 @@ def set_nomination_order(
         raise AuctionValidationError("Nomination order must include every franchise exactly once")
     state.order_json = requested
     state.cursor = 0
+    _set_nomination_purchase_baseline(db, league_id)
     state.updated_by = actor
     state.updated_at = datetime.now(UTC)
     db.commit()
@@ -166,11 +286,7 @@ def shuffle_nomination_order(
 def advance_nomination(db: Session, league_id: str, *, actor: str | None = None) -> None:
     state = _nomination_state_row(db, league_id)
     order = [str(item) for item in (state.order_json or [])]
-    if not order:
-        return
-    completed = _completed_nomination_teams(db, league_id)
-    _, _, _, next_cursor = _next_open_snake_slot(order, state.cursor + 1, completed)
-    state.cursor = next_cursor
+    state.cursor, _ = _reconciled_nomination_position(db, league_id, order)
     state.updated_by = actor
     state.updated_at = datetime.now(UTC)
     db.commit()
@@ -181,6 +297,7 @@ def reset_nomination_cursor(
 ) -> dict[str, Any]:
     state = _nomination_state_row(db, league_id)
     state.cursor = 0
+    _set_nomination_purchase_baseline(db, league_id)
     state.updated_by = actor
     state.updated_at = datetime.now(UTC)
     db.commit()
@@ -230,18 +347,21 @@ def franchise_budget(db: Session, league: League, franchise: Franchise) -> dict[
         )
     )
     spent = Decimal(str(spent or 0))
-    local_count = (
-        db.scalar(
-            select(func.count())
-            .select_from(AuctionPurchase)
-            .where(
+    synced_player_ids = set(
+        db.scalars(
+            select(RosterAssignment.player_id).where(RosterAssignment.league_id == league.id)
+        )
+    )
+    local_player_ids = set(
+        db.scalars(
+            select(AuctionPurchase.player_id).where(
                 AuctionPurchase.league_id == league.id,
                 AuctionPurchase.franchise_id == franchise.id,
                 AuctionPurchase.active.is_(True),
             )
         )
-        or 0
     )
+    local_count = len(local_player_ids - synced_player_ids)
     synced_count = (
         db.scalar(
             select(func.count())
