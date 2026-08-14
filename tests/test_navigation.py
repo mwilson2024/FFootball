@@ -14,7 +14,7 @@ def test_primary_navigation_prioritizes_live_draft_workflows() -> None:
 
     assert navigation.index('href="/draft"') < navigation.index('href="/auction"')
     assert navigation.index('href="/auction"') < navigation.index('href="/cheat-sheet"')
-    assert 'href="/links"' in navigation
+    assert 'href="/links"' not in navigation
     assert navigation.index('href="/depth-charts"') < navigation.index('href="/power-rankings"')
     assert navigation.index('href="/power-rankings"') < navigation.index('href="/account"')
     assert 'href="/keepers"' not in navigation
@@ -31,6 +31,8 @@ def test_account_contains_keeper_and_scoring_links() -> None:
 def test_sources_page_offers_ranking_reset() -> None:
     sources = (TEMPLATES / "sources.html").read_text(encoding="utf-8")
 
+    assert 'href="/links"' in sources
+    assert "Links &amp; draft resources" in sources
     assert "Reset my rankings" in sources
     assert "resetMyRankings()" in sources
 
