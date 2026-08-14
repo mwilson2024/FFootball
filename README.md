@@ -48,8 +48,8 @@ imported through the Cheat Sheet belongs only to the account that uploaded it.
 - **League Rosters:** every franchise and player, slots, positional counts and needs, salaries,
   keeper status, and strength. Auction leagues also show remaining funds and maximum legal bid.
 - **Cheat Sheet:** a per-league percentile blend of enabled rank sources plus the local scoring/VOR
-  model. It displays source count, mean, median, best/worst, range, and disagreement. Compare two or
-  three players side by side, use a random tie-breaker, or ask ChatGPT to choose from server-verified
+  model. It displays source count, mean, median, best/worst, range, and disagreement. Compare two to
+  five players side by side, use a random tie-breaker, or ask ChatGPT to choose from server-verified
   league values. Import legally obtained CSV rankings using
   `player_name,team,position,overall_rank`.
 - **Draft Room:** the actual non-auction draft, with manual picks, queue, recommendations, roster

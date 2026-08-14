@@ -128,13 +128,13 @@ class AssistantRequest(BaseModel):
 
 
 class PlayerComparisonRequest(BaseModel):
-    player_ids: list[str] = Field(min_length=2, max_length=3)
+    player_ids: list[str] = Field(min_length=2, max_length=5)
 
     @field_validator("player_ids", mode="before")
     @classmethod
     def preserve_comparison_ids(cls, value: object) -> list[str]:
         if not isinstance(value, list):
-            raise ValueError("Choose two or three players")
+            raise ValueError("Choose two to five players")
         player_ids = [str(item).strip() for item in value]
         if len(set(player_ids)) != len(player_ids):
             raise ValueError("Choose each player only once")

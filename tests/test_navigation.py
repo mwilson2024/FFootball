@@ -1,5 +1,10 @@
 from pathlib import Path
 
+import pytest
+from pydantic import ValidationError
+
+from app.schemas import PlayerComparisonRequest
+
 TEMPLATES = Path(__file__).resolve().parents[1] / "app" / "templates"
 
 
@@ -30,14 +35,24 @@ def test_sources_page_offers_ranking_reset() -> None:
     assert "resetMyRankings()" in sources
 
 
-def test_cheat_sheet_offers_three_player_comparison_and_tie_breakers() -> None:
+def test_cheat_sheet_reveals_up_to_five_comparison_players() -> None:
     cheat_sheet = (TEMPLATES / "cheat_sheet.html").read_text(encoding="utf-8")
 
     assert "Compare players" in cheat_sheet
-    assert cheat_sheet.count('class="compare-player-input"') == 3
+    assert cheat_sheet.count('class="compare-player-input"') == 5
+    assert cheat_sheet.count("data-compare-optional hidden") == 3
+    assert "Add player" in cheat_sheet
     assert "Flip a coin" in cheat_sheet
     assert "Ask ChatGPT to break the tie" in cheat_sheet
     assert 'id="compare-recommendation"' in cheat_sheet
+
+
+def test_player_comparison_schema_accepts_five_but_rejects_six() -> None:
+    request = PlayerComparisonRequest(player_ids=["1", "2", "3", "4", "5"])
+
+    assert request.player_ids == ["1", "2", "3", "4", "5"]
+    with pytest.raises(ValidationError):
+        PlayerComparisonRequest(player_ids=["1", "2", "3", "4", "5", "6"])
 
 
 def test_sources_csv_preview_is_printable_and_downloadable() -> None:
