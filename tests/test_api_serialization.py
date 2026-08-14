@@ -7,7 +7,7 @@ from app.auth import SESSION_COOKIE, make_session_token
 from app.config import get_settings
 from app.db import get_db
 from app.main import app
-from app.models import SourcePlayerValue, UserLeagueSetting
+from app.models import Player, RosterAssignment, SourcePlayerValue, UserLeagueSetting
 from app.sources import initialize_sources
 from app.users import bootstrap_user
 
@@ -373,5 +373,56 @@ def test_chatgpt_player_comparison_uses_server_board_values(seeded, monkeypatch)
         assert "Leading Zero" in captured["message"]
         assert "Quarter Back" in captured["message"]
         assert captured["history"] == []
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_player_comparison_recommends_team_need_then_overall_rank(seeded):
+    initialize_sources(seeded)
+    seeded.add_all(
+        [
+            Player(id="owned-qb", name="Roster Quarterback", position="QB", nfl_team="BUF"),
+            RosterAssignment(
+                league_id="00999",
+                franchise_id="0001",
+                player_id="owned-qb",
+            ),
+            UserLeagueSetting(
+                username="tester",
+                league_id="00999",
+                franchise_id="0001",
+                auction_strategy_json={"template": "balanced"},
+            ),
+        ]
+    )
+    seeded.commit()
+
+    def override_db():
+        yield seeded
+
+    app.dependency_overrides[get_db] = override_db
+    try:
+        with TestClient(app) as client:
+            token, session = make_session_token(
+                main_module.SESSION_SIGNING_SECRET,
+                "tester",
+                {"00999"},
+                max_age_seconds=3600,
+            )
+            client.cookies.set(SESSION_COOKIE, token)
+            response = client.post(
+                "/api/leagues/00999/compare/recommendation",
+                headers={"X-CSRF-Token": session.csrf_token},
+                json={"player_ids": ["0001234", "99"]},
+            )
+
+        assert response.status_code == 200, response.text
+        result = response.json()
+        assert result["franchise_name"] == "Alpha"
+        assert result["needs"] == {"QB": 0, "RB": 1}
+        assert result["recommended_player_id"] == "0001234"
+        assert result["candidates"][0]["player_name"] == "Leading Zero"
+        assert result["candidates"][0]["need_slots"] == 1
+        assert "fills 1 open RB starter slot" in result["reason"]
     finally:
         app.dependency_overrides.clear()

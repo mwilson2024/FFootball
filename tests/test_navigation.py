@@ -37,6 +37,7 @@ def test_cheat_sheet_offers_three_player_comparison_and_tie_breakers() -> None:
     assert cheat_sheet.count('class="compare-player-input"') == 3
     assert "Flip a coin" in cheat_sheet
     assert "Ask ChatGPT to break the tie" in cheat_sheet
+    assert 'id="compare-recommendation"' in cheat_sheet
 
 
 def test_sources_csv_preview_is_printable_and_downloadable() -> None:

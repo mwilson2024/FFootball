@@ -70,6 +70,7 @@ from app.draft import (
     apply_reconciliation,
     draft_state,
     export_draft_csv,
+    franchise_position_needs,
     pick_json,
     recommendations,
     reconcile_preview,
@@ -167,7 +168,7 @@ from app.users import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260814.4"
+templates.env.globals["asset_version"] = "20260814.5"
 SESSION_SIGNING_SECRET = ""
 
 
@@ -1906,6 +1907,98 @@ async def compare_players_with_chatgpt(
             detail={"code": "assistant_failed", "message": "The assistant service is unavailable"},
         ) from exc
     return {"answer": answer, "players": players}
+
+
+@app.post("/api/leagues/{league_id}/compare/recommendation")
+def compare_players_recommendation(
+    league_id: str, payload: PlayerComparisonRequest, db: Db
+) -> dict[str, Any]:
+    _league_or_404(db, league_id)
+    board = {row["player_id"]: row for row in draftable_consensus(db, league_id)}
+    missing = [player_id for player_id in payload.player_ids if player_id not in board]
+    if missing:
+        raise HTTPException(
+            404,
+            detail={
+                "code": "comparison_player_not_found",
+                "message": "One or more comparison players are not on this league board",
+            },
+        )
+
+    setting = league_setting(db, league_id)
+    franchise = None
+    needs: dict[str, int] = {}
+    if setting.franchise_id:
+        franchise = db.scalar(
+            select(Franchise).where(
+                Franchise.league_id == league_id,
+                Franchise.id == setting.franchise_id,
+            )
+        )
+        if franchise is not None:
+            needs = franchise_position_needs(db, league_id, franchise.id)
+
+    candidates = []
+    for player_id in payload.player_ids:
+        row = board[player_id]
+        position = str(row["position"] or "").upper()
+        overall_rank = int(row.get("consensus_rank") or 99999)
+        need_slots = needs.get(position, 0)
+        need_bonus = min(need_slots, 2) * 12
+        candidates.append(
+            {
+                "player_id": player_id,
+                "player_name": row["player_name"],
+                "position": position,
+                "nfl_team": row.get("nfl_team"),
+                "available": bool(row.get("available")),
+                "overall_rank": overall_rank,
+                "need_slots": need_slots,
+                "need_adjusted_rank": max(1, overall_rank - need_bonus),
+            }
+        )
+    candidates.sort(
+        key=lambda item: (
+            not item["available"],
+            item["need_adjusted_rank"],
+            -item["need_slots"],
+            item["overall_rank"],
+            item["player_name"],
+        )
+    )
+    for index, candidate in enumerate(candidates, 1):
+        candidate["recommendation_rank"] = index
+
+    available = [candidate for candidate in candidates if candidate["available"]]
+    recommended = available[0] if available else None
+    if recommended is None:
+        reason = "None of these players is currently available in this league."
+    elif franchise is None:
+        reason = (
+            f"Draft {recommended['player_name']} based on the live #{recommended['overall_rank']} "
+            "overall rank. Select your franchise in My Account to add team needs."
+        )
+    elif recommended["need_slots"]:
+        slots = recommended["need_slots"]
+        reason = (
+            f"Draft {recommended['player_name']}: #{recommended['overall_rank']} overall and "
+            f"fills {slots} open {recommended['position']} starter "
+            f"slot{'s' if slots != 1 else ''} for {franchise.name}."
+        )
+    else:
+        reason = (
+            f"Draft {recommended['player_name']}: none of these candidates fills an open primary "
+            f"starter slot for {franchise.name}, so the live #{recommended['overall_rank']} "
+            "overall rank leads the decision."
+        )
+    return {
+        "franchise_id": franchise.id if franchise else None,
+        "franchise_name": franchise.name if franchise else None,
+        "needs": needs,
+        "recommended_player_id": recommended["player_id"] if recommended else None,
+        "reason": reason,
+        "candidates": candidates,
+    }
 
 
 @app.get("/api/auction/state")

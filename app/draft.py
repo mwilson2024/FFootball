@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.catalog import draftable_consensus
 from app.consensus import availability_maps
 from app.models import (
+    AuctionPurchase,
     DraftAuditEvent,
     DraftPick,
     DraftSession,
@@ -27,6 +28,50 @@ from app.schemas import DraftPickCreate, DraftPickUpdate
 
 class DraftValidationError(ValueError):
     pass
+
+
+def franchise_position_needs(db: Session, league_id: str, franchise_id: str) -> dict[str, int]:
+    """Return open primary starter slots using synced and locally recorded players."""
+    league = db.scalar(select(League).where(League.id == league_id))
+    if league is None:
+        raise DraftValidationError("League does not exist")
+    owned_player_ids = set(
+        db.scalars(
+            select(RosterAssignment.player_id).where(
+                RosterAssignment.league_id == league_id,
+                RosterAssignment.franchise_id == franchise_id,
+            )
+        )
+    )
+    owned_player_ids.update(
+        db.scalars(
+            select(DraftPick.player_id).where(
+                DraftPick.league_id == league_id,
+                DraftPick.franchise_id == franchise_id,
+            )
+        )
+    )
+    owned_player_ids.update(
+        db.scalars(
+            select(AuctionPurchase.player_id).where(
+                AuctionPurchase.league_id == league_id,
+                AuctionPurchase.franchise_id == franchise_id,
+                AuctionPurchase.active.is_(True),
+            )
+        )
+    )
+    position_counts: dict[str, int] = {}
+    if owned_player_ids:
+        for position in db.scalars(select(Player.position).where(Player.id.in_(owned_player_ids))):
+            normalized = str(position or "").upper()
+            position_counts[normalized] = position_counts.get(normalized, 0) + 1
+    return {
+        str(position).upper(): max(
+            0, int(required or 0) - position_counts.get(str(position).upper(), 0)
+        )
+        for position, required in league.lineup_json.items()
+        if str(position).upper() not in {"FLEX", "SUPERFLEX"}
+    }
 
 
 def _as_list(value: Any) -> list[Any]:
@@ -444,30 +489,10 @@ def recommendations(
     league = db.scalar(select(League).where(League.id == league_id))
     if league is None:
         raise DraftValidationError("League does not exist")
-    position_counts: dict[str, int] = {}
-    if franchise_id:
-        owned_player_ids = list(
-            db.scalars(
-                select(RosterAssignment.player_id).where(
-                    RosterAssignment.league_id == league_id,
-                    RosterAssignment.franchise_id == franchise_id,
-                )
-            )
-        ) + list(
-            db.scalars(
-                select(DraftPick.player_id).where(
-                    DraftPick.league_id == league_id,
-                    DraftPick.franchise_id == franchise_id,
-                )
-            )
-        )
-        for position in db.scalars(select(Player.position).where(Player.id.in_(owned_player_ids))):
-            position_counts[position] = position_counts.get(position, 0) + 1
+    needs = franchise_position_needs(db, league_id, franchise_id) if franchise_id else {}
     rows = [row for row in draftable_consensus(db, league_id) if row["available"]]
     for row in rows:
-        required = int(league.lineup_json.get(row["position"], 0) or 0)
-        current = position_counts.get(row["position"], 0)
-        need = max(0, required - current)
+        need = needs.get(str(row["position"]).upper(), 0)
         base = float(row["consensus_score"])
         row["recommendation_score"] = round(base + need * 0.12, 4)
         reasons = []
