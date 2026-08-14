@@ -171,6 +171,45 @@ def test_pick_progress_and_turn_reconcile_after_purchase_removal(seeded):
     assert reconciled["cursor"] == 0
 
 
+def test_auction_round_advances_every_full_cycle_of_twelve_teams(seeded):
+    existing = seeded.query(Franchise).filter_by(league_id="00999").all()
+    for franchise in existing:
+        franchise.roster_slots = 20
+    for number in range(3, 13):
+        seeded.add(
+            Franchise(
+                id=f"{number:04d}",
+                league_id="00999",
+                name=f"Team {number}",
+                starting_budget=Decimal("20"),
+                roster_slots=20,
+            )
+        )
+    extra_player_ids = []
+    for index in range(10):
+        player_id = f"round-player-{index}"
+        extra_player_ids.append(player_id)
+        seeded.add(Player(id=player_id, name=f"Round Player {index}", position="WR"))
+    seeded.commit()
+
+    player_ids = ["0001234", "99", *extra_player_ids]
+    purchases = [
+        add_purchase(seeded, sale(player=player_id, franchise="0001", amount="1"))
+        for player_id in player_ids
+    ]
+    after_twelve = nomination_state(seeded, "00999")
+
+    assert after_twelve["team_count"] == 12
+    assert after_twelve["auction_purchases"] == 12
+    assert after_twelve["auction_pick"] == 13
+    assert after_twelve["auction_round"] == 2
+
+    delete_purchase(seeded, purchases[-1].id)
+    after_removal = nomination_state(seeded, "00999")
+    assert after_removal["auction_pick"] == 12
+    assert after_removal["auction_round"] == 1
+
+
 def test_reordering_mid_auction_starts_a_new_nomination_baseline(seeded):
     original = add_purchase(seeded, sale(amount="1"))
     advance_nomination(seeded, "00999", actor="admin")

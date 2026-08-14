@@ -181,6 +181,7 @@ def _reconciled_nomination_position(
 
 def auction_progress(db: Session, league_id: str) -> dict[str, int | None]:
     franchises = _nomination_franchises(db, league_id)
+    team_count = len(franchises)
     total_capacity = sum(max(0, item.roster_slots) for item in franchises)
     synchronized_player_ids = set(
         db.scalars(
@@ -202,10 +203,14 @@ def auction_progress(db: Session, league_id: str) -> dict[str, int | None]:
         "total_capacity": total_capacity,
         "synchronized_players": synchronized_players,
         "auction_purchases": auction_purchases,
+        "team_count": team_count,
         "filled_slots": filled_slots,
         "remaining_slots": remaining_slots,
         "overall_pick": filled_slots + 1 if remaining_slots else None,
         "auction_pick": auction_purchases + 1 if remaining_slots else None,
+        "auction_round": auction_purchases // team_count + 1
+        if remaining_slots and team_count
+        else None,
     }
 
 
