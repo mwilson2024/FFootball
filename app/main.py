@@ -5,6 +5,7 @@ import csv
 import hashlib
 import hmac
 import io
+import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
@@ -77,6 +78,7 @@ from app.draft import (
     undo_draft,
     update_pick,
 )
+from app.draft_links import draft_link_groups
 from app.exports import build_xml, export_csv, export_xml
 from app.mfl import MFLAuthenticationError, MFLClient, MFLError
 from app.models import (
@@ -113,6 +115,7 @@ from app.schemas import (
     KeeperCreate,
     LeagueConnect,
     MFLConnectionTest,
+    PlayerComparisonRequest,
     PreferenceUpdate,
     PurchaseCreate,
     PurchaseUpdate,
@@ -125,6 +128,7 @@ from app.schemas import (
 from app.settings_store import CredentialStoreError, runtime_settings, save_setup, setup_status
 from app.sources import (
     LOCAL_RANKING_SOURCE_IDS,
+    LOCAL_RANKING_SPECS,
     initialize_sources,
     source_json,
     sync_gng,
@@ -163,7 +167,7 @@ from app.users import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260814.3"
+templates.env.globals["asset_version"] = "20260814.4"
 SESSION_SIGNING_SECRET = ""
 
 
@@ -594,6 +598,13 @@ def sources_page(request: Request, db: Db) -> Any:
     return templates.TemplateResponse(request, "sources.html", _page_context(db, "Data sources"))
 
 
+@app.get("/links", response_class=HTMLResponse)
+def links_page(request: Request, db: Db) -> Any:
+    context = _page_context(db, "Draft links")
+    context["link_groups"] = draft_link_groups()
+    return templates.TemplateResponse(request, "links.html", context)
+
+
 @app.get("/bye-advisor", response_class=HTMLResponse)
 def bye_advisor_page(request: Request, db: Db, league_id: str | None = None) -> Any:
     return templates.TemplateResponse(
@@ -918,6 +929,21 @@ def source_received_data(
         "returned_count": len(rows),
         "rows": rows,
     }
+
+
+@app.get("/api/sources/{source_id}/download.csv")
+def download_source_csv(source_id: str, db: Db) -> FileResponse:
+    spec = LOCAL_RANKING_SPECS.get(source_id)
+    source = db.get(DataSource, source_id)
+    if spec is None or source is None or not source_visible_to_user(source_id, active_username()):
+        raise HTTPException(404, detail={"code": "source_not_found", "message": "Source not found"})
+    path = Path(spec["path"])
+    if not path.is_file():
+        raise HTTPException(
+            404,
+            detail={"code": "source_file_missing", "message": "The ranking CSV is not available"},
+        )
+    return FileResponse(path, media_type="text/csv", filename=path.name)
 
 
 @app.put("/api/setup/sources/{source_id}")
@@ -1817,6 +1843,69 @@ async def league_assistant(payload: AssistantRequest, db: Db) -> dict[str, str]:
             detail={"code": "assistant_failed", "message": "The assistant service is unavailable"},
         ) from exc
     return {"answer": answer}
+
+
+@app.post("/api/leagues/{league_id}/compare/chatgpt")
+async def compare_players_with_chatgpt(
+    league_id: str, payload: PlayerComparisonRequest, db: Db
+) -> dict[str, Any]:
+    league = _league_or_404(db, league_id)
+    board = {row["player_id"]: row for row in draftable_consensus(db, league_id)}
+    missing = [player_id for player_id in payload.player_ids if player_id not in board]
+    if missing:
+        raise HTTPException(
+            404,
+            detail={
+                "code": "comparison_player_not_found",
+                "message": "One or more comparison players are not on this league board",
+            },
+        )
+    players = []
+    for player_id in payload.player_ids:
+        row = board[player_id]
+        players.append(
+            {
+                "player_id": player_id,
+                "name": row["player_name"],
+                "position": row["position"],
+                "team": row["nfl_team"],
+                "available": row["available"],
+                "consensus_rank": row["consensus_rank"],
+                "league_adjusted_rank": row.get("league_adjusted_rank"),
+                "tier": row.get("tier"),
+                "source_count": row.get("source_count"),
+                "average_rank": row.get("average_rank"),
+                "median_rank": row.get("median_rank"),
+                "best_rank": row.get("best_rank"),
+                "worst_rank": row.get("worst_rank"),
+                "adp": row.get("adp"),
+                "projected_points": row.get("projected_points"),
+                "value_over_replacement": row.get("value_over_replacement"),
+                "suggested_auction_value": row.get("suggested_auction_value"),
+                "dynamic_bid": row.get("dynamic_bid"),
+                "max_recommended_bid": row.get("max_recommended_bid"),
+                "injury_status": row.get("injury_status"),
+                "bye_week": row.get("bye_week"),
+            }
+        )
+    message = (
+        f"Break a draft-day tie in {league.name}. Compare only the supplied candidates and pick "
+        "one. Explain the choice using league fit, tier, value over replacement, market cost, "
+        "availability, and injury risk. Be decisive but mention the strongest reason to choose "
+        f"each alternative. Candidate data: {json.dumps(players, default=str)}"
+    )
+    try:
+        answer = await ask_assistant(db, get_settings(), league_id, message, [])
+    except RuntimeError as exc:
+        raise HTTPException(
+            503, detail={"code": "assistant_unavailable", "message": str(exc)}
+        ) from exc
+    except httpx.HTTPError as exc:
+        raise HTTPException(
+            502,
+            detail={"code": "assistant_failed", "message": "The assistant service is unavailable"},
+        ) from exc
+    return {"answer": answer, "players": players}
 
 
 @app.get("/api/auction/state")

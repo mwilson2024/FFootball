@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-title compact"><div><p class="eyebrow">DRAFT-DAY READING ROOM</p><h1>Links</h1><p>Your saved ranking pages plus a focused set of strategy, auction, dynasty, injury, and NFL calendar resources.</p></div></section>
+{% for group in link_groups %}
+<section class="link-section"><div class="panel-head"><h2>{{ group.name }}</h2><span class="pill">{{ group.links|length }} resource{% if group.links|length != 1 %}s{% endif %}</span></div><div class="link-grid">{% for link in group.links %}<article class="card link-card"><div class="link-card-meta"><span class="pill">{{ link.provider }}</span>{% if link.owner_saved %}<span class="saved-link">From Links folder</span>{% endif %}</div><h3>{{ link.title }}</h3><p>{{ link.description }}</p><a class="button" href="{{ link.url }}" target="_blank" rel="noopener noreferrer">Open resource ↗</a></article>{% endfor %}</div></section>
+{% endfor %}
+<p class="muted link-disclaimer">External pages can change, move, or require an account. DraftDesk opens them in a new tab and does not copy their content.</p>
+{% endblock %}

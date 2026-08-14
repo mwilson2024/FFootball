@@ -71,12 +71,16 @@ def test_authenticated_pages_render_persistent_chat_shell(seeded, monkeypatch):
             )
             client.cookies.set(SESSION_COOKIE, token)
             response = client.get("/cheat-sheet?league_id=00999")
+            links = client.get("/links")
         assert response.status_code == 200
         assert 'id="assistant-window"' in response.text
         assert "New chat" in response.text
         assert 'id="assistant-team"' in response.text
         assert '"username": "tester"' in response.text
         assert '"league_id": "00999"' in response.text
+        assert links.status_code == 200
+        assert "PFF Fantasy Draft Rankings" in links.text
+        assert "2026 Salary-Cap Draft Strategy" in links.text
     finally:
         app.dependency_overrides.clear()
 
@@ -311,17 +315,63 @@ def test_local_csv_received_data_is_visible_without_unapproved_fields(seeded):
             )
             client.cookies.set(SESSION_COOKIE, token)
             response = client.get("/api/sources/fantasypros_redraft_csv/data")
+            download = client.get("/api/sources/fantasypros_redraft_csv/download.csv")
             source_list = client.get("/api/sources")
 
         assert response.status_code == 200
         assert response.json()["total_count"] == 1
         assert response.json()["rows"][0]["raw"]["overall_rank"] == "4"
         assert "api_key" not in response.json()["rows"][0]["raw"]
+        assert download.status_code == 200
+        assert "FantasyPros_2026_Draft_ALL_Rankings.csv" in download.headers["content-disposition"]
         fantasypros = next(
             item for item in source_list.json() if item["id"] == "fantasypros_redraft_csv"
         )
         assert fantasypros["name"] == "FantasyPros 2026 Redraft Rankings"
         assert fantasypros["visibility"] == "shared"
         assert "FantasyPros_2026_Draft_ALL_Rankings.csv" in fantasypros["attribution"]
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_chatgpt_player_comparison_uses_server_board_values(seeded, monkeypatch):
+    initialize_sources(seeded)
+    captured = {}
+
+    async def fake_assistant(db, settings, league_id, message, history):
+        captured.update({"league_id": league_id, "message": message, "history": history})
+        return "Choose Leading Zero because the live league values favor the running back."
+
+    monkeypatch.setattr(main_module, "ask_assistant", fake_assistant)
+
+    def override_db():
+        yield seeded
+
+    app.dependency_overrides[get_db] = override_db
+    try:
+        with TestClient(app) as client:
+            token, session = make_session_token(
+                main_module.SESSION_SIGNING_SECRET,
+                "tester",
+                {"00999"},
+                max_age_seconds=3600,
+            )
+            client.cookies.set(SESSION_COOKIE, token)
+            response = client.post(
+                "/api/leagues/00999/compare/chatgpt",
+                headers={"X-CSRF-Token": session.csrf_token},
+                json={"player_ids": ["0001234", "99"]},
+            )
+
+        assert response.status_code == 200
+        assert response.json()["answer"].startswith("Choose Leading Zero")
+        assert [item["player_id"] for item in response.json()["players"]] == [
+            "0001234",
+            "99",
+        ]
+        assert captured["league_id"] == "00999"
+        assert "Leading Zero" in captured["message"]
+        assert "Quarter Back" in captured["message"]
+        assert captured["history"] == []
     finally:
         app.dependency_overrides.clear()
