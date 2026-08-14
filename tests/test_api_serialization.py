@@ -39,6 +39,7 @@ def test_league_and_auction_state_are_json_serializable(seeded):
             leagues = client.get("/api/leagues")
             league = client.get("/api/leagues/00999")
             auction = client.get("/api/auction/state?league_id=00999")
+            draft = client.get("/api/draft/state?league_id=00999")
             assistant = client.get("/api/assistant/status?league_id=00999")
         assert leagues.status_code == 200
         assert leagues.json()[0]["id"] == "00999"
@@ -46,6 +47,9 @@ def test_league_and_auction_state_are_json_serializable(seeded):
         assert league.json()["minimum_bid"] == "1.00"
         assert auction.status_code == 200
         assert auction.json()["league"]["id"] == "00999"
+        assert draft.status_code == 200
+        assert draft.json()["war_room"]["franchise_id"] == "0001"
+        assert "position_runs" in draft.json()["intelligence"]
         assert assistant.status_code == 200
         assert assistant.json()["league_name"] == "Test League"
         assert assistant.json()["franchise_id"] == "0001"

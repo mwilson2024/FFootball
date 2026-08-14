@@ -68,6 +68,7 @@ from app.draft import (
     DraftValidationError,
     add_pick,
     apply_reconciliation,
+    draft_intelligence,
     draft_state,
     export_draft_csv,
     franchise_position_needs,
@@ -168,7 +169,7 @@ from app.users import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260814.7"
+templates.env.globals["asset_version"] = "20260814.8"
 SESSION_SIGNING_SECRET = ""
 
 
@@ -1547,8 +1548,27 @@ def update_preference(
 
 
 @app.get("/api/draft/state")
-def api_draft_state(league_id: str, db: Db) -> dict[str, Any]:
-    return draft_state(db, league_id)
+def api_draft_state(
+    league_id: str,
+    db: Db,
+    franchise_id: str | None = None,
+    include_intelligence: bool = True,
+) -> dict[str, Any]:
+    selected_franchise = franchise_id or league_setting(db, league_id).franchise_id
+    return draft_state(
+        db,
+        league_id,
+        selected_franchise,
+        include_intelligence=include_intelligence,
+    )
+
+
+@app.get("/api/draft/intelligence")
+def api_draft_intelligence(
+    league_id: str, db: Db, franchise_id: str | None = None
+) -> dict[str, Any]:
+    selected_franchise = franchise_id or league_setting(db, league_id).franchise_id
+    return draft_intelligence(db, league_id, selected_franchise)
 
 
 @app.put("/api/draft/live")

@@ -17,6 +17,7 @@ from app.catalog import (
 from app.consensus import build_consensus, parse_ranking_csv
 from app.draft import (
     add_pick,
+    draft_intelligence,
     draft_state,
     remove_pick,
     set_draft_live,
@@ -415,6 +416,80 @@ def test_mfl_round_slots_keep_listed_order_and_assignment_advances_to_next_pick(
     assert session is not None
     assert session.current_round == 2
     assert session.current_pick == 1
+
+
+def test_personal_war_room_and_live_intelligence_follow_real_mfl_order(
+    seeded: Session,
+) -> None:
+    now = datetime.now(UTC)
+    extra_players = [
+        Player(id="101", name="Quarter Two", position="QB", nfl_team="BUF", bye_week=7),
+        Player(id="102", name="Quarter Three", position="QB", nfl_team="MIA", bye_week=7),
+        Player(id="103", name="Quarter Four", position="QB", nfl_team="DET", bye_week=8),
+    ]
+    seeded.add_all(extra_players)
+    initialize_sources(seeded)
+    add_rank(seeded, "99", 1, adp=Decimal("2"))
+    add_rank(seeded, "101", 2, adp=Decimal("3"))
+    add_rank(seeded, "102", 3, adp=Decimal("4"))
+    add_rank(seeded, "103", 4, adp=Decimal("20"))
+    add_rank(seeded, "0001234", 5, adp=Decimal("22"))
+    seeded.add(
+        RosterAssignment(
+            league_id="00999",
+            franchise_id="0001",
+            player_id="0001234",
+            status="ROSTER",
+        )
+    )
+    seeded.add(
+        MFLSnapshot(
+            league_id="00999",
+            season=2026,
+            export_type="draftResults",
+            source_url="https://api.myfantasyleague.com/2026/export",
+            parameters_json={},
+            payload_json={
+                "draftResults": {
+                    "draftUnit": {
+                        "draftPick": [
+                            {"round": "1", "pick": "1", "franchise": "0002", "player": "99"},
+                            {"round": "1", "pick": "2", "franchise": "0002", "player": "101"},
+                            {"round": "1", "pick": "3", "franchise": "0002", "player": "102"},
+                            {"round": "1", "pick": "4", "franchise": "0001", "player": ""},
+                            {"round": "1", "pick": "5", "franchise": "0002", "player": ""},
+                            {"round": "1", "pick": "6", "franchise": "0001", "player": ""},
+                        ]
+                    }
+                }
+            },
+            fetched_at=now,
+            expires_at=now + timedelta(minutes=15),
+        )
+    )
+    seeded.commit()
+
+    result = draft_intelligence(seeded, "00999", "0001")
+    war_room = result["war_room"]
+    intelligence = result["intelligence"]
+
+    assert war_room["franchise_name"] == "Alpha"
+    assert war_room["position_counts"] == {"RB": 1}
+    assert (
+        next(row for row in war_room["position_plan"] if row["position"] == "QB")["still_needed"]
+        == 1
+    )
+    assert war_room["on_clock"] is True
+    assert war_room["next_pick"] == 4
+    assert war_room["following_pick"] == 6
+    assert war_room["picks_remaining"] == 2
+    assert intelligence["position_runs"][0]["position"] == "QB"
+    assert intelligence["position_runs"][0]["count"] == 3
+    assert intelligence["tier_cliffs"][0]["remaining"] == 1
+    assert intelligence["opponent_needs"][0]["franchise_name"] == "Beta"
+    assert intelligence["recommendations"][0]["player_id"] == "103"
+    assert intelligence["recommendations"][0]["need_slots"] == 1
+    assert intelligence["recommendations"][0]["survival"]["target_pick"] == 6
 
 
 def test_user_csv_preview_import_and_queue_persist(seeded: Session, tmp_path) -> None:

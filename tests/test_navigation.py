@@ -115,3 +115,19 @@ def test_live_draft_board_is_linked_from_draft_room_and_admin() -> None:
     assert "initLiveDraftBoard()" in board
     assert "renderTeamDraftBoard" in script
     assert "renderChronologicalDraftBoard" in script
+
+
+def test_draft_room_has_personal_war_room_and_live_intelligence() -> None:
+    draft = (TEMPLATES / "draft.html").read_text(encoding="utf-8")
+    script = (TEMPLATES.parent / "static" / "app.js").read_text(encoding="utf-8")
+
+    assert 'id="draft-war-room"' in draft
+    assert 'id="war-room-positions"' in draft
+    assert 'id="opponent-needs"' in draft
+    assert 'id="draft-intelligence-strip"' in draft
+    assert "Roster construction" in draft
+    assert "Teams between your picks" in draft
+    assert "renderWarRoom" in script
+    assert "renderDraftIntelligence" in script
+    assert "renderDraftRecommendations" in script
+    assert "heuristic only" in script

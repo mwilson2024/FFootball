@@ -1,7 +1,9 @@
 import csv
 import io
+import math
 import os
 import tempfile
+from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -421,7 +423,13 @@ def undo_draft(db: Session, league_id: str) -> None:
     db.commit()
 
 
-def draft_state(db: Session, league_id: str) -> dict[str, Any]:
+def draft_state(
+    db: Session,
+    league_id: str,
+    franchise_id: str | None = None,
+    *,
+    include_intelligence: bool = False,
+) -> dict[str, Any]:
     league = db.scalar(select(League).where(League.id == league_id))
     if league is None:
         raise DraftValidationError("League does not exist")
@@ -453,7 +461,7 @@ def draft_state(db: Session, league_id: str) -> dict[str, Any]:
             tiers[key] = tiers.get(key, 0) + 1
     order, order_fetched_at = _draft_order(db, league_id, picks)
     current_drafter = next((slot for slot in order if not slot["completed"]), None)
-    return {
+    result = {
         "session": {
             "id": session.id,
             "league_id": session.league_id,
@@ -485,6 +493,17 @@ def draft_state(db: Session, league_id: str) -> dict[str, Any]:
         ],
         "tier_counts": tiers,
     }
+    if include_intelligence:
+        result.update(
+            _draft_intelligence_payload(
+                db,
+                league,
+                board,
+                order,
+                franchise_id,
+            )
+        )
+    return result
 
 
 def recommendations(
@@ -517,6 +536,454 @@ def recommendations(
         )
     )
     return rows[:limit]
+
+
+def _normalized_position(value: Any) -> str:
+    position = str(value or "").strip().upper()
+    return {"K": "PK", "DST": "DEF", "D/ST": "DEF", "D": "DEF"}.get(position, position)
+
+
+def _lineup_requirements(league: League) -> dict[str, int]:
+    requirements: dict[str, int] = {}
+    for raw_position, raw_count in (league.lineup_json or {}).items():
+        try:
+            count = max(0, int(raw_count or 0))
+        except (TypeError, ValueError):
+            continue
+        position = _normalized_position(raw_position)
+        if count:
+            requirements[position] = requirements.get(position, 0) + count
+    return requirements
+
+
+def _eligible_positions(slot: str) -> tuple[str, ...]:
+    if slot == "FLEX":
+        return ("RB", "WR", "TE")
+    if slot == "SUPERFLEX":
+        return ("QB", "RB", "WR", "TE")
+    tokens = slot.replace("|", "+").replace(",", "+").split("+")
+    return tuple(dict.fromkeys(_normalized_position(token) for token in tokens if token.strip()))
+
+
+def _position_plan(
+    requirements: dict[str, int], position_counts: dict[str, int]
+) -> list[dict[str, Any]]:
+    order = ("QB", "RB", "WR", "TE", "FLEX", "SUPERFLEX", "PK", "DEF")
+    simple = [item for item in requirements if len(_eligible_positions(item)) == 1]
+    combined = [item for item in requirements if len(_eligible_positions(item)) > 1]
+    simple.sort(key=lambda item: (order.index(item) if item in order else 99, item))
+    combined.sort(
+        key=lambda item: (
+            len(_eligible_positions(item)),
+            order.index(item) if item in order else 50,
+            item,
+        )
+    )
+    result: list[dict[str, Any]] = []
+    remaining = dict(position_counts)
+    for position in simple:
+        required = requirements[position]
+        owned = position_counts.get(position, 0)
+        remaining[position] = max(0, owned - required)
+        result.append(
+            {
+                "position": position,
+                "eligible_positions": [position],
+                "owned": owned,
+                "required": required,
+                "still_needed": max(0, required - owned),
+            }
+        )
+    for position in combined:
+        required = requirements[position]
+        eligible = _eligible_positions(position)
+        available = sum(remaining.get(item, 0) for item in eligible)
+        covered = min(required, available)
+        to_consume = covered
+        for item in sorted(eligible, key=lambda key: remaining.get(key, 0), reverse=True):
+            used = min(to_consume, remaining.get(item, 0))
+            remaining[item] = max(0, remaining.get(item, 0) - used)
+            to_consume -= used
+            if not to_consume:
+                break
+        result.append(
+            {
+                "position": position,
+                "eligible_positions": list(eligible),
+                "owned": covered,
+                "required": required,
+                "still_needed": max(0, required - covered),
+            }
+        )
+    return result
+
+
+def _survival_estimate(row: dict[str, Any], target_pick: int | None) -> dict[str, Any] | None:
+    if target_pick is None:
+        return None
+    adp = row.get("adp")
+    try:
+        raw_expected = adp if adp not in (None, "") else row["consensus_rank"]
+        expected = float(str(raw_expected))
+    except (TypeError, ValueError, KeyError):
+        return None
+    probability = 100 / (1 + math.exp((target_pick - expected) / 7.5))
+    chance = max(5, min(95, int(round(probability))))
+    return {
+        "chance": chance,
+        "target_pick": target_pick,
+        "basis": "market ADP" if adp not in (None, "") else "live board rank",
+        "basis_rank": round(expected, 1),
+        "method": (
+            "Heuristic based on the player's market ADP or live board rank and the picks remaining."
+        ),
+    }
+
+
+def _draft_intelligence_payload(
+    db: Session,
+    league: League,
+    board: list[dict[str, Any]],
+    order: list[dict[str, Any]],
+    franchise_id: str | None,
+) -> dict[str, Any]:
+    ordered = sorted(order, key=lambda item: int(item.get("overall_pick") or 0))
+    completed = [item for item in ordered if item.get("completed")]
+    completed_player_ids = {str(item["player_id"]) for item in completed if item.get("player_id")}
+    board_by_id = {row["player_id"]: row for row in board}
+    available = [
+        row
+        for row in board
+        if row.get("available") and row["player_id"] not in completed_player_ids
+    ]
+
+    franchises = {
+        item.id: item
+        for item in db.scalars(select(Franchise).where(Franchise.league_id == league.id))
+    }
+    selected_franchise = franchises.get(franchise_id or "")
+    owned_by_franchise: dict[str, set[str]] = {item: set() for item in franchises}
+    for owner_id, player_id in db.execute(
+        select(RosterAssignment.franchise_id, RosterAssignment.player_id).where(
+            RosterAssignment.league_id == league.id
+        )
+    ):
+        owned_by_franchise.setdefault(str(owner_id), set()).add(str(player_id))
+    for slot in completed:
+        if slot.get("franchise_id") and slot.get("player_id"):
+            owned_by_franchise.setdefault(str(slot["franchise_id"]), set()).add(
+                str(slot["player_id"])
+            )
+
+    all_owned_ids = set().union(*owned_by_franchise.values()) if owned_by_franchise else set()
+    players_by_id = (
+        {item.id: item for item in db.scalars(select(Player).where(Player.id.in_(all_owned_ids)))}
+        if all_owned_ids
+        else {}
+    )
+    position_counts_by_franchise: dict[str, dict[str, int]] = {}
+    for owner_id, player_ids in owned_by_franchise.items():
+        counts: dict[str, int] = {}
+        for player_id in player_ids:
+            player = players_by_id.get(player_id)
+            if player is None:
+                continue
+            position = _normalized_position(player.position)
+            counts[position] = counts.get(position, 0) + 1
+        position_counts_by_franchise[owner_id] = counts
+
+    requirements = _lineup_requirements(league)
+    selected_counts = position_counts_by_franchise.get(franchise_id or "", {})
+    position_plan = _position_plan(requirements, selected_counts)
+    primary_needs: dict[str, int] = {}
+    for item in position_plan:
+        if not item["still_needed"]:
+            continue
+        for position in item["eligible_positions"]:
+            primary_needs[position] = primary_needs.get(position, 0) + item["still_needed"]
+
+    remaining_slots = [item for item in ordered if not item.get("completed")]
+    my_indexes = [
+        index
+        for index, item in enumerate(remaining_slots)
+        if franchise_id and item.get("franchise_id") == franchise_id
+    ]
+    next_slot = remaining_slots[my_indexes[0]] if my_indexes else None
+    following_slot = remaining_slots[my_indexes[1]] if len(my_indexes) > 1 else None
+    on_clock = bool(my_indexes and my_indexes[0] == 0)
+    if on_clock and len(my_indexes) > 1 and following_slot is not None:
+        survival_target_pick = int(following_slot["overall_pick"])
+        opponent_window = remaining_slots[1 : my_indexes[1]]
+    elif my_indexes and next_slot is not None:
+        survival_target_pick = int(next_slot["overall_pick"])
+        opponent_window = remaining_slots[: my_indexes[0]]
+    else:
+        survival_target_pick = None
+        opponent_window = []
+
+    seen_opponents: set[str] = set()
+    opponent_needs: list[dict[str, Any]] = []
+    for slot in opponent_window:
+        owner_id = str(slot.get("franchise_id") or "")
+        if not owner_id or owner_id == franchise_id or owner_id in seen_opponents:
+            continue
+        seen_opponents.add(owner_id)
+        counts = position_counts_by_franchise.get(owner_id, {})
+        plan = _position_plan(requirements, counts)
+        needs = [
+            {"position": item["position"], "count": item["still_needed"]}
+            for item in plan
+            if item["still_needed"] and item["position"] not in {"FLEX", "SUPERFLEX"}
+        ]
+        opponent = franchises.get(owner_id)
+        opponent_needs.append(
+            {
+                "franchise_id": owner_id,
+                "franchise_name": opponent.name
+                if opponent is not None
+                else slot.get("franchise_name") or owner_id,
+                "next_pick": slot.get("overall_pick"),
+                "needs": needs[:3],
+            }
+        )
+        if len(opponent_needs) >= 6:
+            break
+
+    recent_positions = [
+        _normalized_position(item.get("position"))
+        for item in completed[-6:]
+        if item.get("position")
+    ]
+    run_counts = Counter(recent_positions)
+    position_runs = [
+        {
+            "position": position,
+            "count": count,
+            "window": len(recent_positions),
+            "label": f"{count} {position}s in the last {len(recent_positions)} picks",
+        }
+        for position, count in run_counts.most_common()
+        if count >= 3
+    ]
+
+    tier_cliffs: list[dict[str, Any]] = []
+    positions = sorted({_normalized_position(row.get("position")) for row in available})
+    for position in positions:
+        if position == "DEF":
+            continue
+        rows = sorted(
+            (row for row in available if _normalized_position(row.get("position")) == position),
+            key=lambda item: int(item.get("consensus_rank") or 99999),
+        )
+        ranked_tiers = [row for row in rows if row.get("tier") is not None]
+        if not ranked_tiers:
+            continue
+        top_tier = int(ranked_tiers[0]["tier"])
+        current_tier = [row for row in ranked_tiers if int(row["tier"]) == top_tier]
+        if len(current_tier) > 3:
+            continue
+        next_tier_row = next((row for row in ranked_tiers if int(row["tier"]) > top_tier), None)
+        last_current_rank = max(int(row["consensus_rank"]) for row in current_tier)
+        next_rank = int(next_tier_row["consensus_rank"]) if next_tier_row else None
+        tier_cliffs.append(
+            {
+                "position": position,
+                "tier": top_tier,
+                "remaining": len(current_tier),
+                "next_tier": int(next_tier_row["tier"]) if next_tier_row else None,
+                "rank_gap": max(0, next_rank - last_current_rank) if next_rank else None,
+                "players": [row["player_name"] for row in current_tier[:3]],
+            }
+        )
+    tier_cliffs.sort(key=lambda item: (item["remaining"], item["tier"], item["position"]))
+
+    pick_values: list[dict[str, Any]] = []
+    for slot in completed[-6:][::-1]:
+        row = board_by_id.get(str(slot.get("player_id") or ""))
+        if row is None:
+            continue
+        raw_basis = row.get("adp")
+        basis_name = "ADP"
+        try:
+            basis_rank = float(str(raw_basis))
+        except (TypeError, ValueError):
+            basis_rank = float(row.get("consensus_rank") or 0)
+            basis_name = "live board"
+        if basis_rank <= 0:
+            continue
+        delta = float(slot.get("overall_pick") or 0) - basis_rank
+        if delta >= 8:
+            label = "Strong value"
+        elif delta >= 3:
+            label = "Value"
+        elif delta <= -8:
+            label = "Reach"
+        elif delta <= -3:
+            label = "Slight reach"
+        else:
+            label = "Market range"
+        pick_values.append(
+            {
+                "overall_pick": slot.get("overall_pick"),
+                "player_name": slot.get("player_name"),
+                "position": slot.get("position"),
+                "franchise_name": slot.get("franchise_name"),
+                "basis": basis_name,
+                "basis_rank": round(basis_rank, 1),
+                "delta": round(delta, 1),
+                "label": label,
+            }
+        )
+
+    tier_remaining = Counter(
+        (_normalized_position(row.get("position")), int(row["tier"]))
+        for row in available
+        if row.get("tier") is not None
+    )
+    recommended: list[dict[str, Any]] = []
+    for row in available:
+        position = _normalized_position(row.get("position"))
+        need_slots = primary_needs.get(position, 0)
+        remaining_in_tier = tier_remaining.get((position, int(row.get("tier") or 0)), 0)
+        preference = row.get("preference") or {}
+        score = float(row.get("consensus_score") or 0) + min(need_slots, 2) * 0.12
+        if remaining_in_tier <= 2:
+            score += 0.06
+        if preference.get("target"):
+            score += 0.12
+        if preference.get("fade"):
+            score -= 0.12
+        if preference.get("do_not_draft"):
+            score -= 100
+        survival = _survival_estimate(row, survival_target_pick)
+        reasons = [f"#{row.get('consensus_rank')} on your live board"]
+        if need_slots:
+            suffix = "s" if need_slots != 1 else ""
+            reasons.append(f"fills {need_slots} open {position} starter slot{suffix}")
+        if row.get("tier") is not None and remaining_in_tier <= 3:
+            reasons.append(
+                f"{remaining_in_tier} player"
+                f"{'s' if remaining_in_tier != 1 else ''} left in Tier {row['tier']}"
+            )
+        try:
+            if row.get("adp") and float(row["adp"]) > float(row["consensus_rank"]):
+                reasons.append("priced below your board by ADP")
+        except (TypeError, ValueError):
+            pass
+        if preference.get("target"):
+            reasons.append("marked as your target")
+        if preference.get("fade"):
+            reasons.append("marked as a fade")
+        recommended.append(
+            {
+                "player_id": row["player_id"],
+                "player_name": row["player_name"],
+                "position": position,
+                "nfl_team": row.get("nfl_team"),
+                "consensus_rank": row.get("consensus_rank"),
+                "tier": row.get("tier"),
+                "adp": row.get("adp"),
+                "value_over_replacement": row.get("value_over_replacement"),
+                "need_slots": need_slots,
+                "remaining_in_tier": remaining_in_tier,
+                "survival": survival,
+                "recommendation_score": round(score, 4),
+                "recommendation_reason": "; ".join(reasons),
+            }
+        )
+    recommended.sort(
+        key=lambda item: (
+            -item["recommendation_score"],
+            item["consensus_rank"] or 99999,
+            item["player_id"],
+        )
+    )
+
+    selected_player_ids = owned_by_franchise.get(franchise_id or "", set())
+    bye_groups: dict[int, list[str]] = {}
+    roster_players: list[dict[str, Any]] = []
+    for player_id in selected_player_ids:
+        player = players_by_id.get(player_id)
+        if player is None:
+            continue
+        row = board_by_id.get(player_id, {})
+        if player.bye_week:
+            bye_groups.setdefault(int(player.bye_week), []).append(player.name)
+        roster_players.append(
+            {
+                "player_id": player.id,
+                "player_name": player.name,
+                "position": _normalized_position(player.position),
+                "nfl_team": player.nfl_team,
+                "bye_week": player.bye_week,
+                "consensus_rank": row.get("consensus_rank"),
+            }
+        )
+    roster_players.sort(
+        key=lambda item: (
+            item["consensus_rank"] or 99999,
+            item["position"],
+            item["player_name"],
+        )
+    )
+    bye_warnings = [
+        {"week": week, "count": len(names), "players": sorted(names)}
+        for week, names in bye_groups.items()
+        if len(names) >= 2
+    ]
+    bye_warnings.sort(key=lambda item: (-int(str(item["count"])), int(str(item["week"]))))
+
+    war_room = {
+        "configured": selected_franchise is not None,
+        "franchise_id": selected_franchise.id if selected_franchise else None,
+        "franchise_name": selected_franchise.name if selected_franchise else None,
+        "roster_count": len(selected_player_ids),
+        "roster_size": league.roster_size,
+        "open_roster_slots": max(0, league.roster_size - len(selected_player_ids)),
+        "lineup_requirements": requirements,
+        "position_counts": selected_counts,
+        "position_plan": position_plan,
+        "open_starter_slots": sum(item["still_needed"] for item in position_plan),
+        "picks_remaining": len(my_indexes),
+        "next_pick": next_slot.get("overall_pick") if next_slot else None,
+        "following_pick": following_slot.get("overall_pick") if following_slot else None,
+        "picks_until_next": my_indexes[0] if my_indexes else None,
+        "on_clock": on_clock,
+        "bye_warnings": bye_warnings,
+        "roster": roster_players,
+    }
+    intelligence = {
+        "position_runs": position_runs,
+        "recent_position_counts": dict(run_counts),
+        "tier_cliffs": tier_cliffs,
+        "pick_values": pick_values,
+        "opponent_needs": opponent_needs,
+        "survival_target_pick": survival_target_pick,
+        "survival_method": (
+            "Heuristic only; it uses market ADP when available, otherwise the live board rank."
+        ),
+        "recommendations": recommended[:8],
+    }
+    return {"war_room": war_room, "intelligence": intelligence}
+
+
+def draft_intelligence(
+    db: Session, league_id: str, franchise_id: str | None = None
+) -> dict[str, Any]:
+    league = db.scalar(select(League).where(League.id == league_id))
+    if league is None:
+        raise DraftValidationError("League does not exist")
+    session = get_or_create_session(db, league)
+    picks = list(
+        db.scalars(
+            select(DraftPick)
+            .where(DraftPick.session_id == session.id)
+            .order_by(DraftPick.overall_pick, DraftPick.selected_at)
+        )
+    )
+    order, _ = _draft_order(db, league_id, picks)
+    board = draftable_consensus(db, league_id)
+    return _draft_intelligence_payload(db, league, board, order, franchise_id)
 
 
 def _walk_draft_rows(value: Any) -> list[dict[str, Any]]:
