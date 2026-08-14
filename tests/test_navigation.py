@@ -131,6 +131,8 @@ def test_draft_room_has_personal_war_room_and_live_intelligence() -> None:
     assert "Teams between your picks" in draft
     assert "renderWarRoom" in script
     assert "renderDraftIntelligence" in script
+    assert "selectDraftIntelPlayer" in script
+    assert "Player focus" in script
     assert "renderDraftRecommendations" in script
     assert "heuristic only" in script
     assert (
@@ -140,3 +142,12 @@ def test_draft_room_has_personal_war_room_and_live_intelligence() -> None:
         < draft.index("ROOM DISPLAY")
     )
     assert '<section class="panel" hidden aria-hidden="true"><h2>Tier inventory</h2>' in draft
+
+
+def test_player_profile_has_contextual_back_button() -> None:
+    profile = (TEMPLATES / "player_profile.html").read_text(encoding="utf-8")
+    script = (TEMPLATES.parent / "static" / "app.js").read_text(encoding="utf-8")
+
+    assert "← Back" in profile
+    assert "returnToPlayerOrigin()" in profile
+    assert "document.referrer" in script
