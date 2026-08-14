@@ -168,7 +168,7 @@ from app.users import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260814.6"
+templates.env.globals["asset_version"] = "20260814.7"
 SESSION_SIGNING_SECRET = ""
 
 
@@ -591,6 +591,17 @@ def draft_page(request: Request, db: Db, league_id: str | None = None) -> Any:
     selected = league_id or settings.mfl_keeper_league_id
     return templates.TemplateResponse(
         request, "draft.html", _page_context(db, "Live draft room", selected)
+    )
+
+
+@app.get("/draft-board", response_class=HTMLResponse)
+def draft_board_page(request: Request, db: Db, league_id: str | None = None) -> Any:
+    settings = runtime_settings(db)
+    selected = league_id or settings.mfl_keeper_league_id
+    return templates.TemplateResponse(
+        request,
+        "draft_board.html",
+        _page_context(db, "Live draft board", selected),
     )
 
 

@@ -340,6 +340,8 @@ def test_draft_state_uses_mfl_traded_pick_order_and_current_drafter(seeded: Sess
     )
     after = draft_state(seeded, "00999")
     assert after["draft_order"][0]["completed"] is True
+    assert after["draft_order"][0]["position"] == "RB"
+    assert after["draft_order"][0]["nfl_team"] == "BUF"
     assert after["current_drafter"]["franchise_name"] == "Beta"
 
 

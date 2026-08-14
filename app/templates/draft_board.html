@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }} · DraftDesk</title>
+  <link rel="stylesheet" href="/static/app.css?v={{ asset_version }}">
+</head>
+<body class="live-draft-board-page">
+  <header class="live-board-header">
+    <div class="live-board-brand">
+      <a href="/draft?league_id={{ selected_league_id }}">DraftDesk</a>
+      <div><p class="eyebrow">LIVE LEAGUE BOARD</p><h1>{{ selected_league.name if selected_league else 'Draft Board' }}</h1></div>
+    </div>
+    <div class="live-board-summary" aria-live="polite">
+      <div><span>On the clock</span><strong id="live-board-current">Loading…</strong></div>
+      <div><span>Pick</span><strong id="live-board-pick">—</strong></div>
+      <div><span>Next</span><strong id="live-board-next">—</strong></div>
+    </div>
+    <div class="live-board-actions">
+      <span id="live-board-status" class="live-board-badge loading">Loading</span>
+      <button id="draft-sound" type="button" onclick="toggleDraftSound()" aria-pressed="true">Sound on</button>
+      <button type="button" onclick="toggleDraftBoardFullscreen()">Full screen</button>
+      <a class="button" href="/draft?league_id={{ selected_league_id }}">Draft Room</a>
+    </div>
+  </header>
+
+  <main class="live-board-shell">
+    <div class="live-board-toolbar">
+      <div class="live-board-view-switch" role="group" aria-label="Draft board view">
+        <button id="team-board-view-button" class="active" type="button" onclick="setLiveDraftBoardView('team')" aria-pressed="true">Team view</button>
+        <button id="pick-board-view-button" type="button" onclick="setLiveDraftBoardView('live')" aria-pressed="false">Live draft view</button>
+      </div>
+      <p id="live-board-progress">Loading MFL draft order…</p>
+    </div>
+
+    <section id="team-draft-view" aria-label="Draft picks grouped by team">
+      <div id="team-draft-board" class="team-draft-board"><div class="live-board-empty">Loading team board…</div></div>
+    </section>
+    <section id="live-draft-view" aria-label="Draft picks in selection order" hidden>
+      <div id="chronological-draft-board" class="chronological-draft-board"><div class="live-board-empty">Loading live draft view…</div></div>
+    </section>
+  </main>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="/static/app.js?v={{ asset_version }}"></script>
+  <script>window.DRAFT_BOARD_LEAGUE_ID={{ selected_league_id|tojson }};initLiveDraftBoard()</script>
+</body>
+</html>

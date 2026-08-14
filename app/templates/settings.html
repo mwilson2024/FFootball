@@ -3,6 +3,16 @@
 <section class="page-title compact"><div><p class="eyebrow">FIRST-RUN SETUP</p><h1>MFL Connection</h1><p>League API keys unlock protected owner-level exports. The User-Agent identifies this app; it is not authentication.</p></div></section>
 <section class="settings-layout"><form id="setup-form" class="panel settings-form"><h2>League configuration</h2><label>Season<input name="season" type="number" min="2020" max="2100" required></label><fieldset><legend>Keeper league</legend><label>League ID<input name="keeper_league_id"></label><label>League API key <span>(leave blank to preserve)</span><input name="keeper_api_key" type="password" autocomplete="new-password"></label><button type="button" onclick="testLeague('keeper')">Test keeper connection</button><div id="keeper-test" class="test-result"></div></fieldset><fieldset><legend>Auction league</legend><label>League ID<input name="auction_league_id"></label><label>League API key <span>(leave blank to preserve)</span><input name="auction_api_key" type="password" autocomplete="new-password"></label><button type="button" onclick="testLeague('auction')">Test auction connection</button><div id="auction-test" class="test-result"></div></fieldset><label>Registered client / User-Agent<input name="user_agent" required></label><button class="primary" type="submit">Save securely</button></form><aside><div class="panel"><h2>Security status</h2><dl id="security-status" class="status-list"></dl></div><div class="notice"><strong>No MFL API key for public data?</strong><p>That is normal. Public exports usually work without one. This website tests public and protected access separately.</p></div></aside></section>
 <section class="admin-tools-grid" aria-label="Auction access and administrator controls">
+  <article class="panel admin-tool-card admin-draft-board-card">
+    <p class="eyebrow">LIVE DRAFT</p>
+    <h2>Draft board</h2>
+    <p class="muted">Launch the shared draft session and open a full-screen board with team columns or a pick-by-pick live view.</p>
+    <p id="admin-draft-board-status" class="admin-draft-board-status" aria-live="polite">Loading draft status…</p>
+    <div class="toolbar">
+      <button id="admin-draft-board-launch" class="primary" type="button" onclick="launchLiveDraftBoard()">Go live &amp; open board</button>
+      <a id="admin-draft-board-link" class="button" href="/draft-board">Open without changing status</a>
+    </div>
+  </article>
   <article class="panel admin-tool-card">
     <p class="eyebrow">AUCTION ACCESS</p>
     <h2>Rob mode</h2>

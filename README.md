@@ -53,7 +53,8 @@ imported through the Cheat Sheet belongs only to the account that uploaded it.
   league values. Import legally obtained CSV rankings using
   `player_name,team,position,overall_rank`.
 - **Draft Room:** the actual non-auction draft, with manual picks, queue, recommendations, roster
-  need, tier inventory, undo, MFL `draftResults` reconciliation preview, and recap export.
+  need, tier inventory, undo, MFL `draftResults` reconciliation preview, recap export, and a
+  full-screen live board that switches between team columns and chronological pick order.
 - **Keepers:** MFL-selected keepers and the available league board. Local choices remain distinct
   until an explicit export or submission.
 - **Auction:** admin-controlled live status, shared three-second viewer updates, atomic purchases,

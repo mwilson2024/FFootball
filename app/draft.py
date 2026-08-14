@@ -144,6 +144,8 @@ def _draft_order(
                 "franchise_name": franchise_names.get(franchise_id, franchise_id or "Unknown"),
                 "player_id": player_id,
                 "player_name": player.name if player else None,
+                "position": player.position if player else None,
+                "nfl_team": player.nfl_team if player else None,
                 "completed": bool(player_id),
                 "order_source": order_source,
             }
@@ -175,6 +177,8 @@ def _local_recorded_order(
                 "franchise_name": franchise_names.get(franchise_id, franchise_id or "Unknown"),
                 "player_id": local.player_id,
                 "player_name": player.name if player else local.player_id,
+                "position": player.position if player else None,
+                "nfl_team": player.nfl_team if player else None,
                 "completed": True,
                 "order_source": "Locally recorded picks",
             }

@@ -95,3 +95,23 @@ def test_auction_activity_strip_keeps_latest_purchase_and_live_state_separate() 
     assert "nomination.overall_pick" in script
     assert "auction-live-badge ${live.is_live?'live':'offline'}" in script
     assert "recent-purchases" in script
+
+
+def test_live_draft_board_is_linked_from_draft_room_and_admin() -> None:
+    draft = (TEMPLATES / "draft.html").read_text(encoding="utf-8")
+    settings = (TEMPLATES / "settings.html").read_text(encoding="utf-8")
+    board = (TEMPLATES / "draft_board.html").read_text(encoding="utf-8")
+    script = (TEMPLATES.parent / "static" / "app.js").read_text(encoding="utf-8")
+
+    assert "Open live draft board" in draft
+    assert 'href="/draft-board?league_id={{ selected_league_id }}"' in draft
+    assert 'id="admin-draft-board-launch"' in settings
+    assert "Go live &amp; open board" in settings
+    assert "launchLiveDraftBoard()" in settings
+    assert "Team view" in board
+    assert "Live draft view" in board
+    assert 'id="team-draft-board"' in board
+    assert 'id="chronological-draft-board"' in board
+    assert "initLiveDraftBoard()" in board
+    assert "renderTeamDraftBoard" in script
+    assert "renderChronologicalDraftBoard" in script
