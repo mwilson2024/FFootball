@@ -131,3 +131,9 @@ def test_draft_room_has_personal_war_room_and_live_intelligence() -> None:
     assert "renderDraftIntelligence" in script
     assert "renderDraftRecommendations" in script
     assert "heuristic only" in script
+    assert (
+        draft.index('class="draft-layout"')
+        < draft.index('id="draft-intelligence-strip"')
+        < draft.index('id="draft-war-room"')
+        < draft.index("ROOM DISPLAY")
+    )
