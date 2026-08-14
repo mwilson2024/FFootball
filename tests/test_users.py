@@ -8,6 +8,7 @@ from app.consensus import build_consensus, parse_ranking_csv
 from app.main import update_preference
 from app.models import DataSource, UserLeagueSetting, UserMFLMembership, UserPlayerPreference
 from app.schemas import PreferenceUpdate
+from app.settings_store import runtime_settings, save_commissioner_imports
 from app.sources import initialize_sources
 from app.user_context import reset_active_username, set_active_username
 from app.users import (
@@ -123,6 +124,14 @@ def test_rob_mode_defaults_on_and_can_be_changed(seeded: Session) -> None:
 
     assert save_auction_rob_mode(seeded, True) is True
     assert auction_rob_mode(seeded) is True
+
+
+def test_commissioner_import_toggle_persists_true_and_false(seeded: Session) -> None:
+    assert save_commissioner_imports(seeded, False).mfl_enable_imports is False
+    assert runtime_settings(seeded).mfl_enable_imports is False
+
+    assert save_commissioner_imports(seeded, True).mfl_enable_imports is True
+    assert runtime_settings(seeded).mfl_enable_imports is True
 
 
 def test_reset_source_settings_restores_defaults_for_only_current_user(

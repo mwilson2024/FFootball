@@ -110,6 +110,7 @@ from app.schemas import (
     AuctionLiveUpdate,
     AuctionNominationOrderUpdate,
     AuctionRobModeUpdate,
+    CommissionerImportsUpdate,
     DraftPickCreate,
     DraftPickUpdate,
     IdentityUpdate,
@@ -127,7 +128,13 @@ from app.schemas import (
     UserLeagueSettingUpdate,
     WarningResolve,
 )
-from app.settings_store import CredentialStoreError, runtime_settings, save_setup, setup_status
+from app.settings_store import (
+    CredentialStoreError,
+    runtime_settings,
+    save_commissioner_imports,
+    save_setup,
+    setup_status,
+)
 from app.sources import (
     LOCAL_RANKING_SOURCE_IDS,
     LOCAL_RANKING_SPECS,
@@ -169,7 +176,7 @@ from app.users import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260814.10"
+templates.env.globals["asset_version"] = "20260814.11"
 SESSION_SIGNING_SECRET = ""
 
 
@@ -697,6 +704,31 @@ def admin_auction_mode(db: Db) -> dict[str, bool]:
 def update_admin_auction_mode(payload: AuctionRobModeUpdate, db: Db) -> dict[str, bool]:
     _require_admin(db)
     return {"rob_mode": save_auction_rob_mode(db, payload.enabled)}
+
+
+def _commissioner_import_status(db: Session) -> dict[str, bool]:
+    settings = runtime_settings(db)
+    credentials_configured = bool(settings.mfl_username and settings.mfl_password)
+    return {
+        "enabled": settings.mfl_enable_imports,
+        "credentials_configured": credentials_configured,
+        "ready": settings.commissioner_configured,
+    }
+
+
+@app.get("/api/admin/commissioner-imports")
+def admin_commissioner_imports(db: Db) -> dict[str, bool]:
+    _require_admin(db)
+    return _commissioner_import_status(db)
+
+
+@app.put("/api/admin/commissioner-imports")
+def update_admin_commissioner_imports(
+    payload: CommissionerImportsUpdate, db: Db
+) -> dict[str, bool]:
+    _require_admin(db)
+    save_commissioner_imports(db, payload.enabled)
+    return _commissioner_import_status(db)
 
 
 @app.get("/api/admin/users")

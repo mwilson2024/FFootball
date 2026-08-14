@@ -28,6 +28,18 @@ def test_account_contains_keeper_and_scoring_links() -> None:
     assert 'href="/scoring"' in account
 
 
+def test_admin_shows_persistent_commissioner_import_toggle() -> None:
+    settings = (TEMPLATES / "settings.html").read_text(encoding="utf-8")
+    script = (TEMPLATES.parent / "static" / "app.js").read_text(encoding="utf-8")
+
+    assert 'id="commissioner-imports-toggle"' in settings
+    assert 'id="commissioner-imports-status"' in settings
+    assert "setCommissionerImports(this.checked)" in settings
+    assert "/api/admin/commissioner-imports" in script
+    assert "Current status: TRUE" in script
+    assert "Current status: FALSE" in script
+
+
 def test_sources_page_offers_ranking_reset() -> None:
     sources = (TEMPLATES / "sources.html").read_text(encoding="utf-8")
 

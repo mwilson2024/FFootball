@@ -106,6 +106,10 @@ class AuctionRobModeUpdate(BaseModel):
     enabled: bool
 
 
+class CommissionerImportsUpdate(BaseModel):
+    enabled: bool
+
+
 class AdminRoleUpdate(BaseModel):
     is_admin: bool
 

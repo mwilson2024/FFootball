@@ -111,9 +111,10 @@ diagnostic log is kept at `data/logs/sync_warnings.log` (2 MB per file, five bac
 
 ## Commissioner safety and exports
 
-Commissioner writes are disabled unless `MFL_ENABLE_IMPORTS=true` and session/local commissioner
-credentials are configured. Auction import requires an exact XML preview and unchanged SHA-256
-confirmation token. The app fetches fresh MFL state before POSTing and never submits automatically.
+Commissioner writes require the persistent **Commissioner imports** switch in Admin plus configured
+commissioner credentials. `MFL_ENABLE_IMPORTS` supplies the initial default when no saved Admin choice
+exists. Auction import requires an exact XML preview and unchanged SHA-256 confirmation token. The app
+fetches fresh MFL state before POSTing and never submits automatically.
 
 Auction CSV/XML, checksums, manifests, and draft recaps are written atomically to `exports/`. Ranking
 imports and checksums are retained under `data/imports/`. IDs remain strings so leading zeroes are

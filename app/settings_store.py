@@ -38,6 +38,7 @@ def runtime_settings(db: Session) -> Settings:
     stored_keeper = _db_value(db, "mfl_keeper_league_id") or ""
     stored_auction = _db_value(db, "mfl_auction_league_id") or ""
     stored_agent = _db_value(db, "mfl_user_agent")
+    stored_imports = _db_value(db, "mfl_enable_imports")
     return base.model_copy(
         update={
             "mfl_season": int(stored_season) if stored_season else base.mfl_season,
@@ -46,6 +47,11 @@ def runtime_settings(db: Session) -> Settings:
             "mfl_keeper_api_key": base.mfl_keeper_api_key or _secret("keeper_api_key") or "",
             "mfl_auction_api_key": base.mfl_auction_api_key or _secret("auction_api_key") or "",
             "mfl_user_agent": stored_agent or base.mfl_user_agent,
+            "mfl_enable_imports": (
+                base.mfl_enable_imports
+                if stored_imports is None
+                else stored_imports.casefold() == "true"
+            ),
             "fantasypros_api_key": base.fantasypros_api_key or _secret("fantasypros_api_key") or "",
         }
     )
@@ -90,6 +96,12 @@ def save_setup(db: Session, payload: SetupUpdate) -> Settings:
     return runtime_settings(db)
 
 
+def save_commissioner_imports(db: Session, enabled: bool) -> Settings:
+    _set_db_value(db, "mfl_enable_imports", str(enabled).lower())
+    db.commit()
+    return runtime_settings(db)
+
+
 def setup_status(db: Session) -> dict[str, object]:
     settings = runtime_settings(db)
     return {
@@ -99,6 +111,10 @@ def setup_status(db: Session) -> dict[str, object]:
         "keeper_api_key_configured": bool(settings.mfl_keeper_api_key),
         "auction_api_key_configured": bool(settings.mfl_auction_api_key),
         "fantasypros_api_key_configured": bool(settings.fantasypros_api_key),
+        "commissioner_imports_enabled": settings.mfl_enable_imports,
+        "commissioner_credentials_configured": bool(
+            settings.mfl_username and settings.mfl_password
+        ),
         "commissioner_configured": settings.commissioner_configured,
         "user_agent": settings.mfl_user_agent,
         "complete": bool(settings.mfl_keeper_league_id and settings.mfl_auction_league_id),

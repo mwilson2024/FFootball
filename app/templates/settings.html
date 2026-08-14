@@ -20,6 +20,12 @@
     <p id="rob-mode-status" class="muted" aria-live="polite">Loading auction access…</p>
   </article>
   <article class="panel admin-tool-card">
+    <p class="eyebrow">MFL COMMISSIONER</p>
+    <h2>Commissioner imports</h2>
+    <label class="admin-switch"><input id="commissioner-imports-toggle" type="checkbox" onchange="setCommissionerImports(this.checked)"><span><strong>Allow confirmed writes to MFL</strong><small>Every import still requires a fresh XML preview and explicit confirmation. Turn this off to block all MFL writes.</small></span></label>
+    <p id="commissioner-imports-status" class="muted" aria-live="polite">Loading commissioner import status…</p>
+  </article>
+  <article class="panel admin-tool-card">
     <p class="eyebrow">USER ACCESS</p>
     <h2>Administrators</h2>
     <p class="muted">Users appear here after their first MFL sign-in. Add or remove admin access from this list.</p>

@@ -186,6 +186,7 @@ def test_rob_mode_controls_who_can_record_auction_purchases(seeded):
             )
             client.cookies.set(SESSION_COOKIE, user_token)
             admin_list_blocked = client.get("/api/admin/users")
+            commissioner_blocked = client.get("/api/admin/commissioner-imports")
             blocked = client.post(
                 "/api/auction/purchases",
                 headers={"X-CSRF-Token": user_session.csrf_token},
@@ -210,6 +211,11 @@ def test_rob_mode_controls_who_can_record_auction_purchases(seeded):
                 headers={"X-CSRF-Token": admin_session.csrf_token},
                 json={"enabled": False},
             )
+            commissioner = client.put(
+                "/api/admin/commissioner-imports",
+                headers={"X-CSRF-Token": admin_session.csrf_token},
+                json={"enabled": True},
+            )
 
             client.cookies.set(SESSION_COOKIE, user_token)
             allowed = client.post(
@@ -225,9 +231,12 @@ def test_rob_mode_controls_who_can_record_auction_purchases(seeded):
             )
 
         assert admin_list_blocked.status_code == 403
+        assert commissioner_blocked.status_code == 403
         assert blocked.status_code == 403
         assert mode.status_code == 200
         assert mode.json() == {"rob_mode": False}
+        assert commissioner.status_code == 200
+        assert commissioner.json()["enabled"] is True
         assert allowed.status_code == 201
     finally:
         app.dependency_overrides.clear()
