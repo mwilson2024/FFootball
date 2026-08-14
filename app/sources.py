@@ -66,6 +66,10 @@ LOCAL_RANKING_SPECS: dict[str, dict[str, Any]] = {
         "league_types": {LeagueType.KEEPER},
         "rank_by": "projected_points_desc",
     },
+    "pff_rankings_csv": {
+        "path": PROJECT_ROOT / "CSV" / "PFF_2026_Fantasy_Rankings.csv",
+        "league_types": {LeagueType.AUCTION, LeagueType.KEEPER},
+    },
 }
 LOCAL_RANKING_SOURCE_IDS = tuple(LOCAL_RANKING_SPECS)
 
@@ -189,6 +193,17 @@ DEFAULT_SOURCES: list[dict[str, Any]] = [
         "terms_url": None,
         "license": "Site owner-provided file; shared in this DraftDesk instance",
         "attribution": "FantasySharks — fantasysharks_2026_rankings_dyn.csv",
+        "cache_ttl_seconds": 0,
+    },
+    {
+        "id": "pff_rankings_csv",
+        "name": "PFF 2026 Fantasy Rankings",
+        "kind": "ranking",
+        "enabled": True,
+        "weight": Decimal("1"),
+        "terms_url": None,
+        "license": "Site owner-provided file; shared in this DraftDesk instance",
+        "attribution": "PFF 2026 fantasy rankings — PFF_2026_Fantasy_Rankings.csv",
         "cache_ttl_seconds": 0,
     },
     {
@@ -476,6 +491,38 @@ def _match_player(
     return None, "unresolved", Decimal("0")
 
 
+def _match_abbreviated_player(
+    players: list[Player],
+    *,
+    name: str,
+    team: str | None,
+    position: str,
+) -> tuple[Player | None, str, Decimal]:
+    """Match provider names like ``J. Gibbs`` without guessing across candidates."""
+    abbreviated = re.fullmatch(r"\s*([A-Za-z])\.\s+(.+?)\s*", name)
+    if abbreviated is None:
+        return None, "unresolved", Decimal("0")
+    initial = abbreviated.group(1).casefold()
+    surname = normalize_player_name(abbreviated.group(2))
+    normalized_position = normalize_position(position)
+    candidates = [
+        player
+        for player in players
+        if normalize_position(player.position) == normalized_position
+        and normalize_player_name(player.name).startswith(initial)
+        and normalize_player_name(player.name).endswith(surname)
+    ]
+    normalized_team = normalize_team(team)
+    exact_team = [
+        player for player in candidates if normalize_team(player.nfl_team) == normalized_team
+    ]
+    if len(exact_team) == 1:
+        return exact_team[0], "unique_initial_surname_team_position", Decimal("0.90")
+    if len(candidates) == 1:
+        return candidates[0], "unique_initial_surname_position", Decimal("0.80")
+    return None, "unresolved", Decimal("0")
+
+
 def _csv_value(row: dict[str, Any], *names: str) -> str:
     for name in names:
         value = row.get(name)
@@ -576,6 +623,13 @@ def sync_local_ranking_source(db: Session, source_id: str) -> dict[str, Any]:
                         team=team,
                         position=position,
                     )
+                    if player is None:
+                        player, method, confidence = _match_abbreviated_player(
+                            players,
+                            name=name,
+                            team=team,
+                            position=position,
+                        )
                 if player is None:
                     unresolved += 1
                     continue

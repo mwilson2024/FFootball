@@ -589,6 +589,42 @@ async def test_local_dynasty_rankings_are_scoped_to_adfl(
     )
 
 
+def test_pff_abbreviated_rankings_feed_both_leagues(seeded: Session, tmp_path, monkeypatch) -> None:
+    initialize_sources(seeded)
+    seeded.add(
+        League(
+            id="adfl",
+            season=2026,
+            league_type="keeper",
+            name="ADFL",
+            roster_size=20,
+            starting_budget=None,
+            minimum_bid=Decimal("1"),
+            settings_json={},
+            scoring_rules_json={},
+            lineup_json={"QB": 1, "RB": 2, "WR": 2, "TE": 1},
+            warnings_json=[],
+        )
+    )
+    seeded.add(Player(id="gibbs", name="Jahmyr Gibbs", position="RB", nfl_team="DET"))
+    seeded.commit()
+    pff_file = tmp_path / "pff.csv"
+    pff_file.write_text(
+        "overall_rank,player_name,team,position,position_rank,bye_week,adp,auction_value,source\n"
+        "1,J. Gibbs,DET,RB,1,6,1.6,51,PFF\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setitem(LOCAL_RANKING_SPECS["pff_rankings_csv"], "path", pff_file)
+
+    result = sync_local_ranking_source(seeded, "pff_rankings_csv")
+    adfl = {row["player_id"]: row for row in build_consensus(seeded, "adfl")}
+    tmfl = {row["player_id"]: row for row in build_consensus(seeded, "00999")}
+
+    assert result["matched"] == 2
+    assert adfl["gibbs"]["source_ranks"]["pff_rankings_csv"] == "1"
+    assert tmfl["gibbs"]["source_ranks"]["pff_rankings_csv"] == "1"
+
+
 def test_projection_aav_and_trend_affect_consensus_but_schedule_does_not(
     seeded: Session,
 ) -> None:

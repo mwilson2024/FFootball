@@ -35,8 +35,9 @@ CSV. From PowerShell:
 
 The generated files are `CSV/NFL26_CS_PPR300.csv` and
 `CSV/espnDynastyNFL26_CS_Dyn.csv`. Those two files plus the FantasyPros redraft, FantasyPros dynasty,
-and FantasySharks dynasty CSVs are loaded automatically at startup, after an MFL synchronization,
-and during the 1:00 AM daily refresh. Repository CSVs are shared with every signed-in account. A CSV
+FantasySharks dynasty, and PFF fantasy ranking CSVs are loaded automatically at startup, after an
+MFL synchronization, and during the 1:00 AM daily refresh. Repository CSVs are shared with every
+signed-in account. A CSV
 imported through the Cheat Sheet belongs only to the account that uploaded it.
 
 ## Website guide
@@ -62,7 +63,7 @@ imported through the Cheat Sheet belongs only to the account that uploaded it.
   available same-position replacements using overall rank and the selected week's matchup.
 - **Data Sources:** inspect shared cached sources and privately preview, include, exclude, or weight
   each one for your board: MFL, the attributed CC-BY-4.0
-  GNG Pigskin board, five full shared ranking CSVs, free Sleeper metadata/trends, CC-BY-4.0 nflverse
+  GNG Pigskin board, six full shared ranking CSVs, free Sleeper metadata/trends, CC-BY-4.0 nflverse
   identity, weekly depth chart, schedule, and historical player-stat data, and private user CSV
   imports.
 - **Scoring:** grouped MFL scoring rules with every repeated range retained, readable event names,
@@ -86,7 +87,7 @@ configured local blend and never implies FantasyPros Expert Consensus Rank.
 
 The GNG rankings need no key and are attributed under CC BY 4.0. ADFL receives the shared ESPN,
 FantasyPros, and FantasySharks dynasty CSVs; TMFL receives the shared ESPN PPR Top 300 and
-FantasyPros redraft CSV.
+FantasyPros redraft CSV. Both leagues receive the shared PFF 2026 fantasy ranking CSV.
 The limited live FantasyPros API and API-key controls remain removed; FantasyPros data now comes
 from the complete uploaded files and is attributed with its filename. Sleeper trends and nflverse
 schedule difficulty use small ranking weights, while their metadata also enriches player profiles.

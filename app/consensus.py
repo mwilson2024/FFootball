@@ -42,6 +42,7 @@ SOURCE_FAMILIES = {
     "fantasypros_redraft_csv": "fantasypros",
     "fantasypros_dynasty_csv": "fantasypros",
     "fantasysharks_dynasty_csv": "fantasysharks",
+    "pff_rankings_csv": "pff",
     "gng": "gng",
     "sleeper": "sleeper",
     "nflverse": "nflverse",
