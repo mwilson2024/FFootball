@@ -137,3 +137,4 @@ def test_draft_room_has_personal_war_room_and_live_intelligence() -> None:
         < draft.index('id="draft-war-room"')
         < draft.index("ROOM DISPLAY")
     )
+    assert '<section class="panel" hidden aria-hidden="true"><h2>Tier inventory</h2>' in draft
