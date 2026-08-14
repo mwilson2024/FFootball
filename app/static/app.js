@@ -274,9 +274,8 @@ function renderDepthCharts(data){
   select.innerHTML=data.teams.map(team=>`<option value="${escapeHtml(team.code)}">${escapeHtml(team.name)}${team.player_count?` · ${team.player_count}`:''}</option>`).join('')
   select.value=selected.code
   document.querySelector('#depth-espn-link').href=selected.espn_url
-  const orderWarning=data.players.length&&!data.ordered_player_count?' Cached data identifies positions but not starter order; refresh nflverse/Sleeper or use ESPN for the published order.':''
-  status.className=`notice${orderWarning?' warning':''}`
-  status.innerHTML=`Showing <strong>${escapeHtml(selected.name)}</strong> · ${data.players.length} cached players. ${escapeHtml(data.source_note)}${escapeHtml(orderWarning)}`
+  status.className='notice'
+  status.innerHTML=`<strong>${escapeHtml(selected.name)}</strong> · Last updated ${data.updated_at?shortDate(data.updated_at):'unavailable'}`
   const groups={Offense:new Map(),Defense:new Map(),'Special Teams':new Map()}
   data.players.forEach(row=>{const group=groups[depthChartGroup(row.depth_position)],position=row.depth_position;if(!group.has(position))group.set(position,[]);group.get(position).push(row)})
   document.querySelector('#depth-chart-groups').innerHTML=Object.entries(groups).filter(([,positions])=>positions.size).map(([groupName,positions])=>`<article class="panel depth-chart-panel"><div class="panel-head"><h2>${escapeHtml(groupName)}</h2><span class="pill">${[...positions.values()].reduce((total,rows)=>total+rows.length,0)} players</span></div><div class="table-wrap"><table><thead><tr><th>Position</th><th>Starter</th><th>Second</th><th>Third</th><th>Fourth+</th><th>Order unavailable</th></tr></thead><tbody>${[...positions.entries()].map(([position,rows])=>`<tr><th scope="row">${escapeHtml(position)}</th>${[1,2,3,4,null].map(order=>`<td>${rows.filter(row=>order===null?row.depth_order==null:order===4?row.depth_order>=4:row.depth_order===order).map(depthChartPlayer).join('')||'<span class="muted">—</span>'}</td>`).join('')}</tr>`).join('')}</tbody></table></div></article>`).join('')||'<article class="panel"><h2>No cached depth chart</h2><p>Refresh nflverse and Sleeper under Sources, or use the ESPN link for the latest published chart.</p></article>'

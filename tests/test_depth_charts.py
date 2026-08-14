@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from sqlalchemy.orm import Session
 
 from app.catalog import player_detail
@@ -23,6 +25,7 @@ def test_depth_chart_lists_all_teams_and_selects_cached_team(seeded: Session) ->
         "espn_url": "https://www.espn.com/nfl/team/depth/_/name/buf",
     }
     assert [row["player_id"] for row in result["players"]] == ["99", "0001234"]
+    assert result["updated_at"] is not None
     assert result["players"][0]["depth_order"] == 2
     assert result["players"][1]["depth_order"] == 1
 
@@ -41,3 +44,15 @@ def test_player_profile_exposes_bye_week(seeded: Session) -> None:
 def test_depth_chart_normalizes_external_team_codes() -> None:
     assert normalize_team_code("gb") == "GBP"
     assert normalize_team_code("wsh") == "WAS"
+
+
+def test_depth_chart_banner_shows_team_and_update_time() -> None:
+    script = (Path(__file__).resolve().parents[1] / "app" / "static" / "app.js").read_text(
+        encoding="utf-8"
+    )
+    status_line = next(line for line in script.splitlines() if "Last updated" in line)
+
+    assert "selected.name" in status_line
+    assert "Last updated" in status_line
+    assert "cached players" not in status_line
+    assert "source_note" not in status_line

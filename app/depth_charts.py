@@ -174,6 +174,9 @@ def depth_chart_overview(db: Session, team: str | None = None) -> dict[str, Any]
         )
     selected_team = TEAM_LOOKUP[selected_code]
     selected_players = [row for row in rows if row["nfl_team"] == selected_code]
+    updated_values = [
+        row["updated_at"] for row in selected_players if row["updated_at"] is not None
+    ]
     teams = [
         {
             **item,
@@ -191,6 +194,7 @@ def depth_chart_overview(db: Session, team: str | None = None) -> dict[str, Any]
         },
         "teams": teams,
         "players": selected_players,
+        "updated_at": max(updated_values) if updated_values else None,
         "ordered_player_count": sum(
             1 for row in selected_players if row["depth_order"] is not None
         ),
