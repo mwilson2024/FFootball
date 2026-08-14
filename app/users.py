@@ -8,6 +8,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.models import (
+    AppSetting,
     DataSource,
     UserAccount,
     UserLeagueSetting,
@@ -22,6 +23,7 @@ from app.user_context import (
 )
 
 DEFAULT_AUCTION_STRATEGY = "balanced"
+ROB_MODE_SETTING_KEY = "auction_rob_mode"
 AUCTION_STRATEGIES: dict[str, dict[str, Any]] = {
     "balanced": {
         "name": "Balanced value",
@@ -178,6 +180,25 @@ def current_account(db: Session) -> UserAccount:
 
 def is_current_admin(db: Session) -> bool:
     return current_account(db).is_admin
+
+
+def auction_rob_mode(db: Session) -> bool:
+    """Return whether auction purchases are restricted to administrators."""
+    setting = db.get(AppSetting, ROB_MODE_SETTING_KEY)
+    if setting is None:
+        return True
+    return setting.value.strip().lower() not in {"0", "false", "off", "no"}
+
+
+def save_auction_rob_mode(db: Session, enabled: bool) -> bool:
+    setting = db.get(AppSetting, ROB_MODE_SETTING_KEY)
+    if setting is None:
+        setting = AppSetting(key=ROB_MODE_SETTING_KEY, value="true")
+        db.add(setting)
+    setting.value = "true" if enabled else "false"
+    setting.updated_at = datetime.now(UTC)
+    db.commit()
+    return enabled
 
 
 def effective_source_settings(db: Session) -> dict[str, dict[str, Any]]:

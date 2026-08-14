@@ -102,6 +102,14 @@ class AuctionLiveUpdate(BaseModel):
     is_live: bool
 
 
+class AuctionRobModeUpdate(BaseModel):
+    enabled: bool
+
+
+class AdminRoleUpdate(BaseModel):
+    is_admin: bool
+
+
 class AuctionNominationOrderUpdate(BaseModel):
     franchise_ids: list[str] = Field(min_length=1)
 

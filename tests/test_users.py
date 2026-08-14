@@ -11,10 +11,12 @@ from app.schemas import PreferenceUpdate
 from app.sources import initialize_sources
 from app.user_context import reset_active_username, set_active_username
 from app.users import (
+    auction_rob_mode,
     bootstrap_user,
     effective_auction_strategy,
     effective_source_settings,
     reset_source_settings,
+    save_auction_rob_mode,
     save_mfl_memberships,
     save_source_setting,
 )
@@ -111,6 +113,16 @@ def test_wilsonmw_is_admin_and_balanced_strategy_is_default(seeded: Session) -> 
     assert account.is_admin is True
     assert strategy["template"] == "balanced"
     assert strategy["priority_order"] != ["WR", "QB", "RB", "TE", "DEF"]
+
+
+def test_rob_mode_defaults_on_and_can_be_changed(seeded: Session) -> None:
+    assert auction_rob_mode(seeded) is True
+
+    assert save_auction_rob_mode(seeded, False) is False
+    assert auction_rob_mode(seeded) is False
+
+    assert save_auction_rob_mode(seeded, True) is True
+    assert auction_rob_mode(seeded) is True
 
 
 def test_reset_source_settings_restores_defaults_for_only_current_user(

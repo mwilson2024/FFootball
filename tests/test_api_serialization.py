@@ -9,6 +9,7 @@ from app.db import get_db
 from app.main import app
 from app.models import SourcePlayerValue, UserLeagueSetting
 from app.sources import initialize_sources
+from app.users import bootstrap_user
 
 
 def test_league_and_auction_state_are_json_serializable(seeded):
@@ -156,6 +157,118 @@ def test_admin_can_reset_local_auction_and_nomination_state(seeded):
         assert reset.json()["nomination"]["cursor"] == 0
         assert after.json()["purchases"] == []
         assert after.json()["nomination"]["current_franchise_name"] == "Alpha"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_rob_mode_controls_who_can_record_auction_purchases(seeded):
+    bootstrap_user(seeded, "tester", admin_usernames={"wilsonmw"})
+
+    def override_db():
+        yield seeded
+
+    app.dependency_overrides[get_db] = override_db
+    try:
+        with TestClient(app) as client:
+            user_token, user_session = make_session_token(
+                main_module.SESSION_SIGNING_SECRET,
+                "tester",
+                {"00999"},
+                max_age_seconds=3600,
+            )
+            client.cookies.set(SESSION_COOKIE, user_token)
+            admin_list_blocked = client.get("/api/admin/users")
+            blocked = client.post(
+                "/api/auction/purchases",
+                headers={"X-CSRF-Token": user_session.csrf_token},
+                json={
+                    "league_id": "00999",
+                    "franchise_id": "0001",
+                    "player_id": "0001234",
+                    "amount": "2",
+                    "status": "ROSTER",
+                },
+            )
+
+            admin_token, admin_session = make_session_token(
+                main_module.SESSION_SIGNING_SECRET,
+                "wilsonmw",
+                {"00999"},
+                max_age_seconds=3600,
+            )
+            client.cookies.set(SESSION_COOKIE, admin_token)
+            mode = client.put(
+                "/api/admin/auction-mode",
+                headers={"X-CSRF-Token": admin_session.csrf_token},
+                json={"enabled": False},
+            )
+
+            client.cookies.set(SESSION_COOKIE, user_token)
+            allowed = client.post(
+                "/api/auction/purchases",
+                headers={"X-CSRF-Token": user_session.csrf_token},
+                json={
+                    "league_id": "00999",
+                    "franchise_id": "0001",
+                    "player_id": "0001234",
+                    "amount": "2",
+                    "status": "ROSTER",
+                },
+            )
+
+        assert admin_list_blocked.status_code == 403
+        assert blocked.status_code == 403
+        assert mode.status_code == 200
+        assert mode.json() == {"rob_mode": False}
+        assert allowed.status_code == 201
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_admin_can_promote_existing_users_but_cannot_demote_self(seeded):
+    bootstrap_user(seeded, "alice", display_name="Alice", admin_usernames={"wilsonmw"})
+
+    def override_db():
+        yield seeded
+
+    app.dependency_overrides[get_db] = override_db
+    try:
+        with TestClient(app) as client:
+            admin_token, admin_session = make_session_token(
+                main_module.SESSION_SIGNING_SECRET,
+                "wilsonmw",
+                {"00999"},
+                max_age_seconds=3600,
+            )
+            client.cookies.set(SESSION_COOKIE, admin_token)
+            users = client.get("/api/admin/users")
+            promoted = client.put(
+                "/api/admin/users/alice/role",
+                headers={"X-CSRF-Token": admin_session.csrf_token},
+                json={"is_admin": True},
+            )
+
+            alice_token, alice_session = make_session_token(
+                main_module.SESSION_SIGNING_SECRET,
+                "alice",
+                {"00999"},
+                max_age_seconds=3600,
+            )
+            client.cookies.set(SESSION_COOKIE, alice_token)
+            alice_users = client.get("/api/admin/users")
+            self_demotion = client.put(
+                "/api/admin/users/alice/role",
+                headers={"X-CSRF-Token": alice_session.csrf_token},
+                json={"is_admin": False},
+            )
+
+        assert users.status_code == 200
+        assert any(row["username"] == "alice" for row in users.json())
+        assert promoted.status_code == 200
+        assert promoted.json()["is_admin"] is True
+        assert alice_users.status_code == 200
+        assert self_demotion.status_code == 409
+        assert self_demotion.json()["detail"]["code"] == "self_demotion_blocked"
     finally:
         app.dependency_overrides.clear()
 

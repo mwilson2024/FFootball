@@ -94,15 +94,18 @@ from app.models import (
     PlayerIdentity,
     SourcePlayerValue,
     SyncWarning,
+    UserAccount,
     UserMFLMembership,
     UserPlayerPreference,
     UserSourceSetting,
 )
 from app.power_rankings import build_power_rankings, chatgpt_power_rankings
 from app.schemas import (
+    AdminRoleUpdate,
     AssistantRequest,
     AuctionLiveUpdate,
     AuctionNominationOrderUpdate,
+    AuctionRobModeUpdate,
     DraftPickCreate,
     DraftPickUpdate,
     IdentityUpdate,
@@ -133,6 +136,7 @@ from app.sync import RULE_DESCRIPTIONS, record_sync_warnings, sync_configured, s
 from app.user_context import (
     active_username,
     is_personal_source_id,
+    normalize_username,
     reset_active_league_ids,
     reset_active_username,
     set_active_league_ids,
@@ -141,6 +145,7 @@ from app.user_context import (
 )
 from app.users import (
     AUCTION_STRATEGIES,
+    auction_rob_mode,
     authorized_league_ids,
     bootstrap_user,
     current_account,
@@ -150,6 +155,7 @@ from app.users import (
     mfl_memberships_for_user,
     record_login,
     reset_source_settings,
+    save_auction_rob_mode,
     save_mfl_memberships,
     save_source_setting,
     strategy_json,
@@ -157,7 +163,7 @@ from app.users import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260810.9"
+templates.env.globals["asset_version"] = "20260814.1"
 SESSION_SIGNING_SECRET = ""
 
 
@@ -358,6 +364,19 @@ def _require_admin(db: Session) -> None:
             403,
             detail={"code": "admin_required", "message": "An administrator must do that"},
         )
+
+
+def _admin_user_json(account: UserAccount) -> dict[str, Any]:
+    configured_admins = get_settings().admin_username_set
+    return {
+        "username": account.username,
+        "display_name": account.display_name,
+        "is_admin": account.is_admin,
+        "is_current_user": account.username == normalize_username(active_username()),
+        "is_protected": account.username in configured_admins,
+        "created_at": account.created_at.isoformat(),
+        "last_login_at": account.last_login_at.isoformat() if account.last_login_at else None,
+    }
 
 
 def _audit_mutation(
@@ -626,6 +645,8 @@ def auction_room(request: Request, db: Db) -> Any:
     settings = runtime_settings(db)
     context = _page_context(db, "Auction room", settings.mfl_auction_league_id)
     context["league"] = db.scalar(select(League).where(League.id == settings.mfl_auction_league_id))
+    context["rob_mode"] = auction_rob_mode(db)
+    context["can_record_purchase"] = context["is_admin"] or not context["rob_mode"]
     return templates.TemplateResponse(request, "auction.html", context)
 
 
@@ -640,6 +661,66 @@ def keeper_room(request: Request, db: Db) -> Any:
 @app.get("/api/setup/status")
 def api_setup_status(db: Db) -> dict[str, object]:
     return setup_status(db)
+
+
+@app.get("/api/admin/auction-mode")
+def admin_auction_mode(db: Db) -> dict[str, bool]:
+    _require_admin(db)
+    return {"rob_mode": auction_rob_mode(db)}
+
+
+@app.put("/api/admin/auction-mode")
+def update_admin_auction_mode(payload: AuctionRobModeUpdate, db: Db) -> dict[str, bool]:
+    _require_admin(db)
+    return {"rob_mode": save_auction_rob_mode(db, payload.enabled)}
+
+
+@app.get("/api/admin/users")
+def admin_users(db: Db) -> list[dict[str, Any]]:
+    _require_admin(db)
+    accounts = db.scalars(
+        select(UserAccount).order_by(UserAccount.display_name, UserAccount.username)
+    )
+    return [_admin_user_json(account) for account in accounts]
+
+
+@app.put("/api/admin/users/{username}/role")
+def update_admin_user_role(username: str, payload: AdminRoleUpdate, db: Db) -> dict[str, Any]:
+    _require_admin(db)
+    normalized = normalize_username(username)
+    account = db.get(UserAccount, normalized)
+    if account is None:
+        raise HTTPException(
+            404, detail={"code": "user_not_found", "message": "That user has not signed in yet"}
+        )
+    if not payload.is_admin:
+        if normalized == normalize_username(active_username()):
+            raise HTTPException(
+                409,
+                detail={
+                    "code": "self_demotion_blocked",
+                    "message": "Another administrator must remove your admin access",
+                },
+            )
+        if normalized in get_settings().admin_username_set:
+            raise HTTPException(
+                409,
+                detail={
+                    "code": "configured_admin",
+                    "message": "This administrator is protected by ADMIN_USERNAMES",
+                },
+            )
+        admin_count = db.scalar(
+            select(func.count()).select_from(UserAccount).where(UserAccount.is_admin.is_(True))
+        )
+        if account.is_admin and int(admin_count or 0) <= 1:
+            raise HTTPException(
+                409,
+                detail={"code": "last_admin", "message": "At least one administrator is required"},
+            )
+    account.is_admin = payload.is_admin
+    db.commit()
+    return _admin_user_json(account)
 
 
 @app.put("/api/setup/leagues")
@@ -1752,6 +1833,8 @@ def auction_state(db: Db, league_id: str | None = None) -> dict[str, Any]:
         )
     league = _league_or_404(db, selected)
     live = _auction_live(db, selected)
+    is_admin = is_current_admin(db)
+    rob_mode = auction_rob_mode(db)
     return {
         "league": _league_json(league),
         "franchises": [
@@ -1777,7 +1860,9 @@ def auction_state(db: Db, league_id: str | None = None) -> dict[str, Any]:
             "updated_by": live.updated_by,
         },
         "nomination": nomination_state(db, selected),
-        "is_admin": is_current_admin(db),
+        "is_admin": is_admin,
+        "rob_mode": rob_mode,
+        "can_record_purchase": is_admin or not rob_mode,
     }
 
 
@@ -1870,7 +1955,8 @@ def reset_local_auction(db: Db, league_id: str | None = None) -> dict[str, Any]:
 
 @app.post("/api/auction/purchases", status_code=201)
 def purchase(payload: PurchaseCreate, db: Db) -> dict[str, Any]:
-    _require_admin(db)
+    if auction_rob_mode(db):
+        _require_admin(db)
     result = add_purchase(db, payload)
     advance_nomination(db, payload.league_id, actor=active_username())
     _bump_auction(db, payload.league_id)
