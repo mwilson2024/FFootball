@@ -128,7 +128,10 @@ def test_live_draft_board_is_linked_from_draft_room_and_admin() -> None:
     assert 'id="admin-real-draft-toggle"' in settings
     assert 'id="admin-mock-draft-toggle"' in settings
     assert 'id="admin-mock-draft-reset"' in settings
-    assert "Go live &amp; open board" in settings
+    assert "Go Live &amp; open board" in settings
+    assert ">Go Live</button>" in draft
+    assert "editRealDraftPick" in script
+    assert "removeRealDraftPick" in script
     assert "launchLiveDraftBoard()" in settings
     assert "Team view" in board
     assert "Live draft view" in board

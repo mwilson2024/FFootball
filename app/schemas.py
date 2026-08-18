@@ -191,8 +191,14 @@ class DraftPickCreate(BaseModel):
 
 
 class DraftPickUpdate(BaseModel):
+    player_id: str | None = None
     franchise_id: str | None = None
     round: int | None = Field(default=None, ge=1)
     pick: int | None = Field(default=None, ge=1)
     overall_pick: int | None = Field(default=None, ge=1)
     version: int = Field(ge=1)
+
+    @field_validator("player_id", "franchise_id", mode="before")
+    @classmethod
+    def preserve_updated_draft_ids(cls, value: object) -> str | None:
+        return None if value is None else str(value).strip()

@@ -521,6 +521,14 @@ def update_pick(db: Session, pick_id: str, payload: DraftPickUpdate) -> DraftPic
         raise DraftValidationError("Draft pick does not exist")
     if pick.version != payload.version:
         raise DraftValidationError("Draft pick changed in another session; refresh first")
+    if payload.player_id is not None:
+        if db.get(Player, payload.player_id) is None:
+            raise DraftValidationError("Player does not exist")
+        availability = availability_maps(db, pick.league_id)
+        if payload.player_id != pick.player_id and payload.player_id in availability["unavailable"]:
+            raise DraftValidationError(
+                "Replacement player is already rostered, kept, purchased, or drafted"
+            )
     if payload.franchise_id and not db.scalar(
         select(Franchise).where(
             Franchise.league_id == pick.league_id,
@@ -529,6 +537,8 @@ def update_pick(db: Session, pick_id: str, payload: DraftPickUpdate) -> DraftPic
     ):
         raise DraftValidationError("Franchise does not exist")
     before = _snapshot(pick)
+    if payload.player_id is not None:
+        pick.player_id = payload.player_id
     pick.franchise_id = payload.franchise_id
     pick.round = payload.round
     pick.pick = payload.pick
@@ -543,9 +553,13 @@ def update_pick(db: Session, pick_id: str, payload: DraftPickUpdate) -> DraftPic
             after_json=_snapshot(pick),
         )
     )
-    db.commit()
-    db.refresh(pick)
-    return pick
+    try:
+        db.commit()
+        db.refresh(pick)
+        return pick
+    except IntegrityError as exc:
+        db.rollback()
+        raise DraftValidationError("Player or pick slot was already recorded") from exc
 
 
 def remove_pick(db: Session, pick_id: str) -> None:
@@ -582,6 +596,7 @@ def undo_draft(db: Session, league_id: str) -> None:
         current = db.get(DraftPick, event.entity_id)
         if current:
             previous = event.before_json
+            current.player_id = str(previous["player_id"])
             current.franchise_id = previous.get("franchise_id")
             current.round = previous.get("round")
             current.pick = previous.get("pick")

@@ -265,6 +265,7 @@ def test_real_draft_add_edit_delete_and_undo(seeded: Session) -> None:
         seeded,
         pick.id,
         DraftPickUpdate(
+            player_id="99",
             franchise_id="0002",
             round=1,
             pick=1,
@@ -272,11 +273,14 @@ def test_real_draft_add_edit_delete_and_undo(seeded: Session) -> None:
             version=pick.version,
         ),
     )
+    assert updated.player_id == "99"
     assert updated.franchise_id == "0002"
     remove_pick(seeded, pick.id)
     assert seeded.get(DraftPick, pick.id) is None
     undo_draft(seeded, "00999")
     assert seeded.get(DraftPick, pick.id) is not None
+    assert draft_state(seeded, "00999")["picks"][0]["player_id"] == "99"
+    undo_draft(seeded, "00999")
     assert draft_state(seeded, "00999")["picks"][0]["player_id"] == "0001234"
 
 

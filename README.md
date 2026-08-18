@@ -59,7 +59,8 @@ imported through the Cheat Sheet belongs only to the account that uploaded it.
   live position-run/tier-cliff/value intelligence,
   next-pick survival heuristics, nearby opponent needs, undo, MFL `draftResults` reconciliation
   preview, recap export, and a full-screen live board that switches between team columns and
-  chronological pick order.
+  chronological pick order. During a real live draft, admins can correct the player, franchise,
+  round, or pick number on locally recorded selections, or remove a bad selection entirely.
 - **Keepers:** MFL-selected keepers and the available league board. Local choices remain distinct
   until an explicit export or submission.
 - **Auction:** three admin-controlled states: closed (everyone read-only), staging (admins can record
