@@ -64,7 +64,11 @@ imported through the Cheat Sheet belongs only to the account that uploaded it.
 - **Keepers:** MFL-selected keepers and the available league board. Local choices remain distinct
   until an explicit export or submission.
 - **Auction:** three admin-controlled states: closed (everyone read-only), staging (admins can record
-  local test/preparation purchases), and live (purchase access follows Rob mode). It also has shared
+  local test/preparation purchases), and live (purchase access follows Rob mode). Admins can
+  optionally replace manual entry with the shared nomination and bidding room. Only the signed-in
+  MFL owner whose team is currently up may nominate; connected owners bid for their own franchise,
+  the room shows the nominated player's photo and live high bid, and an admin awards the winner.
+  The room stays hidden while this option is off. The auction also has shared
   three-second viewer updates, atomic purchases, correction/reassignment tools, strategy-aware
   dynamic pricing, undo/redo, CSV, MFL XML, and a commissioner-only MFL import that requires a fresh
   XML preview plus explicit confirmation.
@@ -82,7 +86,8 @@ imported through the Cheat Sheet belongs only to the account that uploaded it.
 - **Scoring:** grouped MFL scoring rules with every repeated range retained, readable event names,
   normalized values, mapping state, and the raw imported response.
 - **Settings:** configure both leagues without editing code and test public and protected access
-  separately. The User-Agent identifies the app; it is not authentication.
+  separately. Admins can also see which previously signed-in users are online or recently active.
+  The User-Agent identifies the app; it is not authentication.
 - **My Account:** select your franchise and auction strategy. Player tiers, targets, sleepers,
   queues, and source adjustments belong only to the signed-in MFL user.
 - **League assistant:** optional OpenAI-powered advice using the selected user franchise, roster,

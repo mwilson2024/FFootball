@@ -99,6 +99,14 @@ def test_nomination_controls_live_in_admin_and_budget_boxes_show_turns() -> None
     assert "Rob mode is on" in script
     assert 'id="admin-auction-stage-toggle"' in settings
     assert 'id="admin-auction-live-toggle"' in settings
+    assert 'id="interactive-auction-toggle"' in settings
+    assert "Use live nominations and bidding" in settings
+    assert 'id="interactive-auction-panel"' in auction
+    assert "renderInteractiveAuction" in script
+    assert "nominateInteractivePlayer" in script
+    assert "placeInteractiveBid" in script
+    assert "awardInteractiveAuction" in script
+    assert "/api/presence" in script
 
 
 def test_auction_activity_strip_keeps_latest_purchase_and_live_state_separate() -> None:

@@ -22,7 +22,9 @@
     <h2>Staging and live auction</h2>
     <label class="admin-switch"><input id="admin-auction-stage-toggle" type="checkbox" onchange="setAdminAuctionStage(this.checked)"><span><strong>Open auction staging</strong><small>Admins can prepare and test purchases while members remain read-only.</small></span></label>
     <label class="admin-switch"><input id="admin-auction-live-toggle" type="checkbox" onchange="setAdminAuctionLive(this.checked)"><span><strong>Auction is live</strong><small>Unlocks purchases for eligible users. Going live automatically opens staging.</small></span></label>
+    <label class="admin-switch"><input id="interactive-auction-toggle" type="checkbox" onchange="setInteractiveAuction(this.checked)"><span><strong>Use live nominations and bidding</strong><small>Only the team currently up can nominate. Every signed-in owner can bid for their selected MFL franchise.</small></span></label>
     <p id="admin-auction-stage-status" class="muted" aria-live="polite">Loading auction status…</p>
+    <p id="interactive-auction-status" class="muted" aria-live="polite"></p>
   </article>
   <article class="panel admin-tool-card">
     <p class="eyebrow">AUCTION ACCESS</p>
@@ -38,8 +40,8 @@
   </article>
   <article class="panel admin-tool-card">
     <p class="eyebrow">USER ACCESS</p>
-    <h2>Administrators</h2>
-    <p class="muted">Users appear here after their first MFL sign-in. Add or remove admin access from this list.</p>
+    <h2>Users and administrators</h2>
+    <p class="muted">Users appear here after their first MFL sign-in. See who is online or was recently active, and add or remove admin access.</p>
     <div id="admin-user-list" class="admin-user-list" aria-live="polite">Loading users…</div>
   </article>
 </section>

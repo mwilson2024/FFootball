@@ -7,7 +7,14 @@ import app.main as main_module
 from app.auth import SESSION_COOKIE, make_session_token
 from app.db import get_db
 from app.main import app
-from app.models import DraftPick, MFLSnapshot, MockDraftPick
+from app.models import (
+    AuctionPurchase,
+    DraftPick,
+    MFLSnapshot,
+    MockDraftPick,
+    Player,
+    UserLeagueSetting,
+)
 from app.users import bootstrap_user
 
 
@@ -258,5 +265,149 @@ def test_auction_closed_staging_and_live_permissions(seeded) -> None:
         assert live_user_pick.status_code == 201
         assert final_state.json()["phase"] == "live"
         assert final_state.json()["can_record_purchase"] is True
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_interactive_auction_enforces_turns_shared_bids_and_admin_award(seeded) -> None:
+    bootstrap_user(seeded, "tester", admin_usernames={"wilsonmw"})
+    bootstrap_user(seeded, "bidder", admin_usernames={"wilsonmw"})
+    seeded.add_all(
+        [
+            UserLeagueSetting(
+                username="tester",
+                league_id="00999",
+                franchise_id="0001",
+                auction_strategy_json={"template": "balanced"},
+            ),
+            UserLeagueSetting(
+                username="bidder",
+                league_id="00999",
+                franchise_id="0002",
+                auction_strategy_json={"template": "balanced"},
+            ),
+        ]
+    )
+    player = seeded.get(Player, "0001234")
+    player.metadata_json = {"nflverse": {"headshot": "https://example.com/player.png"}}
+    seeded.commit()
+
+    def override_db():
+        yield seeded
+
+    app.dependency_overrides[get_db] = override_db
+    try:
+        with TestClient(app) as client:
+            admin_token, admin_session = _session("wilsonmw")
+            client.cookies.set(SESSION_COOKIE, admin_token)
+            enabled = client.put(
+                "/api/admin/interactive-auction?league_id=00999",
+                headers={"X-CSRF-Token": admin_session.csrf_token},
+                json={"enabled": True},
+            )
+            live = client.put(
+                "/api/auction/live?league_id=00999",
+                headers={"X-CSRF-Token": admin_session.csrf_token},
+                json={"is_live": True},
+            )
+
+            bidder_token, bidder_session = _session("bidder")
+            client.cookies.set(SESSION_COOKIE, bidder_token)
+            bidder_before = client.get("/api/auction/state?league_id=00999")
+            wrong_turn = client.post(
+                "/api/auction/interactive/nominate",
+                headers={"X-CSRF-Token": bidder_session.csrf_token},
+                json={"league_id": "00999", "player_id": "0001234"},
+            )
+
+            user_token, user_session = _session("tester")
+            client.cookies.set(SESSION_COOKIE, user_token)
+            user_before = client.get("/api/auction/state?league_id=00999")
+            manual_blocked = client.post(
+                "/api/auction/purchases",
+                headers={"X-CSRF-Token": user_session.csrf_token},
+                json={
+                    "league_id": "00999",
+                    "franchise_id": "0001",
+                    "player_id": "0001234",
+                    "amount": "1",
+                    "status": "ROSTER",
+                },
+            )
+            nominated = client.post(
+                "/api/auction/interactive/nominate",
+                headers={"X-CSRF-Token": user_session.csrf_token},
+                json={"league_id": "00999", "player_id": "0001234"},
+            )
+
+            client.cookies.set(SESSION_COOKIE, bidder_token)
+            bid = client.post(
+                "/api/auction/interactive/bids",
+                headers={"X-CSRF-Token": bidder_session.csrf_token},
+                json={"league_id": "00999", "amount": "2"},
+            )
+            non_admin_award = client.post(
+                "/api/admin/interactive-auction/award?league_id=00999",
+                headers={"X-CSRF-Token": bidder_session.csrf_token},
+            )
+
+            client.cookies.set(SESSION_COOKIE, admin_token)
+            awarded = client.post(
+                "/api/admin/interactive-auction/award?league_id=00999",
+                headers={"X-CSRF-Token": admin_session.csrf_token},
+            )
+            after = client.get("/api/auction/state?league_id=00999")
+
+        assert enabled.status_code == 200
+        assert enabled.json()["enabled"] is True
+        assert live.status_code == 200
+        assert bidder_before.json()["interactive_bidding"]["can_nominate"] is False
+        assert wrong_turn.status_code == 403
+        assert wrong_turn.json()["detail"]["code"] == "not_current_nominator"
+        assert user_before.json()["interactive_bidding"]["can_nominate"] is True
+        assert manual_blocked.status_code == 409
+        assert manual_blocked.json()["detail"]["code"] == "interactive_auction_required"
+        assert nominated.status_code == 201
+        assert nominated.json()["player"]["headshot_url"] == "https://example.com/player.png"
+        assert nominated.json()["high_bid_franchise_id"] == "0001"
+        assert nominated.json()["current_bid"] == "1.00"
+        assert bid.status_code == 201
+        assert bid.json()["high_bid_franchise_id"] == "0002"
+        assert bid.json()["current_bid"] == "2.00"
+        assert non_admin_award.status_code == 403
+        assert awarded.status_code == 201
+        assert awarded.json()["franchise_id"] == "0002"
+        assert awarded.json()["amount"] == "2.00"
+        assert after.json()["interactive_bidding"]["active"] is False
+        assert after.json()["nomination"]["current_franchise_id"] == "0002"
+        assert seeded.scalar(select(func.count(AuctionPurchase.id))) == 1
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_presence_heartbeat_marks_logged_in_user_online_for_admin(seeded) -> None:
+    bootstrap_user(seeded, "tester", admin_usernames={"wilsonmw"})
+
+    def override_db():
+        yield seeded
+
+    app.dependency_overrides[get_db] = override_db
+    try:
+        with TestClient(app) as client:
+            user_token, user_session = _session("tester")
+            client.cookies.set(SESSION_COOKIE, user_token)
+            heartbeat = client.post(
+                "/api/presence", headers={"X-CSRF-Token": user_session.csrf_token}
+            )
+
+            admin_token, _ = _session("wilsonmw")
+            client.cookies.set(SESSION_COOKIE, admin_token)
+            users = client.get("/api/admin/users")
+
+        tester = next(row for row in users.json() if row["username"] == "tester")
+        assert heartbeat.status_code == 204
+        assert users.status_code == 200
+        assert tester["is_online"] is True
+        assert tester["last_seen_at"] is not None
     finally:
         app.dependency_overrides.clear()

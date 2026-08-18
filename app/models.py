@@ -210,6 +210,13 @@ class UserAccount(Base):
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class UserPresence(Base):
+    __tablename__ = "user_presence"
+
+    username: Mapped[str] = mapped_column(String(100), primary_key=True)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class UserSourceSetting(Base):
     __tablename__ = "user_source_settings"
     __table_args__ = (UniqueConstraint("username", "source_id"),)
@@ -269,6 +276,34 @@ class AuctionNominationState(Base):
     cursor: Mapped[int] = mapped_column(Integer, default=0)
     updated_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class InteractiveAuctionState(Base):
+    __tablename__ = "interactive_auction_states"
+
+    league_id: Mapped[str] = mapped_column(String, primary_key=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    status: Mapped[str] = mapped_column(String(20), default="idle")
+    player_id: Mapped[str | None] = mapped_column(ForeignKey("players.id"), nullable=True)
+    nominating_franchise_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    high_bid_franchise_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    current_bid: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    revision: Mapped[int] = mapped_column(Integer, default=0)
+    nominated_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class InteractiveAuctionBid(Base):
+    __tablename__ = "interactive_auction_bids"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    league_id: Mapped[str] = mapped_column(String, index=True)
+    player_id: Mapped[str] = mapped_column(ForeignKey("players.id"), index=True)
+    franchise_id: Mapped[str] = mapped_column(String, index=True)
+    username: Mapped[str] = mapped_column(String(100), index=True)
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class DataSource(Base):

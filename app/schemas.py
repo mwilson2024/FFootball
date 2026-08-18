@@ -106,6 +106,30 @@ class AuctionStageUpdate(BaseModel):
     enabled: bool
 
 
+class InteractiveAuctionUpdate(BaseModel):
+    enabled: bool
+
+
+class InteractiveAuctionNominationCreate(BaseModel):
+    league_id: str
+    player_id: str
+
+    @field_validator("league_id", "player_id", mode="before")
+    @classmethod
+    def preserve_interactive_nomination_ids(cls, value: object) -> str:
+        return str(value).strip()
+
+
+class InteractiveAuctionBidCreate(BaseModel):
+    league_id: str
+    amount: Decimal = Field(gt=0)
+
+    @field_validator("league_id", mode="before")
+    @classmethod
+    def preserve_interactive_bid_league_id(cls, value: object) -> str:
+        return str(value).strip()
+
+
 class MockDraftUpdate(BaseModel):
     enabled: bool
 
