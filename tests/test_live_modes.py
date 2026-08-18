@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
@@ -182,6 +183,77 @@ def test_real_draft_is_locked_and_shared_mock_picks_are_isolated(seeded) -> None
         assert admin_edit.status_code == 200
         assert admin_edit.json()["player_id"] == "0001234"
         assert admin_edit.json()["franchise_id"] == "0002"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_admin_cpu_makes_one_mock_pick_and_advances_mfl_order(seeded) -> None:
+    _draft_order_snapshot(seeded)
+    bootstrap_user(seeded, "wilsonmw", admin_usernames={"wilsonmw"})
+
+    def override_db():
+        yield seeded
+
+    app.dependency_overrides[get_db] = override_db
+    try:
+        with TestClient(app) as client:
+            admin_token, admin_session = _session("wilsonmw")
+            client.cookies.set(SESSION_COOKIE, admin_token)
+            client.put(
+                "/api/admin/mock-draft?league_id=00999",
+                headers={"X-CSRF-Token": admin_session.csrf_token},
+                json={"enabled": True},
+            )
+            response = client.post(
+                "/api/admin/cpu/mock-pick?league_id=00999",
+                headers={"X-CSRF-Token": admin_session.csrf_token},
+            )
+            state = client.get("/api/draft/state?league_id=00999")
+
+        assert response.status_code == 201
+        assert response.json()["cpu"] is True
+        assert response.json()["franchise_id"] == "0001"
+        assert response.json()["overall_pick"] == 1
+        assert "current consensus board" in response.json()["reason"]
+        assert state.json()["current_drafter"]["franchise_id"] == "0002"
+        assert seeded.scalar(select(func.count(MockDraftPick.id))) == 1
+        assert seeded.scalar(select(func.count(DraftPick.id))) == 0
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_admin_cpu_buys_for_current_auction_team_and_advances_nomination(seeded) -> None:
+    bootstrap_user(seeded, "wilsonmw", admin_usernames={"wilsonmw"})
+
+    def override_db():
+        yield seeded
+
+    app.dependency_overrides[get_db] = override_db
+    try:
+        with TestClient(app) as client:
+            admin_token, admin_session = _session("wilsonmw")
+            client.cookies.set(SESSION_COOKIE, admin_token)
+            client.put(
+                "/api/admin/auction-stage?league_id=00999",
+                headers={"X-CSRF-Token": admin_session.csrf_token},
+                json={"enabled": True},
+            )
+            response = client.post(
+                "/api/admin/cpu/auction-purchase?league_id=00999",
+                headers={"X-CSRF-Token": admin_session.csrf_token},
+            )
+            state = client.get("/api/auction/state?league_id=00999")
+
+        assert response.status_code == 201
+        assert response.json()["cpu"] is True
+        assert response.json()["franchise_id"] == "0001"
+        assert response.json()["player_id"] in {"0001234", "99"}
+        assert response.json()["price_basis"].startswith("current dynamic bid")
+        assert Decimal(response.json()["amount"]) >= Decimal("1")
+        assert Decimal(response.json()["amount"]) <= Decimal("17")
+        assert response.json()["next_nomination"]["current_franchise_id"] == "0002"
+        assert state.json()["nomination"]["current_franchise_id"] == "0002"
+        assert seeded.scalar(select(func.count(AuctionPurchase.id))) == 1
     finally:
         app.dependency_overrides.clear()
 

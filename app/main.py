@@ -63,6 +63,7 @@ from app.catalog import (
 )
 from app.config import get_settings
 from app.consensus import create_consensus_snapshot, parse_ranking_csv
+from app.cpu import make_cpu_auction_purchase, make_cpu_mock_pick
 from app.db import get_db, init_db
 from app.depth_charts import depth_chart_overview
 from app.draft import (
@@ -194,7 +195,7 @@ from app.users import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260818.15"
+templates.env.globals["asset_version"] = "20260818.16"
 SESSION_SIGNING_SECRET = ""
 
 
@@ -1987,6 +1988,22 @@ def reset_admin_mock_draft(league_id: str, db: Db) -> dict[str, Any]:
     return reset_mock_draft(db, league_id, actor=active_username())
 
 
+@app.post("/api/admin/cpu/mock-pick", status_code=201)
+def create_cpu_mock_pick(league_id: str, db: Db) -> dict[str, Any]:
+    _require_admin(db)
+    result = make_cpu_mock_pick(db, league_id, actor=active_username())
+    _audit_mutation(
+        db,
+        stream="mock-draft-picks",
+        action="cpu_create",
+        league_id=league_id,
+        entity_id=result["id"],
+        after=result,
+        details={"reason": result["reason"]},
+    )
+    return result
+
+
 @app.post("/api/draft/picks", status_code=201)
 def create_draft_pick(payload: DraftPickCreate, db: Db) -> dict[str, Any]:
     if payload.is_mock:
@@ -2996,6 +3013,53 @@ def purchase(payload: PurchaseCreate, db: Db) -> dict[str, Any]:
         after=created,
     )
     return created
+
+
+@app.post("/api/admin/cpu/auction-purchase", status_code=201)
+def create_cpu_auction_purchase(league_id: str, db: Db) -> dict[str, Any]:
+    _require_admin(db)
+    live = _auction_live(db, league_id)
+    staged = auction_stage_enabled(db, league_id)
+    if not live.is_live and not staged:
+        raise HTTPException(
+            409,
+            detail={
+                "code": "auction_closed",
+                "message": "Open auction staging or go live before asking the CPU to buy",
+            },
+        )
+    interactive = _interactive_auction(db, league_id)
+    if interactive.enabled:
+        raise HTTPException(
+            409,
+            detail={
+                "code": "interactive_auction_active",
+                "message": (
+                    "Turn off owner-to-owner live bidding before using the one-step CPU buyer"
+                ),
+            },
+        )
+    result = make_cpu_auction_purchase(db, league_id, actor=active_username())
+    purchase_row = result.pop("purchase")
+    created = _purchase_json(db, purchase_row)
+    _bump_auction(db, league_id)
+    response = {
+        **created,
+        "cpu": True,
+        "reason": result["reason"],
+        "price_basis": result["price_basis"],
+        "next_nomination": result["next_nomination"],
+    }
+    _audit_mutation(
+        db,
+        stream="auction-purchases",
+        action="cpu_create",
+        league_id=league_id,
+        entity_id=purchase_row.id,
+        after=response,
+        details={"reason": response["reason"], "price_basis": response["price_basis"]},
+    )
+    return response
 
 
 @app.patch("/api/auction/purchases/{purchase_id}")
