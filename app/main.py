@@ -52,7 +52,7 @@ from app.auth import (
     record_login_failure,
     resolve_session_secret,
 )
-from app.automation import daily_sync_loop, stop_daily_sync
+from app.automation import daily_sync_loop, live_draft_sync_loop, stop_daily_sync
 from app.bye_advisor import bye_week_advice
 from app.catalog import (
     draftable_consensus,
@@ -68,7 +68,6 @@ from app.depth_charts import depth_chart_overview
 from app.draft import (
     DraftValidationError,
     add_mock_pick,
-    add_pick,
     apply_reconciliation,
     draft_intelligence,
     draft_state,
@@ -194,7 +193,7 @@ from app.users import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260818.15"
+templates.env.globals["asset_version"] = "20260818.16"
 SESSION_SIGNING_SECRET = ""
 
 
@@ -229,9 +228,13 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     auto_sync_task: asyncio.Task[None] | None = None
     if settings.auto_sync_enabled:
         auto_sync_task = asyncio.create_task(daily_sync_loop(settings), name="daily-mfl-sync")
+    live_draft_sync_task = asyncio.create_task(
+        live_draft_sync_loop(), name="live-mfl-draft-sync"
+    )
     try:
         yield
     finally:
+        await stop_daily_sync(live_draft_sync_task)
         if auto_sync_task is not None:
             await stop_daily_sync(auto_sync_task)
 
@@ -1942,8 +1945,12 @@ def api_draft_state(
             "mode": "real",
             "mock": mock,
             "permissions": {
-                "can_make_pick": is_live,
-                "locked_reason": None if is_live else "The admin has not started the live draft",
+                "can_make_pick": False,
+                "locked_reason": (
+                    "Companion mode: make picks on MFL; DraftDesk imports them every 30 seconds"
+                    if is_live
+                    else "The admin has not started the live draft"
+                ),
             },
         }
     )
@@ -2029,8 +2036,13 @@ def create_draft_pick(payload: DraftPickCreate, db: Db) -> dict[str, Any]:
                     "message": "Players are locked until an admin starts the live draft",
                 },
             )
-        result = pick_json(db, add_pick(db, payload))
-        stream = "draft-picks"
+        raise HTTPException(
+            409,
+            detail={
+                "code": "mfl_companion_only",
+                "message": "Make real draft picks on MFL; DraftDesk imports them automatically",
+            },
+        )
     _audit_mutation(
         db,
         stream=stream,

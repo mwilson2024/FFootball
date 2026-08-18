@@ -1,10 +1,20 @@
+import asyncio
+import inspect
 from datetime import UTC, datetime
 from decimal import Decimal
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.automation import next_daily_sync
-from app.models import DataSource
+from app.automation import (
+    LIVE_DRAFT_SYNC_SECONDS,
+    live_draft_sync_loop,
+    next_daily_sync,
+    sync_live_draft_sessions,
+)
+from app.draft import set_draft_live
+from app.mfl import MFLResponse
+from app.models import DataSource, DraftPick
 from app.sources import initialize_sources
 
 
@@ -46,3 +56,53 @@ def test_source_initialization_turns_every_source_on(db: Session) -> None:
     response = update_source("sleeper", SourceUpdate(enabled=False, weight=Decimal("0.5")), db)
     assert response["enabled"] is False
     assert Decimal(response["weight"]) == Decimal("0.5")
+
+
+def test_live_draft_sync_imports_mfl_picks_and_is_idempotent(seeded: Session) -> None:
+    set_draft_live(seeded, "00999", True)
+    calls = []
+
+    class FakeClient:
+        async def export(self, export_type, *, league_id=None, db=None, force=False):
+            calls.append((export_type, league_id, force))
+            return MFLResponse(
+                export_type,
+                {
+                    "draftResults": {
+                        "draftUnit": {
+                            "draftPick": {
+                                "round": "1",
+                                "pick": "1",
+                                "overallPick": "1",
+                                "franchise": "0001",
+                                "player": "0001234",
+                            }
+                        }
+                    }
+                },
+                "https://api.myfantasyleague.com/2026/export",
+                datetime.now(UTC),
+            )
+
+    first = asyncio.run(sync_live_draft_sessions(seeded, FakeClient()))
+    second = asyncio.run(sync_live_draft_sessions(seeded, FakeClient()))
+    imported = seeded.scalar(select(DraftPick).where(DraftPick.player_id == "0001234"))
+
+    assert LIVE_DRAFT_SYNC_SECONDS == 30
+    assert inspect.signature(live_draft_sync_loop).parameters["interval_seconds"].default == 30
+    assert calls == [
+        ("draftResults", "00999", True),
+        ("draftResults", "00999", True),
+    ]
+    assert first[0]["applied_count"] == 1
+    assert second[0]["applied_count"] == 0
+    assert imported is not None
+    assert imported.source == "mfl"
+
+
+def test_live_draft_sync_does_not_contact_mfl_while_draft_is_paused(seeded: Session) -> None:
+    class FailClient:
+        async def export(self, *_args, **_kwargs):
+            raise AssertionError("MFL must not be called for a paused draft")
+
+    assert asyncio.run(sync_live_draft_sessions(seeded, FailClient())) == []

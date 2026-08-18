@@ -12,13 +12,15 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
 from app.db import SessionLocal
+from app.draft import apply_reconciliation, reconcile_preview
 from app.mfl import MFLClient
-from app.models import AppSetting, League, LeagueType
+from app.models import AppSetting, DraftSession, League, LeagueType
 from app.settings_store import runtime_settings
 from app.source_sync import sync_enabled_sources
 from app.sync import sync_league
 
 LOGGER = logging.getLogger("uvicorn.error")
+LIVE_DRAFT_SYNC_SECONDS = 30
 
 
 def next_daily_sync(
@@ -99,6 +101,91 @@ async def automatic_sync_once() -> dict[str, Any]:
             source_results["failed"] + sum("error" in item for item in league_results),
         )
         return {"leagues": league_results, **source_results}
+
+
+async def sync_live_draft_sessions(
+    db: Session, client: MFLClient
+) -> list[dict[str, Any]]:
+    sessions = list(
+        db.scalars(
+            select(DraftSession)
+            .where(DraftSession.status == "live")
+            .order_by(DraftSession.league_id)
+        )
+    )
+    results: list[dict[str, Any]] = []
+    for session in sessions:
+        try:
+            response = await client.export(
+                "draftResults",
+                league_id=session.league_id,
+                db=db,
+                force=True,
+            )
+            preview = reconcile_preview(db, session.league_id, response.payload)
+            if preview["conflicts"]:
+                LOGGER.warning(
+                    "Automatic live draft sync paused for league %s: %s conflict(s)",
+                    session.league_id,
+                    len(preview["conflicts"]),
+                )
+                results.append(
+                    {
+                        "league_id": session.league_id,
+                        "applied_count": 0,
+                        **preview,
+                    }
+                )
+                continue
+            applied = apply_reconciliation(db, session.league_id, preview)
+            results.append(
+                {
+                    "league_id": session.league_id,
+                    "applied_count": applied,
+                    **preview,
+                }
+            )
+            if applied:
+                LOGGER.info(
+                    "Automatic live draft sync applied %s MFL pick(s) for league %s",
+                    applied,
+                    session.league_id,
+                )
+        except Exception as exc:
+            LOGGER.warning(
+                "Automatic live draft sync failed for league %s: %s: %s",
+                session.league_id,
+                type(exc).__name__,
+                exc,
+            )
+            results.append(
+                {
+                    "league_id": session.league_id,
+                    "applied_count": 0,
+                    "error": f"{type(exc).__name__}: {exc}",
+                }
+            )
+    return results
+
+
+async def live_draft_sync_once() -> list[dict[str, Any]]:
+    with SessionLocal() as db:
+        if not db.scalar(select(DraftSession.id).where(DraftSession.status == "live").limit(1)):
+            return []
+        settings = runtime_settings(db)
+        async with MFLClient(settings) as client:
+            return await sync_live_draft_sessions(db, client)
+
+
+async def live_draft_sync_loop(interval_seconds: int = LIVE_DRAFT_SYNC_SECONDS) -> None:
+    while True:
+        await asyncio.sleep(interval_seconds)
+        try:
+            await live_draft_sync_once()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            LOGGER.exception("Automatic live draft synchronization failed")
 
 
 async def daily_sync_loop(settings: Settings | None = None) -> None:

@@ -130,10 +130,29 @@ def test_real_draft_is_locked_and_shared_mock_picks_are_isolated(seeded) -> None
                     "overall_pick": 1,
                 },
             )
+            imported = client.post(
+                "/api/draft/reconcile?league_id=00999&apply=true",
+                headers={"X-CSRF-Token": admin_session.csrf_token},
+                json={
+                    "draftResults": {
+                        "draftUnit": {
+                            "draftPick": {
+                                "round": "1",
+                                "pick": "1",
+                                "overallPick": "1",
+                                "franchise": "0001",
+                                "player": "99",
+                            }
+                        }
+                    }
+                },
+            )
+            imported_pick = seeded.scalar(select(DraftPick).where(DraftPick.player_id == "99"))
+            assert imported_pick is not None
 
             client.cookies.set(SESSION_COOKIE, user_token)
             user_edit = client.patch(
-                f"/api/draft/picks/{created_real_pick.json()['id']}",
+                f"/api/draft/picks/{imported_pick.id}",
                 headers={"X-CSRF-Token": user_session.csrf_token},
                 json={
                     "player_id": "0001234",
@@ -141,13 +160,13 @@ def test_real_draft_is_locked_and_shared_mock_picks_are_isolated(seeded) -> None
                     "round": 1,
                     "pick": 1,
                     "overall_pick": 1,
-                    "version": created_real_pick.json()["version"],
+                    "version": imported_pick.version,
                 },
             )
 
             client.cookies.set(SESSION_COOKIE, admin_token)
             admin_edit = client.patch(
-                f"/api/draft/picks/{created_real_pick.json()['id']}",
+                f"/api/draft/picks/{imported_pick.id}",
                 headers={"X-CSRF-Token": admin_session.csrf_token},
                 json={
                     "player_id": "0001234",
@@ -155,7 +174,7 @@ def test_real_draft_is_locked_and_shared_mock_picks_are_isolated(seeded) -> None
                     "round": 1,
                     "pick": 1,
                     "overall_pick": 1,
-                    "version": created_real_pick.json()["version"],
+                    "version": imported_pick.version,
                 },
             )
 
@@ -177,7 +196,13 @@ def test_real_draft_is_locked_and_shared_mock_picks_are_isolated(seeded) -> None
         assert real_state.json()["mode"] == "real"
         assert real_state.json()["live"]["is_live"] is True
         assert real_state.json()["mock"]["enabled"] is False
-        assert created_real_pick.status_code == 201
+        assert real_state.json()["permissions"]["can_make_pick"] is False
+        assert "every 30 seconds" in real_state.json()["permissions"]["locked_reason"]
+        assert created_real_pick.status_code == 409
+        assert created_real_pick.json()["detail"]["code"] == "mfl_companion_only"
+        assert imported.status_code == 200
+        assert imported.json()["applied_count"] == 1
+        assert imported_pick.source == "mfl"
         assert user_edit.status_code == 403
         assert admin_edit.status_code == 200
         assert admin_edit.json()["player_id"] == "0001234"

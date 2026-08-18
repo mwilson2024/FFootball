@@ -150,6 +150,15 @@ def test_live_draft_board_is_linked_from_draft_room_and_admin() -> None:
     assert "renderChronologicalDraftBoard" in script
 
 
+def test_real_draft_ui_is_an_mfl_companion() -> None:
+    script = (TEMPLATES.parent / "static" / "app.js").read_text(encoding="utf-8")
+
+    assert "MFL companion is live" in script
+    assert "import automatically every 30 seconds" in script
+    assert "make selections on MFL" in script
+    assert "MFL only" in script
+
+
 def test_draft_room_has_personal_war_room_and_live_intelligence() -> None:
     draft = (TEMPLATES / "draft.html").read_text(encoding="utf-8")
     script = (TEMPLATES.parent / "static" / "app.js").read_text(encoding="utf-8")
