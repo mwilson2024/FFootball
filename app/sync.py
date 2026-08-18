@@ -568,12 +568,28 @@ async def sync_configured(
     ]
     if not league_ids:
         raise ValueError("Configure at least one MFL league ID in .env")
-    results = []
+    leagues: list[tuple[str, LeagueType | None]] = []
     for league_id in dict.fromkeys(league_ids):
         stored = db.scalar(
             select(League).where(League.id == league_id, League.season == settings.mfl_season)
         )
-        override = LeagueType(stored.league_type) if stored else None
-        results.append(await sync_league(db, client, settings, league_id, override))
+        leagues.append((league_id, LeagueType(stored.league_type) if stored else None))
+    return await sync_leagues(db, client, settings, leagues)
+
+
+async def sync_leagues(
+    db: Session,
+    client: MFLClient,
+    settings: Settings,
+    leagues: list[tuple[str, LeagueType | None]],
+) -> list[dict[str, Any]]:
+    """Synchronize an explicit league list instead of relying on global configured defaults."""
+    results = []
+    seen: set[str] = set()
+    for league_id, league_type in leagues:
+        if league_id in seen:
+            continue
+        seen.add(league_id)
+        results.append(await sync_league(db, client, settings, league_id, league_type))
     sync_local_ranking_sources(db)
     return results

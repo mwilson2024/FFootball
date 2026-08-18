@@ -52,19 +52,7 @@ async def automatic_sync_once() -> dict[str, Any]:
             league.id: LeagueType(league.league_type)
             for league in db.scalars(select(League).where(League.season == settings.mfl_season))
         }
-        league_ids = list(
-            dict.fromkeys(
-                [
-                    league_id
-                    for league_id in (
-                        settings.mfl_keeper_league_id,
-                        settings.mfl_auction_league_id,
-                    )
-                    if league_id
-                ]
-                + list(stored_leagues)
-            )
-        )
+        league_ids = list(stored_leagues)
         started_at = datetime.now(UTC)
         _save_status(db, "auto_sync_last_attempt_at", started_at.isoformat())
         league_results: list[dict[str, Any]] = []
@@ -111,7 +99,7 @@ async def daily_sync_loop(settings: Settings | None = None) -> None:
         )
         delay = max(0.0, (scheduled_for - datetime.now(UTC)).total_seconds())
         LOGGER.info(
-            "Next automatic TMFL/ADFL sync is scheduled for %s (%s)",
+            "Next automatic user-league sync is scheduled for %s (%s)",
             scheduled_for.isoformat(),
             configured.auto_sync_timezone,
         )

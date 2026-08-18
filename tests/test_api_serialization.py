@@ -1,13 +1,22 @@
 from decimal import Decimal
 
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 import app.main as main_module
 from app.auth import SESSION_COOKIE, make_session_token
 from app.config import get_settings
 from app.db import get_db
 from app.main import app
-from app.models import Player, RosterAssignment, SourcePlayerValue, UserLeagueSetting
+from app.models import (
+    Franchise,
+    League,
+    Player,
+    RosterAssignment,
+    SourcePlayerValue,
+    UserLeagueSetting,
+    UserMFLMembership,
+)
 from app.sources import initialize_sources
 from app.users import bootstrap_user
 
@@ -59,6 +68,178 @@ def test_league_and_auction_state_are_json_serializable(seeded):
         assert assistant.json()["league_name"] == "Test League"
         assert assistant.json()["franchise_id"] == "0001"
         assert assistant.json()["franchise_name"] == "Alpha"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_pages_default_to_only_the_signed_in_users_leagues(seeded):
+    seeded.add(
+        League(
+            id="00888",
+            season=2026,
+            league_type="keeper",
+            name="User Keeper League",
+            roster_size=4,
+            starting_budget=None,
+            minimum_bid=Decimal("1"),
+            settings_json={},
+            scoring_rules_json={},
+            lineup_json={"QB": 1},
+            warnings_json=[],
+        )
+    )
+    seeded.commit()
+
+    def override_db():
+        yield seeded
+
+    app.dependency_overrides[get_db] = override_db
+    try:
+        with TestClient(app) as client:
+            keeper_token, _ = make_session_token(
+                main_module.SESSION_SIGNING_SECRET,
+                "keeper-user",
+                {"00888"},
+                max_age_seconds=3600,
+            )
+            client.cookies.set(SESSION_COOKIE, keeper_token)
+            players = client.get("/players")
+            draft = client.get("/draft")
+            no_auction = client.get("/auction")
+
+            auction_token, _ = make_session_token(
+                main_module.SESSION_SIGNING_SECRET,
+                "auction-user",
+                {"00999"},
+                max_age_seconds=3600,
+            )
+            client.cookies.set(SESSION_COOKIE, auction_token)
+            auction = client.get("/auction")
+
+        assert players.status_code == 200
+        assert 'window.SELECTED_LEAGUE_ID="00888"' in players.text
+        assert 'window.SELECTED_LEAGUE_ID="00888"' in draft.text
+        assert "No auction league is connected to your account" in no_auction.text
+        assert 'window.AUCTION_LEAGUE_ID="00999"' in auction.text
+        assert "/api/auction/export.csv?league_id=00999" in auction.text
+        assert "User Keeper League" not in auction.text
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_admin_league_format_change_is_shared_with_every_joined_user(seeded):
+    league = seeded.scalar(select(League).where(League.id == "00999"))
+    league.league_type = "keeper"
+    league.starting_budget = None
+    league_franchises = list(
+        seeded.scalars(select(Franchise).where(Franchise.league_id == "00999"))
+    )
+    for franchise in league_franchises:
+        franchise.starting_budget = Decimal("0")
+    seeded.commit()
+    bootstrap_user(seeded, "wilsonmw", admin_usernames={"wilsonmw"})
+    bootstrap_user(seeded, "league-member", admin_usernames={"wilsonmw"})
+
+    def override_db():
+        yield seeded
+
+    app.dependency_overrides[get_db] = override_db
+    try:
+        with TestClient(app) as client:
+            admin_token, admin_session = make_session_token(
+                main_module.SESSION_SIGNING_SECRET,
+                "wilsonmw",
+                {"00999"},
+                max_age_seconds=3600,
+            )
+            client.cookies.set(SESSION_COOKIE, admin_token)
+            changed = client.put(
+                "/api/admin/leagues/00999/format",
+                headers={"X-CSRF-Token": admin_session.csrf_token},
+                json={"league_type": "auction"},
+            )
+
+            member_token, member_session = make_session_token(
+                main_module.SESSION_SIGNING_SECRET,
+                "league-member",
+                {"00999"},
+                max_age_seconds=3600,
+            )
+            client.cookies.set(SESSION_COOKIE, member_token)
+            member_account = client.get("/api/account")
+            forbidden = client.put(
+                "/api/admin/leagues/00999/format",
+                headers={"X-CSRF-Token": member_session.csrf_token},
+                json={"league_type": "keeper"},
+            )
+
+        assert changed.status_code == 200
+        assert changed.json()["league_type"] == "auction"
+        assert changed.json()["applies_to_all_users"] is True
+        assert member_account.json()["leagues"][0]["type"] == "auction"
+        assert forbidden.status_code == 403
+        assert league.league_type == "auction"
+        expected_budget = Decimal(changed.json()["starting_budget"])
+        assert expected_budget > 0
+        assert league.starting_budget == expected_budget
+        assert all(item.starting_budget == expected_budget for item in league_franchises)
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_existing_shared_format_cannot_be_overwritten_when_another_user_joins(
+    seeded, monkeypatch
+):
+    seeded.add(
+        UserMFLMembership(
+            username="league-member",
+            season=2026,
+            league_id="00999",
+            league_name="Test League",
+            franchise_id="0001",
+        )
+    )
+    seeded.commit()
+    captured = {}
+
+    class FakeMFLClient:
+        def __init__(self, _settings):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+    async def fake_sync(_db, _client, _settings, league_id, league_type):
+        captured.update({"league_id": league_id, "league_type": league_type})
+        return {}
+
+    def override_db():
+        yield seeded
+
+    monkeypatch.setattr(main_module, "MFLClient", FakeMFLClient)
+    monkeypatch.setattr(main_module, "sync_league", fake_sync)
+    app.dependency_overrides[get_db] = override_db
+    try:
+        with TestClient(app) as client:
+            token, session = make_session_token(
+                main_module.SESSION_SIGNING_SECRET,
+                "league-member",
+                {"00999"},
+                max_age_seconds=3600,
+            )
+            client.cookies.set(SESSION_COOKIE, token)
+            response = client.post(
+                "/api/account/leagues",
+                headers={"X-CSRF-Token": session.csrf_token},
+                json={"league_id": "00999", "league_type": "keeper"},
+            )
+
+        assert response.status_code == 200
+        assert response.json()["league_type"] == "auction"
+        assert captured == {"league_id": "00999", "league_type": main_module.LeagueType.AUCTION}
     finally:
         app.dependency_overrides.clear()
 

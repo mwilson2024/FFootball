@@ -1,9 +1,8 @@
 {% extends "base.html" %}
 {% block content %}
-{% if not league %}<div class="notice warning">Synchronize the configured keeper league before opening the room.</div>{% else %}
-<section class="page-title"><div><p class="eyebrow">KEEPER WORKSPACE</p><h1>{{ league.name }}</h1><p>MFL choices and local planning stay distinct until you explicitly export or submit.</p></div></section>
+{% if not league %}<div class="notice warning">No keeper or snake-draft league is connected to your account yet. Add one in <a href="/account">My Account</a>.</div>{% else %}
+<section class="page-title"><div><p class="eyebrow">KEEPER WORKSPACE</p><h1>{{ league.name }}</h1><p>MFL choices and local planning stay distinct until you explicitly export or submit.</p></div>{% include "league_select.html" %}</section>
 <section class="auction-layout"><div class="panel"><h2>Keeper selections</h2><div id="keeper-list"></div></div><div class="panel"><h2>Available rankings</h2><input id="keeper-search" type="search" placeholder="Search available players…"><div id="keeper-rankings"></div></div></section>
 {% endif %}
 {% endblock %}
 {% block scripts %}{% if league %}<script>window.KEEPER_LEAGUE_ID={{ league.id|tojson }}; initKeepers()</script>{% endif %}{% endblock %}
-

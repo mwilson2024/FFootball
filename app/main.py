@@ -133,6 +133,7 @@ from app.schemas import (
     InteractiveAuctionUpdate,
     KeeperCreate,
     LeagueConnect,
+    LeagueFormatUpdate,
     MFLConnectionTest,
     MockDraftUpdate,
     PlayerComparisonRequest,
@@ -162,7 +163,7 @@ from app.sources import (
     sync_nflverse,
     sync_sleeper,
 )
-from app.sync import RULE_DESCRIPTIONS, record_sync_warnings, sync_configured, sync_league
+from app.sync import RULE_DESCRIPTIONS, record_sync_warnings, sync_league, sync_leagues
 from app.user_context import (
     active_username,
     is_personal_source_id,
@@ -195,7 +196,7 @@ from app.users import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260818.16"
+templates.env.globals["asset_version"] = "20260818.17"
 SESSION_SIGNING_SECRET = ""
 
 
@@ -368,14 +369,29 @@ def _keeper_json(keeper: KeeperSelection) -> dict[str, Any]:
     }
 
 
-def _page_context(db: Session, title: str, league_id: str | None = None) -> dict[str, Any]:
+def _page_context(
+    db: Session,
+    title: str,
+    league_id: str | None = None,
+    league_type: LeagueType | None = None,
+) -> dict[str, Any]:
     settings = runtime_settings(db)
-    leagues = list(db.scalars(select(League).order_by(League.league_type, League.name)))
+    league_query = select(League).order_by(League.league_type, League.name)
+    if league_type is not None:
+        league_query = league_query.where(League.league_type == league_type.value)
+    leagues = list(db.scalars(league_query))
     allowed = authorized_league_ids(db)
     if allowed is not None:
         leagues = [item for item in leagues if item.id in allowed]
-    selected = league_id or settings.mfl_keeper_league_id or settings.mfl_auction_league_id
-    selected_league = next((item for item in leagues if item.id == selected), None)
+    selected_league = next((item for item in leagues if item.id == league_id), None)
+    if league_id and selected_league is None:
+        raise HTTPException(
+            404,
+            detail={"code": "league_not_found", "message": "League not found for this account"},
+        )
+    if selected_league is None and leagues:
+        selected_league = leagues[0]
+    selected = selected_league.id if selected_league else None
     account = current_account(db)
     return {
         "title": title,
@@ -794,7 +810,7 @@ async def login(
 ) -> Any:
     client_ip = request.client.host if request.client else "unknown"
     rate_key = login_rate_key(client_ip, username)
-    error = "MFL sign-in failed or this account does not belong to the configured leagues."
+    error = "MFL sign-in failed or no leagues were found for this account."
     if not login_allowed(rate_key):
         return templates.TemplateResponse(
             request,
@@ -808,19 +824,14 @@ async def login(
         )
 
     settings = runtime_settings(db)
-    configured = {
-        value for value in (settings.mfl_keeper_league_id, settings.mfl_auction_league_id) if value
-    }
     try:
-        if not configured:
-            raise MFLAuthenticationError("No leagues are configured")
         async with MFLClient(settings) as client:
             await client.authenticate(username.strip(), password)
             leagues = await client.export("myleagues", force=True)
         membership_rows = mfl_memberships(leagues.payload)
         membership_ids = {str(item["league_id"]) for item in membership_rows}
-        if not configured.issubset(membership_ids):
-            raise MFLAuthenticationError("Account is not in every configured league")
+        if not membership_ids:
+            raise MFLAuthenticationError("No leagues were returned for this MFL account")
     except (MFLAuthenticationError, MFLError):
         record_login_failure(rate_key)
         return templates.TemplateResponse(
@@ -911,21 +922,19 @@ def cheat_sheet_page(request: Request, db: Db, league_id: str | None = None) -> 
 
 @app.get("/draft", response_class=HTMLResponse)
 def draft_page(request: Request, db: Db, league_id: str | None = None) -> Any:
-    settings = runtime_settings(db)
-    selected = league_id or settings.mfl_keeper_league_id
     return templates.TemplateResponse(
-        request, "draft.html", _page_context(db, "Live draft room", selected)
+        request,
+        "draft.html",
+        _page_context(db, "Live draft room", league_id, LeagueType.KEEPER),
     )
 
 
 @app.get("/draft-board", response_class=HTMLResponse)
 def draft_board_page(request: Request, db: Db, league_id: str | None = None) -> Any:
-    settings = runtime_settings(db)
-    selected = league_id or settings.mfl_keeper_league_id
     return templates.TemplateResponse(
         request,
         "draft_board.html",
-        _page_context(db, "Live draft board", selected),
+        _page_context(db, "Live draft board", league_id, LeagueType.KEEPER),
     )
 
 
@@ -988,12 +997,11 @@ def scoring_page(request: Request, db: Db, league_id: str | None = None) -> Any:
 
 
 @app.get("/auction", response_class=HTMLResponse)
-def auction_room(request: Request, db: Db) -> Any:
-    settings = runtime_settings(db)
-    context = _page_context(db, "Auction room", settings.mfl_auction_league_id)
-    context["league"] = db.scalar(select(League).where(League.id == settings.mfl_auction_league_id))
+def auction_room(request: Request, db: Db, league_id: str | None = None) -> Any:
+    context = _page_context(db, "Auction room", league_id, LeagueType.AUCTION)
+    context["league"] = context["selected_league"]
     context["rob_mode"] = auction_rob_mode(db)
-    selected = settings.mfl_auction_league_id
+    selected = context["selected_league_id"]
     live = _auction_live(db, selected) if selected else None
     staged = auction_stage_enabled(db, selected) if selected else False
     interactive = _interactive_auction(db, selected).enabled if selected else False
@@ -1007,10 +1015,9 @@ def auction_room(request: Request, db: Db) -> Any:
 
 
 @app.get("/keepers", response_class=HTMLResponse)
-def keeper_room(request: Request, db: Db) -> Any:
-    settings = runtime_settings(db)
-    context = _page_context(db, "Keeper room", settings.mfl_keeper_league_id)
-    context["league"] = db.scalar(select(League).where(League.id == settings.mfl_keeper_league_id))
+def keeper_room(request: Request, db: Db, league_id: str | None = None) -> Any:
+    context = _page_context(db, "Keeper room", league_id, LeagueType.KEEPER)
+    context["league"] = context["selected_league"]
     return templates.TemplateResponse(request, "keepers.html", context)
 
 
@@ -1176,9 +1183,29 @@ async def test_mfl(payload: MFLConnectionTest, db: Db) -> dict[str, Any]:
 @app.post("/api/sync")
 async def sync(db: Db) -> dict[str, Any]:
     settings = runtime_settings(db)
+    query = select(League).order_by(League.name)
+    allowed = authorized_league_ids(db)
+    if allowed is not None:
+        query = query.where(League.id.in_(allowed))
+    leagues = list(db.scalars(query))
+    if not leagues:
+        raise HTTPException(
+            409,
+            detail={
+                "code": "no_user_leagues",
+                "message": "Add one of your MFL leagues in My Account before synchronizing",
+            },
+        )
     async with MFLClient(settings) as client:
         try:
-            return {"leagues": await sync_configured(db, client, settings)}
+            return {
+                "leagues": await sync_leagues(
+                    db,
+                    client,
+                    settings,
+                    [(item.id, LeagueType(item.league_type)) for item in leagues],
+                )
+            }
         except (MFLError, ValueError) as exc:
             raise HTTPException(
                 502, detail={"code": "mfl_sync_failed", "message": str(exc)}
@@ -2225,6 +2252,13 @@ async def connect_account_league(payload: LeagueConnect, db: Db) -> dict[str, An
                 "message": "This league was not returned by your MFL sign-in",
             },
         )
+    existing = db.scalar(
+        select(League).where(
+            League.id == payload.league_id,
+            League.season == settings.mfl_season,
+        )
+    )
+    shared_type = LeagueType(existing.league_type) if existing else LeagueType(payload.league_type)
     try:
         async with MFLClient(settings) as client:
             await sync_league(
@@ -2232,7 +2266,7 @@ async def connect_account_league(payload: LeagueConnect, db: Db) -> dict[str, An
                 client,
                 settings,
                 payload.league_id,
-                LeagueType(payload.league_type),
+                shared_type,
             )
     except (MFLError, ValueError) as exc:
         raise HTTPException(
@@ -2255,7 +2289,7 @@ async def connect_account_league(payload: LeagueConnect, db: Db) -> dict[str, An
             db.commit()
     return {
         "league_id": payload.league_id,
-        "league_type": payload.league_type,
+        "league_type": shared_type.value,
         "franchise_id": setting.franchise_id,
     }
 
@@ -2307,6 +2341,44 @@ def save_account_league(league_id: str, payload: UserLeagueSettingUpdate, db: Db
         "franchise_id": setting.franchise_id,
         "auction_strategy": strategy,
     }
+
+
+@app.put("/api/admin/leagues/{league_id}/format")
+def update_shared_league_format(
+    league_id: str, payload: LeagueFormatUpdate, db: Db
+) -> dict[str, Any]:
+    _require_admin(db)
+    league = _league_or_404(db, league_id)
+    before = league.league_type
+    league.league_type = LeagueType(payload.league_type).value
+    if league.league_type == LeagueType.AUCTION.value:
+        settings = runtime_settings(db)
+        if league.starting_budget is None or Decimal(league.starting_budget) <= 0:
+            league.starting_budget = settings.auction_default_budget
+        for franchise in db.scalars(
+            select(Franchise).where(Franchise.league_id == league_id)
+        ):
+            if Decimal(franchise.starting_budget or 0) <= 0:
+                franchise.starting_budget = Decimal(league.starting_budget)
+    db.commit()
+    result = {
+        "league_id": league.id,
+        "league_name": league.name,
+        "league_type": league.league_type,
+        "starting_budget": str(league.starting_budget)
+        if league.starting_budget is not None
+        else None,
+        "applies_to_all_users": True,
+    }
+    _audit_mutation(
+        db,
+        stream="league-settings",
+        action="format_change",
+        league_id=league_id,
+        before={"league_type": before},
+        after=result,
+    )
+    return result
 
 
 @app.get("/api/assistant/status")
@@ -2522,17 +2594,8 @@ def compare_players_recommendation(
 
 
 @app.get("/api/auction/state")
-def auction_state(db: Db, league_id: str | None = None) -> dict[str, Any]:
-    settings = runtime_settings(db)
-    selected = league_id or settings.mfl_auction_league_id
-    if not selected:
-        raise HTTPException(
-            400,
-            detail={
-                "code": "auction_not_configured",
-                "message": "Configure the auction league in Settings",
-            },
-        )
+def auction_state(db: Db, league_id: str) -> dict[str, Any]:
+    selected = league_id
     league = _league_or_404(db, selected)
     live = _auction_live(db, selected)
     staged = auction_stage_enabled(db, selected)
@@ -2583,9 +2646,9 @@ def auction_state(db: Db, league_id: str | None = None) -> dict[str, Any]:
 
 
 @app.get("/api/admin/auction-stage")
-def admin_auction_stage(db: Db, league_id: str | None = None) -> dict[str, Any]:
+def admin_auction_stage(db: Db, league_id: str) -> dict[str, Any]:
     _require_admin(db)
-    selected = league_id or runtime_settings(db).mfl_auction_league_id
+    selected = league_id
     _league_or_404(db, selected)
     live = _auction_live(db, selected)
     staged = auction_stage_enabled(db, selected)
@@ -2599,10 +2662,10 @@ def admin_auction_stage(db: Db, league_id: str | None = None) -> dict[str, Any]:
 
 @app.put("/api/admin/auction-stage")
 def update_admin_auction_stage(
-    payload: AuctionStageUpdate, db: Db, league_id: str | None = None
+    payload: AuctionStageUpdate, db: Db, league_id: str
 ) -> dict[str, Any]:
     _require_admin(db)
-    selected = league_id or runtime_settings(db).mfl_auction_league_id
+    selected = league_id
     _league_or_404(db, selected)
     save_auction_stage(db, selected, payload.enabled)
     live = _auction_live(db, selected)
@@ -2879,10 +2942,10 @@ def cancel_interactive_auction_nomination(league_id: str, db: Db) -> dict[str, A
 
 @app.put("/api/auction/live")
 def set_auction_live(
-    payload: AuctionLiveUpdate, db: Db, league_id: str | None = None
+    payload: AuctionLiveUpdate, db: Db, league_id: str
 ) -> dict[str, Any]:
     _require_admin(db)
-    selected = league_id or runtime_settings(db).mfl_auction_league_id
+    selected = league_id
     _league_or_404(db, selected)
     state = _auction_live(db, selected)
     if payload.is_live:
@@ -2897,10 +2960,10 @@ def set_auction_live(
 
 @app.put("/api/auction/nomination-order")
 def update_auction_nomination_order(
-    payload: AuctionNominationOrderUpdate, db: Db, league_id: str | None = None
+    payload: AuctionNominationOrderUpdate, db: Db, league_id: str
 ) -> dict[str, Any]:
     _require_admin(db)
-    selected = league_id or runtime_settings(db).mfl_auction_league_id
+    selected = league_id
     before = nomination_state(db, selected)
     result = set_nomination_order(db, selected, payload.franchise_ids, actor=active_username())
     _bump_auction(db, selected)
@@ -2916,9 +2979,9 @@ def update_auction_nomination_order(
 
 
 @app.post("/api/auction/nomination-order/randomize")
-def randomize_auction_nomination_order(db: Db, league_id: str | None = None) -> dict[str, Any]:
+def randomize_auction_nomination_order(db: Db, league_id: str) -> dict[str, Any]:
     _require_admin(db)
-    selected = league_id or runtime_settings(db).mfl_auction_league_id
+    selected = league_id
     before = nomination_state(db, selected)
     result = shuffle_nomination_order(db, selected, actor=active_username())
     _bump_auction(db, selected)
@@ -2934,9 +2997,9 @@ def randomize_auction_nomination_order(db: Db, league_id: str | None = None) -> 
 
 
 @app.post("/api/auction/reset")
-def reset_local_auction(db: Db, league_id: str | None = None) -> dict[str, Any]:
+def reset_local_auction(db: Db, league_id: str) -> dict[str, Any]:
     _require_admin(db)
-    selected = league_id or runtime_settings(db).mfl_auction_league_id
+    selected = league_id
     _league_or_404(db, selected)
     before = [
         _purchase_json(db, item)
@@ -3086,8 +3149,10 @@ def patch_purchase(purchase_id: str, payload: PurchaseUpdate, db: Db) -> dict[st
 def remove_purchase(purchase_id: str, db: Db) -> None:
     _require_admin(db)
     current = db.get(AuctionPurchase, purchase_id)
-    before = _purchase_json(db, current) if current else None
-    league_id = current.league_id if current else runtime_settings(db).mfl_auction_league_id
+    if current is None:
+        raise AuctionValidationError("Purchase does not exist")
+    before = _purchase_json(db, current)
+    league_id = current.league_id
     delete_purchase(db, purchase_id)
     _bump_auction(db, league_id)
     _audit_mutation(
@@ -3101,44 +3166,45 @@ def remove_purchase(purchase_id: str, db: Db) -> None:
 
 
 @app.post("/api/auction/undo", status_code=204)
-def undo_purchase(db: Db, league_id: str | None = None) -> None:
+def undo_purchase(db: Db, league_id: str) -> None:
     _require_admin(db)
-    settings = runtime_settings(db)
-    selected = league_id or settings.mfl_auction_league_id
+    selected = league_id
     undo(db, selected)
     _bump_auction(db, selected)
     _audit_mutation(db, stream="auction-purchases", action="undo", league_id=selected)
 
 
 @app.post("/api/auction/redo", status_code=204)
-def redo_purchase(db: Db, league_id: str | None = None) -> None:
+def redo_purchase(db: Db, league_id: str) -> None:
     _require_admin(db)
-    settings = runtime_settings(db)
-    selected = league_id or settings.mfl_auction_league_id
+    selected = league_id
     redo(db, selected)
     _bump_auction(db, selected)
     _audit_mutation(db, stream="auction-purchases", action="redo", league_id=selected)
 
 
 @app.get("/api/auction/export.csv")
-def download_csv(db: Db, league_id: str | None = None) -> FileResponse:
+def download_csv(db: Db, league_id: str) -> FileResponse:
     settings = runtime_settings(db)
-    path = export_csv(db, league_id or settings.mfl_auction_league_id, settings.export_directory)
+    _league_or_404(db, league_id)
+    path = export_csv(db, league_id, settings.export_directory)
     return FileResponse(path, media_type="text/csv", filename=path.name)
 
 
 @app.get("/api/auction/export.xml")
-def download_xml(db: Db, league_id: str | None = None) -> FileResponse:
+def download_xml(db: Db, league_id: str) -> FileResponse:
     settings = runtime_settings(db)
-    path = export_xml(db, league_id or settings.mfl_auction_league_id, settings.export_directory)
+    _league_or_404(db, league_id)
+    path = export_xml(db, league_id, settings.export_directory)
     return FileResponse(path, media_type="application/xml", filename=path.name)
 
 
 @app.get("/api/auction/import-preview")
-def import_preview(db: Db, league_id: str | None = None) -> dict[str, Any]:
+def import_preview(db: Db, league_id: str) -> dict[str, Any]:
     _require_admin(db)
     settings = runtime_settings(db)
-    selected = league_id or settings.mfl_auction_league_id
+    selected = league_id
+    _league_or_404(db, selected)
     _, xml, count = build_xml(db, selected)
     return {
         "league_id": selected,

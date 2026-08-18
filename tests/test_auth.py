@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 import app.main as main_module
 from app.auth import (
@@ -8,7 +9,9 @@ from app.auth import (
     mfl_memberships,
     read_session_token,
 )
+from app.db import get_db
 from app.main import app
+from app.models import UserMFLMembership
 
 
 def test_signed_session_rejects_tampering_and_expiry():
@@ -88,3 +91,66 @@ def test_railway_healthcheck_host_is_allowed_but_unknown_hosts_are_rejected():
         assert response.json() == {"status": "ok"}
 
         assert client.get("/health", headers={"Host": "untrusted.example"}).status_code == 400
+
+
+def test_login_accepts_and_stores_the_users_own_mfl_leagues(seeded, monkeypatch):
+    class FakeMFLClient:
+        def __init__(self, _settings):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        async def authenticate(self, username, password):
+            assert username == "new-user"
+            assert password == "test-password"
+
+        async def export(self, export_type, *, force=False):
+            assert export_type == "myleagues"
+            assert force is True
+            return type(
+                "Result",
+                (),
+                {
+                    "payload": {
+                        "leagues": {
+                            "league": {
+                                "id": "77777",
+                                "name": "User's Own League",
+                                "franchise_id": "0007",
+                            }
+                        }
+                    }
+                },
+            )()
+
+    def override_db():
+        yield seeded
+
+    monkeypatch.setattr(main_module, "MFLClient", FakeMFLClient)
+    app.dependency_overrides[get_db] = override_db
+    try:
+        with TestClient(app) as client:
+            response = client.post(
+                "/login",
+                data={"username": "new-user", "password": "test-password", "next": "/"},
+                follow_redirects=False,
+            )
+            token = client.cookies.get(SESSION_COOKIE)
+
+        assert response.status_code == 303
+        assert token is not None
+        session = read_session_token(main_module.SESSION_SIGNING_SECRET, token)
+        assert session is not None
+        assert set(session.league_ids) == {"77777"}
+        membership = seeded.scalar(
+            select(UserMFLMembership).where(UserMFLMembership.username == "new-user")
+        )
+        assert membership is not None
+        assert membership.league_id == "77777"
+        assert membership.franchise_id == "0007"
+    finally:
+        app.dependency_overrides.clear()

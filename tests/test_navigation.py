@@ -23,9 +23,14 @@ def test_primary_navigation_prioritizes_live_draft_workflows() -> None:
 
 def test_account_contains_keeper_and_scoring_links() -> None:
     account = (TEMPLATES / "account.html").read_text(encoding="utf-8")
+    script = (TEMPLATES.parent / "static" / "app.js").read_text(encoding="utf-8")
 
     assert 'href="/keepers"' in account
     assert 'href="/scoring"' in account
+    assert "Shared league format" in script
+    assert "Update format for everyone" in script
+    assert "updateSharedLeagueFormat" in script
+    assert "/api/admin/leagues/" in script
 
 
 def test_admin_shows_persistent_commissioner_import_toggle() -> None:
@@ -148,6 +153,15 @@ def test_live_draft_board_is_linked_from_draft_room_and_admin() -> None:
     assert "initLiveDraftBoard()" in board
     assert "renderTeamDraftBoard" in script
     assert "renderChronologicalDraftBoard" in script
+
+
+def test_cpu_mock_pick_control_is_hidden_from_draft_room() -> None:
+    draft = (TEMPLATES / "draft.html").read_text(encoding="utf-8")
+    script = (TEMPLATES.parent / "static" / "app.js").read_text(encoding="utf-8")
+
+    assert "CPU make next pick" not in draft
+    assert "cpu-mock-pick-button" not in draft
+    assert "makeCpuMockPick" not in script
 
 
 def test_draft_room_has_personal_war_room_and_live_intelligence() -> None:

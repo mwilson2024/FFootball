@@ -4,7 +4,7 @@
   <form class="login-card" method="post" action="/login" autocomplete="on">
     <p class="eyebrow">PRIVATE LEAGUE ACCESS</p>
     <h1>Sign in with MFL</h1>
-    <p>Your MyFantasyLeague login verifies that you belong to both configured leagues. DraftDesk never stores your MFL password or login cookie.</p>
+    <p>Your MyFantasyLeague login loads the leagues associated with your account. DraftDesk never stores your MFL password or login cookie.</p>
     {% if error %}<div class="notice login-error" role="alert">{{ error }}</div>{% endif %}
     <input type="hidden" name="next" value="{{ next }}">
     <label>MFL username
