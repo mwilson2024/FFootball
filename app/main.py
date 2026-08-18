@@ -196,7 +196,7 @@ from app.users import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260818.17"
+templates.env.globals["asset_version"] = "20260818.18"
 SESSION_SIGNING_SECRET = ""
 
 
@@ -1538,6 +1538,30 @@ def scoring_rules(league_id: str, db: Db) -> dict[str, Any]:
         "source_url": snapshot.source_url if snapshot else None,
         "fetched_at": snapshot.fetched_at if snapshot else None,
     }
+
+
+@app.post("/api/leagues/{league_id}/scoring-rules/sync")
+async def sync_scoring_rules(league_id: str, db: Db) -> dict[str, Any]:
+    league = _league_or_404(db, league_id)
+    settings = runtime_settings(db)
+    try:
+        async with MFLClient(settings) as client:
+            result = await sync_league(
+                db,
+                client,
+                settings,
+                league.id,
+                LeagueType(league.league_type),
+                force_export_types={"league", "rules", "allRules"},
+            )
+    except (MFLError, ValueError) as exc:
+        raise HTTPException(
+            502,
+            detail={"code": "mfl_scoring_sync_failed", "message": str(exc)},
+        ) from exc
+    response = scoring_rules(league_id, db)
+    response["sync"] = result
+    return response
 
 
 @app.get("/api/players/filters")

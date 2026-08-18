@@ -187,6 +187,68 @@ def test_admin_league_format_change_is_shared_with_every_joined_user(seeded):
         app.dependency_overrides.clear()
 
 
+def test_scoring_refresh_forces_mfl_rules_and_preserves_league_format(seeded, monkeypatch):
+    captured = {}
+
+    class FakeMFLClient:
+        def __init__(self, _settings):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+    async def fake_sync(
+        _db,
+        _client,
+        _settings,
+        league_id,
+        league_type,
+        *,
+        force_export_types=None,
+    ):
+        captured.update(
+            {
+                "league_id": league_id,
+                "league_type": league_type,
+                "force_export_types": force_export_types,
+            }
+        )
+        return {"league_id": league_id, "warnings": []}
+
+    def override_db():
+        yield seeded
+
+    monkeypatch.setattr(main_module, "MFLClient", FakeMFLClient)
+    monkeypatch.setattr(main_module, "sync_league", fake_sync)
+    app.dependency_overrides[get_db] = override_db
+    try:
+        with TestClient(app) as client:
+            token, session = make_session_token(
+                main_module.SESSION_SIGNING_SECRET,
+                "league-member",
+                {"00999"},
+                max_age_seconds=3600,
+            )
+            client.cookies.set(SESSION_COOKIE, token)
+            response = client.post(
+                "/api/leagues/00999/scoring-rules/sync",
+                headers={"X-CSRF-Token": session.csrf_token},
+            )
+
+        assert response.status_code == 200
+        assert response.json()["sync"]["league_id"] == "00999"
+        assert captured == {
+            "league_id": "00999",
+            "league_type": main_module.LeagueType.AUCTION,
+            "force_export_types": {"league", "rules", "allRules"},
+        }
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_existing_shared_format_cannot_be_overwritten_when_another_user_joins(
     seeded, monkeypatch
 ):

@@ -1,7 +1,11 @@
+import asyncio
+from datetime import UTC, datetime
 from decimal import Decimal
 
+from app.config import get_settings
 from app.mfl import MFLError, MFLResponse
-from app.sync import _is_expected_unavailable, _lineup, _rules, _signals
+from app.models import LeagueType
+from app.sync import _is_expected_unavailable, _lineup, _rules, _signals, sync_league
 
 
 def test_live_mfl_lineup_shape_extracts_flex_without_counting_idp_ranges():
@@ -90,3 +94,52 @@ def test_weekly_projection_shape_is_read_as_player_signal():
         __import__("datetime").datetime.now(__import__("datetime").UTC),
     )
     assert _signals(response, "projectedScores")["0001234"]["score"] == "12.3"
+
+
+def test_scoring_refresh_forces_only_mfl_rule_exports(seeded):
+    calls = []
+
+    class FakeClient:
+        async def export(
+            self,
+            export_type,
+            *,
+            league_id=None,
+            params=None,
+            db=None,
+            force=False,
+        ):
+            calls.append((export_type, force))
+            payloads = {
+                "league": {
+                    "league": {
+                        "id": "00999",
+                        "name": "Test League",
+                        "rosterSize": "4",
+                        "franchises": {"franchise": []},
+                    }
+                },
+                "rules": {"rules": {"positionRules": []}},
+                "allRules": {"allRules": {"rule": []}},
+            }
+            return MFLResponse(
+                export_type,
+                payloads.get(export_type, {export_type: {}}),
+                "https://api.myfantasyleague.com/2026/export",
+                datetime.now(UTC),
+            )
+
+    asyncio.run(
+        sync_league(
+            seeded,
+            FakeClient(),
+            get_settings(),
+            "00999",
+            LeagueType.AUCTION,
+            force_export_types={"league", "rules", "allRules"},
+        )
+    )
+
+    forced = {export_type for export_type, force in calls if force}
+    assert forced == {"league", "rules", "allRules"}
+    assert any(export_type == "players" and not force for export_type, force in calls)

@@ -33,6 +33,16 @@ def test_account_contains_keeper_and_scoring_links() -> None:
     assert "/api/admin/leagues/" in script
 
 
+def test_scoring_page_can_refresh_rules_directly_from_mfl() -> None:
+    scoring = (TEMPLATES / "scoring.html").read_text(encoding="utf-8")
+    script = (TEMPLATES.parent / "static" / "app.js").read_text(encoding="utf-8")
+
+    assert "Refresh from MFL" in scoring
+    assert "refreshScoringFromMfl" in scoring
+    assert "/scoring-rules/sync" in script
+    assert "rankings recalculated" in script
+
+
 def test_admin_shows_persistent_commissioner_import_toggle() -> None:
     settings = (TEMPLATES / "settings.html").read_text(encoding="utf-8")
     script = (TEMPLATES.parent / "static" / "app.js").read_text(encoding="utf-8")

@@ -274,6 +274,8 @@ async def sync_league(
     settings: Settings,
     league_id: str,
     league_type_override: LeagueType | None = None,
+    *,
+    force_export_types: set[str] | None = None,
 ) -> dict[str, Any]:
     league_type = league_type_override or (
         LeagueType.KEEPER if league_id == settings.mfl_keeper_league_id else LeagueType.AUCTION
@@ -301,9 +303,15 @@ async def sync_league(
     db.commit()
     responses: dict[str, MFLResponse] = {}
     warnings: list[str] = []
+    forced = force_export_types or set()
     for export_type in export_types:
         try:
-            responses[export_type] = await client.export(export_type, league_id=league_id, db=db)
+            responses[export_type] = await client.export(
+                export_type,
+                league_id=league_id,
+                db=db,
+                force=export_type in forced,
+            )
             if responses[export_type].stale:
                 warnings.append(f"{export_type}: using stale cached data")
         except MFLError as exc:
