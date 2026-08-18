@@ -57,7 +57,8 @@ imported through the Cheat Sheet belongs only to the account that uploaded it.
   or open one shared mock room that follows MFL's order while storing practice picks separately.
   The room includes manual picks, queue, recommendations, roster need, a personal war room,
   live position-run/tier-cliff/value intelligence,
-  next-pick survival heuristics, nearby opponent needs, undo, MFL `draftResults` reconciliation
+  next-pick survival heuristics, nearby opponent needs, full opposing-owner roster/need/tendency
+  profiles, undo, MFL `draftResults` reconciliation
   preview, recap export, and a full-screen live board that switches between team columns and
   chronological pick order. During a real live draft, admins can correct the player, franchise,
   round, or pick number on locally recorded selections, or remove a bad selection entirely.
@@ -70,8 +71,10 @@ imported through the Cheat Sheet belongs only to the account that uploaded it.
   the room shows the nominated player's photo and live high bid, and an admin awards the winner.
   The room stays hidden while this option is off. The auction also has shared
   three-second viewer updates, atomic purchases, correction/reassignment tools, strategy-aware
-  dynamic pricing, undo/redo, CSV, MFL XML, and a commissioner-only MFL import that requires a fresh
-  XML preview plus explicit confirmation.
+  dynamic pricing, live market intelligence, and a personal auction war room with roster needs,
+  affordable targets, bye conflicts, and opposing-owner budget and bidding profiles. It also
+  includes undo/redo, CSV, MFL XML, and a commissioner-only MFL import that requires a fresh XML
+  preview plus explicit confirmation.
 - **Power Rankings:** a deterministic league-strength board based on legal starting-lineup value,
   bench depth, and unfilled lineup spots, with an optional on-demand ChatGPT league judgment.
 - **Bye Advisor:** compare every active bye or choose one roster player manually, then see the best

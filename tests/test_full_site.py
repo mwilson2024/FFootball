@@ -491,6 +491,9 @@ def test_personal_war_room_and_live_intelligence_follow_real_mfl_order(
     assert intelligence["position_runs"][0]["count"] == 3
     assert intelligence["tier_cliffs"][0]["remaining"] == 1
     assert intelligence["opponent_needs"][0]["franchise_name"] == "Beta"
+    assert intelligence["opponent_insights"][0]["franchise_name"] == "Beta"
+    assert intelligence["opponent_insights"][0]["next_pick"] == 5
+    assert intelligence["opponent_insights"][0]["recent_picks"][0]["position"] == "QB"
     assert intelligence["recommendations"][0]["player_id"] == "103"
     assert intelligence["recommendations"][0]["need_slots"] == 1
     assert intelligence["recommendations"][0]["survival"]["target_pick"] == 6

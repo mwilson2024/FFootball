@@ -47,9 +47,14 @@ def test_league_and_auction_state_are_json_serializable(seeded):
         assert league.json()["minimum_bid"] == "1.00"
         assert auction.status_code == 200
         assert auction.json()["league"]["id"] == "00999"
+        assert auction.json()["war_room"]["franchise_name"] == "Alpha"
+        assert auction.json()["war_room"]["maximum_bid"] == "17.00"
+        assert auction.json()["intelligence"]["market"]["open_slots"] == 8
+        assert auction.json()["intelligence"]["opponent_insights"][0]["franchise_name"] == "Beta"
         assert draft.status_code == 200
         assert draft.json()["war_room"]["franchise_id"] == "0001"
         assert "position_runs" in draft.json()["intelligence"]
+        assert draft.json()["intelligence"]["opponent_insights"][0]["franchise_name"] == "Beta"
         assert assistant.status_code == 200
         assert assistant.json()["league_name"] == "Test League"
         assert assistant.json()["franchise_id"] == "0001"
@@ -127,6 +132,10 @@ def test_recording_purchase_advances_shared_nomination_state(seeded):
         assert before.json()["nomination"]["current_franchise_name"] == "Alpha"
         assert response.status_code == 201
         assert after.status_code == 200
+        assert after.json()["purchases"][0]["player_position"] == "RB"
+        assert after.json()["war_room"]["configured"] is False
+        assert after.json()["intelligence"]["latest_purchase"]["player_name"] == "Leading Zero"
+        assert after.json()["intelligence"]["recent_position_counts"] == {"RB": 1}
         assert after.json()["nomination"]["current_franchise_name"] == "Beta"
         assert after.json()["nomination"]["cursor"] == 1
     finally:

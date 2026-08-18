@@ -6,6 +6,7 @@ import hashlib
 import hmac
 import io
 import json
+from collections import Counter
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
@@ -104,6 +105,7 @@ from app.models import (
     MFLSnapshot,
     Player,
     PlayerIdentity,
+    RosterAssignment,
     SourcePlayerValue,
     SyncWarning,
     UserAccount,
@@ -192,7 +194,7 @@ from app.users import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260818.14"
+templates.env.globals["asset_version"] = "20260818.15"
 SESSION_SIGNING_SECRET = ""
 
 
@@ -344,6 +346,7 @@ def _purchase_json(db: Session, purchase: AuctionPurchase) -> dict[str, Any]:
         "player_id": purchase.player_id,
         "player_name": player.name if player else purchase.player_id,
         "player_team": player.nfl_team if player else None,
+        "player_position": player.position if player else None,
         "franchise_name": franchise.name if franchise else purchase.franchise_id,
         "amount": str(purchase.amount),
         "status": purchase.status,
@@ -589,6 +592,160 @@ def _interactive_auction_json(db: Session, league_id: str) -> dict[str, Any]:
             }
             for bid in bids
         ],
+    }
+
+
+def _normalized_roster_position(value: Any) -> str:
+    position = str(value or "").upper()
+    return {"DST": "DEF", "D/ST": "DEF", "K": "PK"}.get(position, position)
+
+
+def _auction_room_intelligence(
+    db: Session,
+    league: League,
+    budgets: list[dict[str, Any]],
+    purchases: list[dict[str, Any]],
+) -> dict[str, Any]:
+    current_franchise_id = _current_user_franchise_id(db, league)
+    budget_by_id = {str(item["franchise_id"]): item for item in budgets}
+    owned_by_franchise: dict[str, set[str]] = {franchise_id: set() for franchise_id in budget_by_id}
+    for franchise_id, player_id in db.execute(
+        select(RosterAssignment.franchise_id, RosterAssignment.player_id).where(
+            RosterAssignment.league_id == league.id
+        )
+    ):
+        owned_by_franchise.setdefault(str(franchise_id), set()).add(str(player_id))
+    for purchase in purchases:
+        owned_by_franchise.setdefault(str(purchase["franchise_id"]), set()).add(
+            str(purchase["player_id"])
+        )
+    all_player_ids = set().union(*owned_by_franchise.values()) if owned_by_franchise else set()
+    players_by_id = (
+        {
+            player.id: player
+            for player in db.scalars(select(Player).where(Player.id.in_(all_player_ids)))
+        }
+        if all_player_ids
+        else {}
+    )
+    lineup_requirements = {
+        _normalized_roster_position(position): int(required or 0)
+        for position, required in league.lineup_json.items()
+        if _normalized_roster_position(position) not in {"FLEX", "SUPERFLEX"}
+    }
+    baseline_cost = Decimal(league.starting_budget or 0) / Decimal(max(league.roster_size, 1))
+    owner_insights: list[dict[str, Any]] = []
+    team_details: dict[str, dict[str, Any]] = {}
+    for franchise_id, budget in budget_by_id.items():
+        player_ids = owned_by_franchise.get(franchise_id, set())
+        position_counts: Counter[str] = Counter()
+        bye_groups: dict[int, list[str]] = {}
+        for player_id in player_ids:
+            player = players_by_id.get(player_id)
+            if player is None:
+                continue
+            position_counts[_normalized_roster_position(player.position)] += 1
+            if player.bye_week:
+                bye_groups.setdefault(int(player.bye_week), []).append(player.name)
+        needs = {
+            position: max(0, required - position_counts.get(position, 0))
+            for position, required in lineup_requirements.items()
+        }
+        team_purchases = [
+            purchase for purchase in purchases if purchase["franchise_id"] == franchise_id
+        ]
+        purchase_total = sum(
+            (Decimal(str(purchase["amount"])) for purchase in team_purchases), Decimal("0")
+        )
+        average_purchase = (
+            purchase_total / Decimal(len(team_purchases)) if team_purchases else Decimal("0")
+        )
+        bye_warnings = [
+            {"week": week, "count": len(names), "players": sorted(names)}
+            for week, names in bye_groups.items()
+            if len(names) >= 2
+        ]
+        bye_warnings.sort(key=lambda item: (-cast(int, item["count"]), cast(int, item["week"])))
+        detail = {
+            "franchise_id": franchise_id,
+            "franchise_name": budget["name"],
+            "roster_count": int(budget["slots_used"]),
+            "roster_size": int(budget["roster_slots"]),
+            "open_roster_slots": int(budget["slots_remaining"]),
+            "spent": _money_string(Decimal(str(budget["spent"]))),
+            "remaining": _money_string(Decimal(str(budget["remaining"]))),
+            "maximum_bid": _money_string(Decimal(str(budget["maximum_bid"]))),
+            "position_counts": dict(position_counts),
+            "needs": needs,
+            "open_starter_slots": sum(needs.values()),
+            "purchase_count": len(team_purchases),
+            "average_purchase": _money_string(average_purchase),
+            "spending_style": (
+                "Aggressive"
+                if team_purchases and average_purchase > baseline_cost * Decimal("1.2")
+                else "Patient"
+                if team_purchases and average_purchase < baseline_cost * Decimal("0.8")
+                else "Balanced"
+            ),
+            "last_purchase": team_purchases[0] if team_purchases else None,
+            "bye_warnings": bye_warnings,
+        }
+        team_details[franchise_id] = detail
+        if franchise_id != current_franchise_id:
+            owner_insights.append(detail)
+    owner_insights.sort(
+        key=lambda item: (
+            -Decimal(str(item["maximum_bid"] or 0)),
+            str(item["franchise_name"]),
+        )
+    )
+    selected = team_details.get(current_franchise_id or "")
+    total_remaining = sum((Decimal(str(item["remaining"])) for item in budgets), Decimal("0"))
+    open_slots = sum(int(item["slots_remaining"]) for item in budgets)
+    free_money = max(
+        Decimal("0"), total_remaining - Decimal(league.minimum_bid) * Decimal(open_slots)
+    )
+    recent_positions = [
+        _normalized_roster_position(purchase.get("player_position"))
+        for purchase in purchases[:6]
+        if purchase.get("player_position")
+    ]
+    recent_position_counts = Counter(recent_positions)
+    return {
+        "war_room": {
+            "configured": selected is not None,
+            **(selected or {}),
+            "lineup_requirements": lineup_requirements,
+        },
+        "intelligence": {
+            "recent_position_counts": dict(recent_position_counts),
+            "position_runs": [
+                {
+                    "position": position,
+                    "count": count,
+                    "window": len(recent_positions),
+                    "label": f"{count} {position}s in the last {len(recent_positions)} purchases",
+                }
+                for position, count in recent_position_counts.most_common()
+                if count >= 3
+            ],
+            "latest_purchase": purchases[0] if purchases else None,
+            "opponent_insights": owner_insights,
+            "market": {
+                "total_remaining": _money_string(total_remaining),
+                "open_slots": open_slots,
+                "free_money": _money_string(free_money),
+                "dollars_per_open_slot": _money_string(
+                    total_remaining / Decimal(open_slots) if open_slots else Decimal("0")
+                ),
+                "top_maximum_bid": _money_string(
+                    max(
+                        (Decimal(str(item["maximum_bid"])) for item in budgets),
+                        default=Decimal("0"),
+                    )
+                ),
+            },
+        },
     }
 
 
@@ -2369,22 +2526,25 @@ def auction_state(db: Db, league_id: str | None = None) -> dict[str, Any]:
         (live.is_live and (is_admin or not rob_mode)) or (staged and is_admin)
     ) and not interactive["enabled"]
     phase = "live" if live.is_live else "staging" if staged else "closed"
+    budgets = [
+        franchise_budget(db, league, franchise)
+        for franchise in db.scalars(
+            select(Franchise).where(Franchise.league_id == selected).order_by(Franchise.name)
+        )
+    ]
+    purchases = [
+        _purchase_json(db, item)
+        for item in db.scalars(
+            select(AuctionPurchase)
+            .where(AuctionPurchase.league_id == selected, AuctionPurchase.active.is_(True))
+            .order_by(AuctionPurchase.purchase_order.desc())
+        )
+    ]
+    room_intelligence = _auction_room_intelligence(db, league, budgets, purchases)
     return {
         "league": _league_json(league),
-        "franchises": [
-            franchise_budget(db, league, franchise)
-            for franchise in db.scalars(
-                select(Franchise).where(Franchise.league_id == selected).order_by(Franchise.name)
-            )
-        ],
-        "purchases": [
-            _purchase_json(db, item)
-            for item in db.scalars(
-                select(AuctionPurchase)
-                .where(AuctionPurchase.league_id == selected, AuctionPurchase.active.is_(True))
-                .order_by(AuctionPurchase.purchase_order.desc())
-            )
-        ],
+        "franchises": budgets,
+        "purchases": purchases,
         "synced_at": league.synced_at,
         "stale": not league.synced_at,
         "live": {
@@ -2401,6 +2561,7 @@ def auction_state(db: Db, league_id: str | None = None) -> dict[str, Any]:
         "phase": phase,
         "can_record_purchase": can_record,
         "interactive_bidding": interactive,
+        **room_intelligence,
     }
 
 

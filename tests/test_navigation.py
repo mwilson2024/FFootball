@@ -157,6 +157,8 @@ def test_draft_room_has_personal_war_room_and_live_intelligence() -> None:
     assert 'id="draft-war-room"' in draft
     assert 'id="war-room-positions"' in draft
     assert 'id="opponent-needs"' in draft
+    assert 'id="draft-owner-insights"' in draft
+    assert "Opposing owner intelligence" in draft
     assert 'id="draft-intelligence-strip"' in draft
     assert "Roster construction" in draft
     assert "Teams between your picks" in draft
@@ -165,6 +167,7 @@ def test_draft_room_has_personal_war_room_and_live_intelligence() -> None:
     assert "selectDraftIntelPlayer" in script
     assert "Player focus" in script
     assert "renderDraftRecommendations" in script
+    assert "renderOwnerIntelligence" in script
     assert "heuristic only" in script
     assert (
         draft.index('class="draft-layout"')
@@ -173,6 +176,28 @@ def test_draft_room_has_personal_war_room_and_live_intelligence() -> None:
         < draft.index("ROOM DISPLAY")
     )
     assert '<section class="panel" hidden aria-hidden="true"><h2>Tier inventory</h2>' in draft
+
+
+def test_auction_has_live_intelligence_personal_war_room_and_owner_insights() -> None:
+    auction = (TEMPLATES / "auction.html").read_text(encoding="utf-8")
+    script = (TEMPLATES.parent / "static" / "app.js").read_text(encoding="utf-8")
+
+    assert 'id="auction-intelligence-strip"' in auction
+    assert "LIVE AUCTION INTELLIGENCE" in auction
+    assert 'id="auction-war-room"' in auction
+    assert "PERSONAL AUCTION WAR ROOM" in auction
+    assert 'id="auction-war-room-targets"' in auction
+    assert 'id="auction-owner-insights"' in auction
+    assert "Opposing owner intelligence" in auction
+    assert "renderAuctionIntelligence" in script
+    assert "renderAuctionWarRoom" in script
+    assert "focusAuctionPlayer" in script
+    assert "renderOwnerIntelligence" in script
+    assert (
+        auction.index('class="auction-layout"')
+        < auction.index('id="auction-intelligence-strip"')
+        < auction.index('id="auction-war-room"')
+    )
 
 
 def test_player_profile_has_contextual_back_button() -> None:

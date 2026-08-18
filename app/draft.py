@@ -1027,6 +1027,54 @@ def _draft_intelligence_payload(
         if len(opponent_needs) >= 6:
             break
 
+    opponent_insights: list[dict[str, Any]] = []
+    for owner_id, opponent in franchises.items():
+        if owner_id == franchise_id:
+            continue
+        counts = position_counts_by_franchise.get(owner_id, {})
+        plan = _position_plan(requirements, counts)
+        needs = [
+            {"position": item["position"], "count": item["still_needed"]}
+            for item in plan
+            if item["still_needed"] and item["position"] not in {"FLEX", "SUPERFLEX"}
+        ]
+        future_picks = [
+            int(item["overall_pick"])
+            for item in remaining_slots
+            if item.get("franchise_id") == owner_id and item.get("overall_pick")
+        ]
+        recent_owner_picks = [
+            {
+                "overall_pick": item.get("overall_pick"),
+                "player_name": item.get("player_name"),
+                "position": item.get("position"),
+            }
+            for item in completed
+            if item.get("franchise_id") == owner_id
+        ][-3:][::-1]
+        opponent_insights.append(
+            {
+                "franchise_id": owner_id,
+                "franchise_name": opponent.name,
+                "next_pick": future_picks[0] if future_picks else None,
+                "picks_remaining": len(future_picks),
+                "roster_count": len(owned_by_franchise.get(owner_id, set())),
+                "position_counts": counts,
+                "needs": needs[:4],
+                "recent_picks": recent_owner_picks,
+                "on_clock": bool(
+                    remaining_slots and remaining_slots[0].get("franchise_id") == owner_id
+                ),
+            }
+        )
+    opponent_insights.sort(
+        key=lambda item: (
+            item["next_pick"] is None,
+            item["next_pick"] or 999999,
+            item["franchise_name"],
+        )
+    )
+
     recent_positions = [
         _normalized_position(item.get("position"))
         for item in completed[-6:]
@@ -1236,6 +1284,7 @@ def _draft_intelligence_payload(
         "tier_cliffs": tier_cliffs,
         "pick_values": pick_values,
         "opponent_needs": opponent_needs,
+        "opponent_insights": opponent_insights,
         "survival_target_pick": survival_target_pick,
         "survival_method": (
             "Heuristic only; it uses market ADP when available, otherwise the live board rank."
