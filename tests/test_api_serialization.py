@@ -104,6 +104,11 @@ def test_recording_purchase_advances_shared_nomination_state(seeded):
             )
             client.cookies.set(SESSION_COOKIE, token)
             before = client.get("/api/auction/state?league_id=00999")
+            staged = client.put(
+                "/api/admin/auction-stage?league_id=00999",
+                headers={"X-CSRF-Token": session.csrf_token},
+                json={"enabled": True},
+            )
             response = client.post(
                 "/api/auction/purchases",
                 headers={"X-CSRF-Token": session.csrf_token},
@@ -118,6 +123,7 @@ def test_recording_purchase_advances_shared_nomination_state(seeded):
             after = client.get("/api/auction/state?league_id=00999")
 
         assert before.status_code == 200
+        assert staged.status_code == 200
         assert before.json()["nomination"]["current_franchise_name"] == "Alpha"
         assert response.status_code == 201
         assert after.status_code == 200
@@ -141,6 +147,11 @@ def test_admin_can_reset_local_auction_and_nomination_state(seeded):
                 max_age_seconds=3600,
             )
             client.cookies.set(SESSION_COOKIE, token)
+            staged = client.put(
+                "/api/admin/auction-stage?league_id=00999",
+                headers={"X-CSRF-Token": session.csrf_token},
+                json={"enabled": True},
+            )
             created = client.post(
                 "/api/auction/purchases",
                 headers={"X-CSRF-Token": session.csrf_token},
@@ -159,6 +170,7 @@ def test_admin_can_reset_local_auction_and_nomination_state(seeded):
             after = client.get("/api/auction/state?league_id=00999")
 
         assert created.status_code == 201
+        assert staged.status_code == 200
         assert reset.status_code == 200
         assert reset.json()["reset_count"] == 1
         assert reset.json()["live"]["is_live"] is False
@@ -206,6 +218,11 @@ def test_rob_mode_controls_who_can_record_auction_purchases(seeded):
                 max_age_seconds=3600,
             )
             client.cookies.set(SESSION_COOKIE, admin_token)
+            live = client.put(
+                "/api/auction/live?league_id=00999",
+                headers={"X-CSRF-Token": admin_session.csrf_token},
+                json={"is_live": True},
+            )
             mode = client.put(
                 "/api/admin/auction-mode",
                 headers={"X-CSRF-Token": admin_session.csrf_token},
@@ -232,7 +249,9 @@ def test_rob_mode_controls_who_can_record_auction_purchases(seeded):
 
         assert admin_list_blocked.status_code == 403
         assert commissioner_blocked.status_code == 403
-        assert blocked.status_code == 403
+        assert blocked.status_code == 409
+        assert blocked.json()["detail"]["code"] == "auction_closed"
+        assert live.status_code == 200
         assert mode.status_code == 200
         assert mode.json() == {"rob_mode": False}
         assert commissioner.status_code == 200

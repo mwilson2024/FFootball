@@ -405,6 +405,38 @@ class DraftSession(Base):
     synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class MockDraftSession(Base):
+    __tablename__ = "mock_draft_sessions"
+    __table_args__ = (UniqueConstraint("league_id", "season"),)
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    league_id: Mapped[str] = mapped_column(String, index=True)
+    season: Mapped[int] = mapped_column(Integer)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    revision: Mapped[int] = mapped_column(Integer, default=0)
+    updated_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class MockDraftPick(Base):
+    __tablename__ = "mock_draft_picks"
+    __table_args__ = (
+        UniqueConstraint("session_id", "player_id"),
+        UniqueConstraint("session_id", "overall_pick"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
+    session_id: Mapped[str] = mapped_column(ForeignKey("mock_draft_sessions.id"), index=True)
+    league_id: Mapped[str] = mapped_column(String, index=True)
+    player_id: Mapped[str] = mapped_column(ForeignKey("players.id"), index=True)
+    franchise_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    round: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pick: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    overall_pick: Mapped[int] = mapped_column(Integer, index=True)
+    selected_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    selected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class DraftPick(Base):
     __tablename__ = "draft_picks"
     __table_args__ = (

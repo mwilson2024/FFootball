@@ -22,6 +22,8 @@ from app.models import (
     Franchise,
     League,
     MFLSnapshot,
+    MockDraftPick,
+    MockDraftSession,
     Player,
     RosterAssignment,
 )
@@ -208,12 +210,178 @@ def set_draft_live(db: Session, league_id: str, is_live: bool) -> dict[str, Any]
         raise DraftValidationError("League does not exist")
     session = get_or_create_session(db, league)
     session.status = "live" if is_live else "paused"
+    if is_live:
+        mock_session = get_or_create_mock_session(db, league)
+        mock_session.enabled = False
+        mock_session.revision += 1
     db.commit()
     db.refresh(session)
     return {
         "is_live": session.status == "live",
         "status": session.status,
     }
+
+
+def get_or_create_mock_session(db: Session, league: League) -> MockDraftSession:
+    session = db.scalar(
+        select(MockDraftSession).where(
+            MockDraftSession.league_id == league.id,
+            MockDraftSession.season == league.season,
+        )
+    )
+    if session is None:
+        session = MockDraftSession(league_id=league.id, season=league.season)
+        db.add(session)
+        db.commit()
+        db.refresh(session)
+    return session
+
+
+def set_mock_draft_enabled(
+    db: Session, league_id: str, enabled: bool, *, actor: str | None = None
+) -> dict[str, Any]:
+    league = db.scalar(select(League).where(League.id == league_id))
+    if league is None:
+        raise DraftValidationError("League does not exist")
+    mock_session = get_or_create_mock_session(db, league)
+    mock_session.enabled = enabled
+    mock_session.revision += 1
+    mock_session.updated_by = actor
+    mock_session.updated_at = datetime.now(UTC)
+    if enabled:
+        get_or_create_session(db, league).status = "paused"
+    db.commit()
+    return {
+        "enabled": mock_session.enabled,
+        "revision": mock_session.revision,
+        "updated_by": mock_session.updated_by,
+        "updated_at": mock_session.updated_at,
+    }
+
+
+def mock_draft_status(db: Session, league_id: str) -> dict[str, Any]:
+    league = db.scalar(select(League).where(League.id == league_id))
+    if league is None:
+        raise DraftValidationError("League does not exist")
+    session = get_or_create_mock_session(db, league)
+    pick_count = int(
+        db.scalar(
+            select(func.count(MockDraftPick.id)).where(MockDraftPick.session_id == session.id)
+        )
+        or 0
+    )
+    return {
+        "enabled": session.enabled,
+        "revision": session.revision,
+        "pick_count": pick_count,
+        "updated_by": session.updated_by,
+        "updated_at": session.updated_at,
+    }
+
+
+def mock_pick_json(db: Session, pick: MockDraftPick) -> dict[str, Any]:
+    player = db.get(Player, pick.player_id)
+    franchise = (
+        db.scalar(
+            select(Franchise).where(
+                Franchise.league_id == pick.league_id,
+                Franchise.id == pick.franchise_id,
+            )
+        )
+        if pick.franchise_id
+        else None
+    )
+    return {
+        "id": pick.id,
+        "session_id": pick.session_id,
+        "league_id": pick.league_id,
+        "player_id": pick.player_id,
+        "player_name": player.name if player else pick.player_id,
+        "position": player.position if player else None,
+        "nfl_team": player.nfl_team if player else None,
+        "franchise_id": pick.franchise_id,
+        "franchise_name": franchise.name if franchise else None,
+        "round": pick.round,
+        "pick": pick.pick,
+        "overall_pick": pick.overall_pick,
+        "source": "mock",
+        "selected_by": pick.selected_by,
+        "selected_at": pick.selected_at.isoformat(),
+    }
+
+
+def add_mock_pick(db: Session, payload: DraftPickCreate, *, actor: str) -> MockDraftPick:
+    league = db.scalar(select(League).where(League.id == payload.league_id))
+    if league is None:
+        raise DraftValidationError("League does not exist")
+    if db.get(Player, payload.player_id) is None:
+        raise DraftValidationError("Player does not exist")
+    if payload.franchise_id and not db.scalar(
+        select(Franchise).where(
+            Franchise.league_id == payload.league_id,
+            Franchise.id == payload.franchise_id,
+        )
+    ):
+        raise DraftValidationError("Franchise does not exist")
+    session = get_or_create_mock_session(db, league)
+    if not session.enabled:
+        raise DraftValidationError("Shared mock draft is not enabled")
+    overall = payload.overall_pick
+    if overall is None:
+        overall = (
+            int(
+                db.scalar(
+                    select(func.coalesce(func.max(MockDraftPick.overall_pick), 0)).where(
+                        MockDraftPick.session_id == session.id
+                    )
+                )
+                or 0
+            )
+            + 1
+        )
+    pick = MockDraftPick(
+        session_id=session.id,
+        league_id=payload.league_id,
+        player_id=payload.player_id,
+        franchise_id=payload.franchise_id,
+        round=payload.round,
+        pick=payload.pick,
+        overall_pick=overall,
+        selected_by=actor,
+    )
+    try:
+        db.add(pick)
+        db.flush()
+        session.revision += 1
+        session.updated_by = actor
+        session.updated_at = datetime.now(UTC)
+        db.commit()
+        db.refresh(pick)
+    except IntegrityError as exc:
+        db.rollback()
+        raise DraftValidationError(
+            "That player or mock draft slot was selected by another participant"
+        ) from exc
+    return pick
+
+
+def reset_mock_draft(db: Session, league_id: str, *, actor: str) -> dict[str, Any]:
+    league = db.scalar(select(League).where(League.id == league_id))
+    if league is None:
+        raise DraftValidationError("League does not exist")
+    session = get_or_create_mock_session(db, league)
+    removed = int(
+        db.scalar(
+            select(func.count(MockDraftPick.id)).where(MockDraftPick.session_id == session.id)
+        )
+        or 0
+    )
+    db.execute(delete(MockDraftPick).where(MockDraftPick.session_id == session.id))
+    session.revision += 1
+    session.updated_by = actor
+    session.updated_at = datetime.now(UTC)
+    db.commit()
+    return {"removed": removed, **mock_draft_status(db, league_id)}
 
 
 def pick_json(db: Session, pick: DraftPick) -> dict[str, Any]:
@@ -504,6 +672,101 @@ def draft_state(
             )
         )
     return result
+
+
+def mock_draft_state(
+    db: Session,
+    league_id: str,
+    franchise_id: str | None = None,
+    *,
+    include_intelligence: bool = True,
+) -> dict[str, Any]:
+    league = db.scalar(select(League).where(League.id == league_id))
+    if league is None:
+        raise DraftValidationError("League does not exist")
+    session = get_or_create_mock_session(db, league)
+    base = draft_state(
+        db,
+        league_id,
+        franchise_id,
+        include_intelligence=include_intelligence,
+    )
+    picks = list(
+        db.scalars(
+            select(MockDraftPick)
+            .where(MockDraftPick.session_id == session.id)
+            .order_by(MockDraftPick.overall_pick, MockDraftPick.selected_at)
+        )
+    )
+    picks_by_overall = {pick.overall_pick: pick for pick in picks}
+    order: list[dict[str, Any]] = []
+    for raw_slot in base.get("draft_order", []):
+        slot = dict(raw_slot)
+        mock_pick = picks_by_overall.get(int(slot["overall_pick"]))
+        slot.update(
+            {
+                "player_id": None,
+                "player_name": None,
+                "position": None,
+                "nfl_team": None,
+                "completed": False,
+                "order_source": "MFL order · shared mock results",
+            }
+        )
+        if mock_pick is not None:
+            player = db.get(Player, mock_pick.player_id)
+            slot.update(
+                {
+                    "player_id": mock_pick.player_id,
+                    "player_name": player.name if player else mock_pick.player_id,
+                    "position": player.position if player else None,
+                    "nfl_team": player.nfl_team if player else None,
+                    "completed": True,
+                    "selected_by": mock_pick.selected_by,
+                }
+            )
+        order.append(slot)
+    current_drafter = next((slot for slot in order if not slot["completed"]), None)
+    selected_ids = {pick.player_id for pick in picks}
+    if include_intelligence and base.get("intelligence"):
+        intelligence = base["intelligence"]
+        intelligence["recommendations"] = [
+            row
+            for row in intelligence.get("recommendations", [])
+            if row["player_id"] not in selected_ids
+        ]
+    base.update(
+        {
+            "mode": "mock",
+            "session": {
+                "id": session.id,
+                "league_id": league_id,
+                "season": league.season,
+                "status": "mock_live" if session.enabled else "mock_paused",
+                "current_round": current_drafter["round"] if current_drafter else None,
+                "current_pick": current_drafter["pick"] if current_drafter else None,
+                "source": "mock",
+                "synced_at": None,
+            },
+            "live": {"is_live": False, "status": "paused"},
+            "mock": {
+                "enabled": session.enabled,
+                "revision": session.revision,
+                "pick_count": len(picks),
+                "updated_by": session.updated_by,
+                "updated_at": session.updated_at,
+            },
+            "permissions": {
+                "can_make_pick": session.enabled,
+                "locked_reason": None if session.enabled else "Shared mock draft is not enabled",
+            },
+            "picks": [mock_pick_json(db, pick) for pick in picks],
+            "draft_order": order,
+            "current_drafter": current_drafter,
+            "order_source": "MFL order · shared mock results" if order else "Unavailable",
+        }
+    )
+    return base
 
 
 def recommendations(

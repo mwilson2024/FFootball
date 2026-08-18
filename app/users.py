@@ -24,6 +24,7 @@ from app.user_context import (
 
 DEFAULT_AUCTION_STRATEGY = "balanced"
 ROB_MODE_SETTING_KEY = "auction_rob_mode"
+AUCTION_STAGE_SETTING_PREFIX = "auction_stage:"
 AUCTION_STRATEGIES: dict[str, dict[str, Any]] = {
     "balanced": {
         "name": "Balanced value",
@@ -194,6 +195,25 @@ def save_auction_rob_mode(db: Session, enabled: bool) -> bool:
     setting = db.get(AppSetting, ROB_MODE_SETTING_KEY)
     if setting is None:
         setting = AppSetting(key=ROB_MODE_SETTING_KEY, value="true")
+        db.add(setting)
+    setting.value = "true" if enabled else "false"
+    setting.updated_at = datetime.now(UTC)
+    db.commit()
+    return enabled
+
+
+def auction_stage_enabled(db: Session, league_id: str) -> bool:
+    setting = db.get(AppSetting, f"{AUCTION_STAGE_SETTING_PREFIX}{league_id}")
+    if setting is None:
+        return False
+    return setting.value.strip().lower() in {"1", "true", "on", "yes"}
+
+
+def save_auction_stage(db: Session, league_id: str, enabled: bool) -> bool:
+    key = f"{AUCTION_STAGE_SETTING_PREFIX}{league_id}"
+    setting = db.get(AppSetting, key)
+    if setting is None:
+        setting = AppSetting(key=key, value="false")
         db.add(setting)
     setting.value = "true" if enabled else "false"
     setting.updated_at = datetime.now(UTC)

@@ -95,7 +95,10 @@ def test_nomination_controls_live_in_admin_and_budget_boxes_show_turns() -> None
     assert "auction-complete" in script
     assert "changeAuctionPurchasePlayer" in script
     assert "Finished':`max" in script
-    assert "Rob mode is on" in auction
+    assert 'id="sale-access-note"' in auction
+    assert "Rob mode is on" in script
+    assert 'id="admin-auction-stage-toggle"' in settings
+    assert 'id="admin-auction-live-toggle"' in settings
 
 
 def test_auction_activity_strip_keeps_latest_purchase_and_live_state_separate() -> None:
@@ -107,7 +110,9 @@ def test_auction_activity_strip_keeps_latest_purchase_and_live_state_separate() 
     assert 'id="auction-live-status"' in auction
     assert "Current pick" in auction
     assert "nomination.overall_pick" in script
-    assert "auction-live-badge ${live.is_live?'live':'offline'}" in script
+    assert "auction-live-badge ${phase==='live'?'live':'offline'}" in script
+    assert "Auction staging" in script
+    assert "Auction is closed" in script
     assert "recent-purchases" in script
 
 
@@ -120,6 +125,9 @@ def test_live_draft_board_is_linked_from_draft_room_and_admin() -> None:
     assert "Open live draft board" in draft
     assert 'href="/draft-board?league_id={{ selected_league_id }}"' in draft
     assert 'id="admin-draft-board-launch"' in settings
+    assert 'id="admin-real-draft-toggle"' in settings
+    assert 'id="admin-mock-draft-toggle"' in settings
+    assert 'id="admin-mock-draft-reset"' in settings
     assert "Go live &amp; open board" in settings
     assert "launchLiveDraftBoard()" in settings
     assert "Team view" in board

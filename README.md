@@ -3,7 +3,8 @@
 DraftDesk is a local-first FastAPI drafting website for a real MyFantasyLeague keeper league and
 auction league. It includes the full MFL player pool, every roster, a transparent consensus cheat
 sheet, real non-auction pick tracking, keeper planning, live auction budgets, and guarded exports.
-It has no mock drafts, simulated opponents, ranking-site scraping, or limited ranking API dependency.
+It includes an admin-enabled shared practice draft, but no simulated opponents, ranking-site
+scraping, or limited ranking API dependency.
 
 ## Start the website
 
@@ -52,16 +53,20 @@ imported through the Cheat Sheet belongs only to the account that uploaded it.
   five players side by side, use a random tie-breaker, or ask ChatGPT to choose from server-verified
   league values. Import legally obtained CSV rankings using
   `player_name,team,position,overall_rank`.
-- **Draft Room:** the actual non-auction draft, with manual picks, queue, recommendations, roster
-  need, tier inventory, a personal war room, live position-run/tier-cliff/value intelligence,
+- **Draft Room:** the admin can keep player selections locked, start the actual non-auction draft,
+  or open one shared mock room that follows MFL's order while storing practice picks separately.
+  The room includes manual picks, queue, recommendations, roster need, a personal war room,
+  live position-run/tier-cliff/value intelligence,
   next-pick survival heuristics, nearby opponent needs, undo, MFL `draftResults` reconciliation
   preview, recap export, and a full-screen live board that switches between team columns and
   chronological pick order.
 - **Keepers:** MFL-selected keepers and the available league board. Local choices remain distinct
   until an explicit export or submission.
-- **Auction:** admin-controlled live status, shared three-second viewer updates, atomic purchases,
-  correction/reassignment tools, strategy-aware dynamic pricing, undo/redo, CSV, MFL XML, and a
-  commissioner-only MFL import that requires a fresh XML preview plus explicit confirmation.
+- **Auction:** three admin-controlled states: closed (everyone read-only), staging (admins can record
+  local test/preparation purchases), and live (purchase access follows Rob mode). It also has shared
+  three-second viewer updates, atomic purchases, correction/reassignment tools, strategy-aware
+  dynamic pricing, undo/redo, CSV, MFL XML, and a commissioner-only MFL import that requires a fresh
+  XML preview plus explicit confirmation.
 - **Power Rankings:** a deterministic league-strength board based on legal starting-lineup value,
   bench depth, and unfilled lineup spots, with an optional on-demand ChatGPT league judgment.
 - **Bye Advisor:** compare every active bye or choose one roster player manually, then see the best
@@ -115,6 +120,11 @@ Commissioner writes require the persistent **Commissioner imports** switch in Ad
 commissioner credentials. `MFL_ENABLE_IMPORTS` supplies the initial default when no saved Admin choice
 exists. Auction import requires an exact XML preview and unchanged SHA-256 confirmation token. The app
 fetches fresh MFL state before POSTing and never submits automatically.
+
+Real draft picks are rejected until an admin starts the real draft. Starting shared mock mode pauses
+the real draft, and starting the real draft ends mock mode. Mock picks use a separate database table,
+reject stale simultaneous selections, and are never included in MFL reconciliation or commissioner
+imports. Closing auction staging also ends the live auction and locks new purchases.
 
 Auction CSV/XML, checksums, manifests, and draft recaps are written atomically to `exports/`. Ranking
 imports and checksums are retained under `data/imports/`. IDs remain strings so leading zeroes are

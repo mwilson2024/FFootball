@@ -4,14 +4,25 @@
 <section class="settings-layout"><form id="setup-form" class="panel settings-form"><h2>League configuration</h2><label>Season<input name="season" type="number" min="2020" max="2100" required></label><fieldset><legend>Keeper league</legend><label>League ID<input name="keeper_league_id"></label><label>League API key <span>(leave blank to preserve)</span><input name="keeper_api_key" type="password" autocomplete="new-password"></label><button type="button" onclick="testLeague('keeper')">Test keeper connection</button><div id="keeper-test" class="test-result"></div></fieldset><fieldset><legend>Auction league</legend><label>League ID<input name="auction_league_id"></label><label>League API key <span>(leave blank to preserve)</span><input name="auction_api_key" type="password" autocomplete="new-password"></label><button type="button" onclick="testLeague('auction')">Test auction connection</button><div id="auction-test" class="test-result"></div></fieldset><label>Registered client / User-Agent<input name="user_agent" required></label><button class="primary" type="submit">Save securely</button></form><aside><div class="panel"><h2>Security status</h2><dl id="security-status" class="status-list"></dl></div><div class="notice"><strong>No MFL API key for public data?</strong><p>That is normal. Public exports usually work without one. This website tests public and protected access separately.</p></div></aside></section>
 <section class="admin-tools-grid" aria-label="Auction access and administrator controls">
   <article class="panel admin-tool-card admin-draft-board-card">
-    <p class="eyebrow">LIVE DRAFT</p>
-    <h2>Draft board</h2>
-    <p class="muted">Launch the shared draft session and open a full-screen board with team columns or a pick-by-pick live view.</p>
+    <p class="eyebrow">DRAFT SESSION</p>
+    <h2>Real draft and shared mock</h2>
+    <p class="muted">Choose whether the room is locked, running the real league draft, or running one shared practice draft.</p>
+    <label class="admin-switch"><input id="admin-real-draft-toggle" type="checkbox" onchange="setAdminDraftLive(this.checked)"><span><strong>Real draft is live</strong><small>Unlocks real player selections for connected users. Real and mock modes cannot run together.</small></span></label>
+    <label class="admin-switch"><input id="admin-mock-draft-toggle" type="checkbox" onchange="setAdminMockDraft(this.checked)"><span><strong>Shared mock draft</strong><small>Everyone practices in the same room using MFL's order. Mock picks never become real picks or write to MFL.</small></span></label>
     <p id="admin-draft-board-status" class="admin-draft-board-status" aria-live="polite">Loading draft status…</p>
+    <p id="admin-mock-draft-status" class="muted" aria-live="polite"></p>
     <div class="toolbar">
       <button id="admin-draft-board-launch" class="primary" type="button" onclick="launchLiveDraftBoard()">Go live &amp; open board</button>
       <a id="admin-draft-board-link" class="button" href="/draft-board">Open without changing status</a>
+      <button id="admin-mock-draft-reset" type="button" onclick="resetAdminMockDraft()">Reset mock picks</button>
     </div>
+  </article>
+  <article class="panel admin-tool-card">
+    <p class="eyebrow">AUCTION SESSION</p>
+    <h2>Staging and live auction</h2>
+    <label class="admin-switch"><input id="admin-auction-stage-toggle" type="checkbox" onchange="setAdminAuctionStage(this.checked)"><span><strong>Open auction staging</strong><small>Admins can prepare and test purchases while members remain read-only.</small></span></label>
+    <label class="admin-switch"><input id="admin-auction-live-toggle" type="checkbox" onchange="setAdminAuctionLive(this.checked)"><span><strong>Auction is live</strong><small>Unlocks purchases for eligible users. Going live automatically opens staging.</small></span></label>
+    <p id="admin-auction-stage-status" class="muted" aria-live="polite">Loading auction status…</p>
   </article>
   <article class="panel admin-tool-card">
     <p class="eyebrow">AUCTION ACCESS</p>

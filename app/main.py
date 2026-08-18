@@ -66,17 +66,23 @@ from app.db import get_db, init_db
 from app.depth_charts import depth_chart_overview
 from app.draft import (
     DraftValidationError,
+    add_mock_pick,
     add_pick,
     apply_reconciliation,
     draft_intelligence,
     draft_state,
     export_draft_csv,
     franchise_position_needs,
+    mock_draft_state,
+    mock_draft_status,
+    mock_pick_json,
     pick_json,
     recommendations,
     reconcile_preview,
     remove_pick,
+    reset_mock_draft,
     set_draft_live,
+    set_mock_draft_enabled,
     undo_draft,
     update_pick,
 )
@@ -110,6 +116,7 @@ from app.schemas import (
     AuctionLiveUpdate,
     AuctionNominationOrderUpdate,
     AuctionRobModeUpdate,
+    AuctionStageUpdate,
     CommissionerImportsUpdate,
     DraftPickCreate,
     DraftPickUpdate,
@@ -118,6 +125,7 @@ from app.schemas import (
     KeeperCreate,
     LeagueConnect,
     MFLConnectionTest,
+    MockDraftUpdate,
     PlayerComparisonRequest,
     PreferenceUpdate,
     PurchaseCreate,
@@ -159,6 +167,7 @@ from app.user_context import (
 from app.users import (
     AUCTION_STRATEGIES,
     auction_rob_mode,
+    auction_stage_enabled,
     authorized_league_ids,
     bootstrap_user,
     current_account,
@@ -169,6 +178,7 @@ from app.users import (
     record_login,
     reset_source_settings,
     save_auction_rob_mode,
+    save_auction_stage,
     save_mfl_memberships,
     save_source_setting,
     strategy_json,
@@ -176,7 +186,7 @@ from app.users import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260814.11"
+templates.env.globals["asset_version"] = "20260818.12"
 SESSION_SIGNING_SECRET = ""
 
 
@@ -677,7 +687,12 @@ def auction_room(request: Request, db: Db) -> Any:
     context = _page_context(db, "Auction room", settings.mfl_auction_league_id)
     context["league"] = db.scalar(select(League).where(League.id == settings.mfl_auction_league_id))
     context["rob_mode"] = auction_rob_mode(db)
-    context["can_record_purchase"] = context["is_admin"] or not context["rob_mode"]
+    selected = settings.mfl_auction_league_id
+    live = _auction_live(db, selected) if selected else None
+    staged = auction_stage_enabled(db, selected) if selected else False
+    context["can_record_purchase"] = (
+        bool(live and live.is_live) and (context["is_admin"] or not context["rob_mode"])
+    ) or (staged and context["is_admin"])
     return templates.TemplateResponse(request, "auction.html", context)
 
 
@@ -1587,12 +1602,32 @@ def api_draft_state(
     include_intelligence: bool = True,
 ) -> dict[str, Any]:
     selected_franchise = franchise_id or league_setting(db, league_id).franchise_id
-    return draft_state(
+    mock = mock_draft_status(db, league_id)
+    if mock["enabled"]:
+        return mock_draft_state(
+            db,
+            league_id,
+            selected_franchise,
+            include_intelligence=include_intelligence,
+        )
+    state = draft_state(
         db,
         league_id,
         selected_franchise,
         include_intelligence=include_intelligence,
     )
+    is_live = bool(state["live"]["is_live"])
+    state.update(
+        {
+            "mode": "real",
+            "mock": mock,
+            "permissions": {
+                "can_make_pick": is_live,
+                "locked_reason": None if is_live else "The admin has not started the live draft",
+            },
+        }
+    )
+    return state
 
 
 @app.get("/api/draft/intelligence")
@@ -1609,12 +1644,76 @@ def api_set_draft_live(payload: AuctionLiveUpdate, league_id: str, db: Db) -> di
     return set_draft_live(db, league_id, payload.is_live)
 
 
+@app.get("/api/admin/mock-draft")
+def admin_mock_draft(league_id: str, db: Db) -> dict[str, Any]:
+    _require_admin(db)
+    return mock_draft_status(db, league_id)
+
+
+@app.put("/api/admin/mock-draft")
+def update_admin_mock_draft(payload: MockDraftUpdate, league_id: str, db: Db) -> dict[str, Any]:
+    _require_admin(db)
+    return set_mock_draft_enabled(
+        db,
+        league_id,
+        payload.enabled,
+        actor=active_username(),
+    )
+
+
+@app.post("/api/admin/mock-draft/reset")
+def reset_admin_mock_draft(league_id: str, db: Db) -> dict[str, Any]:
+    _require_admin(db)
+    return reset_mock_draft(db, league_id, actor=active_username())
+
+
 @app.post("/api/draft/picks", status_code=201)
 def create_draft_pick(payload: DraftPickCreate, db: Db) -> dict[str, Any]:
-    result = pick_json(db, add_pick(db, payload))
+    if payload.is_mock:
+        state = mock_draft_state(db, payload.league_id, include_intelligence=False)
+        current = state.get("current_drafter")
+        if not state["mock"]["enabled"]:
+            raise HTTPException(
+                409,
+                detail={"code": "mock_locked", "message": "Shared mock draft is not enabled"},
+            )
+        if current is None:
+            raise HTTPException(
+                409, detail={"code": "mock_complete", "message": "The mock draft is complete"}
+            )
+        if payload.overall_pick not in (None, current["overall_pick"]):
+            raise HTTPException(
+                409,
+                detail={
+                    "code": "mock_pick_moved",
+                    "message": "Another participant already made that mock pick; refresh the board",
+                },
+            )
+        mock_payload = payload.model_copy(
+            update={
+                "franchise_id": current["franchise_id"],
+                "round": current["round"],
+                "pick": current["pick"],
+                "overall_pick": current["overall_pick"],
+            }
+        )
+        result = mock_pick_json(db, add_mock_pick(db, mock_payload, actor=active_username()))
+        stream = "mock-draft-picks"
+    else:
+        state = draft_state(db, payload.league_id, include_intelligence=False)
+        if not state["live"]["is_live"]:
+            raise HTTPException(
+                409,
+                detail={
+                    "code": "draft_locked",
+                    "message": "Players are locked until an admin starts the live draft",
+                },
+            )
+        result = pick_json(db, add_pick(db, payload))
+        stream = "draft-picks"
     _audit_mutation(
         db,
-        stream="draft-picks",
+        stream=stream,
         action="create",
         league_id=payload.league_id,
         entity_id=result["id"],
@@ -1625,7 +1724,16 @@ def create_draft_pick(payload: DraftPickCreate, db: Db) -> dict[str, Any]:
 
 @app.patch("/api/draft/picks/{pick_id}")
 def patch_draft_pick(pick_id: str, payload: DraftPickUpdate, db: Db) -> dict[str, Any]:
+    _require_admin(db)
     current = db.get(DraftPick, pick_id)
+    if (
+        current is not None
+        and not draft_state(db, current.league_id, include_intelligence=False)["live"]["is_live"]
+    ):
+        raise HTTPException(
+            409,
+            detail={"code": "draft_locked", "message": "The live draft is not active"},
+        )
     before = pick_json(db, current) if current else None
     result = pick_json(db, update_pick(db, pick_id, payload))
     _audit_mutation(
@@ -1642,11 +1750,17 @@ def patch_draft_pick(pick_id: str, payload: DraftPickUpdate, db: Db) -> dict[str
 
 @app.delete("/api/draft/picks/{pick_id}", status_code=204)
 def delete_draft_pick(pick_id: str, db: Db) -> None:
+    _require_admin(db)
     current = db.get(DraftPick, pick_id)
     if current is None:
         raise DraftValidationError("Draft pick does not exist")
     before = pick_json(db, current)
     league_id = current.league_id
+    if not draft_state(db, league_id, include_intelligence=False)["live"]["is_live"]:
+        raise HTTPException(
+            409,
+            detail={"code": "draft_locked", "message": "The live draft is not active"},
+        )
     remove_pick(db, pick_id)
     _audit_mutation(
         db,
@@ -1660,6 +1774,12 @@ def delete_draft_pick(pick_id: str, db: Db) -> None:
 
 @app.post("/api/draft/undo", status_code=204)
 def api_draft_undo(league_id: str, db: Db) -> None:
+    _require_admin(db)
+    if not draft_state(db, league_id, include_intelligence=False)["live"]["is_live"]:
+        raise HTTPException(
+            409,
+            detail={"code": "draft_locked", "message": "The live draft is not active"},
+        )
     undo_draft(db, league_id)
     _audit_mutation(db, stream="draft-picks", action="undo", league_id=league_id)
 
@@ -2078,8 +2198,11 @@ def auction_state(db: Db, league_id: str | None = None) -> dict[str, Any]:
         )
     league = _league_or_404(db, selected)
     live = _auction_live(db, selected)
+    staged = auction_stage_enabled(db, selected)
     is_admin = is_current_admin(db)
     rob_mode = auction_rob_mode(db)
+    can_record = (live.is_live and (is_admin or not rob_mode)) or (staged and is_admin)
+    phase = "live" if live.is_live else "staging" if staged else "closed"
     return {
         "league": _league_json(league),
         "franchises": [
@@ -2100,6 +2223,8 @@ def auction_state(db: Db, league_id: str | None = None) -> dict[str, Any]:
         "stale": not league.synced_at,
         "live": {
             "is_live": live.is_live,
+            "stage_enabled": staged,
+            "phase": phase,
             "revision": live.revision,
             "updated_at": live.updated_at,
             "updated_by": live.updated_by,
@@ -2107,8 +2232,42 @@ def auction_state(db: Db, league_id: str | None = None) -> dict[str, Any]:
         "nomination": nomination_state(db, selected),
         "is_admin": is_admin,
         "rob_mode": rob_mode,
-        "can_record_purchase": is_admin or not rob_mode,
+        "phase": phase,
+        "can_record_purchase": can_record,
     }
+
+
+@app.get("/api/admin/auction-stage")
+def admin_auction_stage(db: Db, league_id: str | None = None) -> dict[str, Any]:
+    _require_admin(db)
+    selected = league_id or runtime_settings(db).mfl_auction_league_id
+    _league_or_404(db, selected)
+    live = _auction_live(db, selected)
+    staged = auction_stage_enabled(db, selected)
+    return {
+        "league_id": selected,
+        "stage_enabled": staged,
+        "is_live": live.is_live,
+        "phase": "live" if live.is_live else "staging" if staged else "closed",
+    }
+
+
+@app.put("/api/admin/auction-stage")
+def update_admin_auction_stage(
+    payload: AuctionStageUpdate, db: Db, league_id: str | None = None
+) -> dict[str, Any]:
+    _require_admin(db)
+    selected = league_id or runtime_settings(db).mfl_auction_league_id
+    _league_or_404(db, selected)
+    save_auction_stage(db, selected, payload.enabled)
+    live = _auction_live(db, selected)
+    if not payload.enabled and live.is_live:
+        live.is_live = False
+        live.revision += 1
+        live.updated_by = active_username()
+        live.updated_at = datetime.now(UTC)
+        db.commit()
+    return admin_auction_stage(db, selected)
 
 
 @app.put("/api/auction/live")
@@ -2119,6 +2278,8 @@ def set_auction_live(
     selected = league_id or runtime_settings(db).mfl_auction_league_id
     _league_or_404(db, selected)
     state = _auction_live(db, selected)
+    if payload.is_live:
+        save_auction_stage(db, selected, True)
     state.is_live = payload.is_live
     state.revision += 1
     state.updated_by = active_username()
@@ -2200,7 +2361,17 @@ def reset_local_auction(db: Db, league_id: str | None = None) -> dict[str, Any]:
 
 @app.post("/api/auction/purchases", status_code=201)
 def purchase(payload: PurchaseCreate, db: Db) -> dict[str, Any]:
-    if auction_rob_mode(db):
+    live = _auction_live(db, payload.league_id)
+    staged = auction_stage_enabled(db, payload.league_id)
+    if not live.is_live and not staged:
+        raise HTTPException(
+            409,
+            detail={
+                "code": "auction_closed",
+                "message": "The auction is closed until an admin enables staging or goes live",
+            },
+        )
+    if not live.is_live or auction_rob_mode(db):
         _require_admin(db)
     result = add_purchase(db, payload)
     advance_nomination(db, payload.league_id, actor=active_username())

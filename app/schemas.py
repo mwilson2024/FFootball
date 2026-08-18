@@ -102,6 +102,14 @@ class AuctionLiveUpdate(BaseModel):
     is_live: bool
 
 
+class AuctionStageUpdate(BaseModel):
+    enabled: bool
+
+
+class MockDraftUpdate(BaseModel):
+    enabled: bool
+
+
 class AuctionRobModeUpdate(BaseModel):
     enabled: bool
 
@@ -174,6 +182,7 @@ class DraftPickCreate(BaseModel):
     round: int | None = Field(default=None, ge=1)
     pick: int | None = Field(default=None, ge=1)
     overall_pick: int | None = Field(default=None, ge=1)
+    is_mock: bool = False
 
     @field_validator("league_id", "player_id", "franchise_id", mode="before")
     @classmethod

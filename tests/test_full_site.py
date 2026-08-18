@@ -522,14 +522,18 @@ def test_user_csv_preview_import_and_queue_persist(seeded: Session, tmp_path) ->
     assert draft_state(seeded, "00999")["queue"][0]["player_id"] == "0001234"
 
 
-def test_setup_redacts_secrets_and_no_mock_routes(seeded: Session, monkeypatch) -> None:
+def test_setup_redacts_secrets_and_exposes_only_shared_mock_routes(
+    seeded: Session, monkeypatch
+) -> None:
     monkeypatch.setattr("app.settings_store._secret", lambda _: "top-secret")
     status = setup_status(seeded)
     routes = {route.path for route in app.routes}
 
     assert "top-secret" not in repr(status)
     assert status["keeper_api_key_configured"] is True
-    assert all("mock" not in path and "simulate" not in path for path in routes)
+    assert "/api/admin/mock-draft" in routes
+    assert "/api/admin/mock-draft/reset" in routes
+    assert all("simulate" not in path for path in routes)
     assert "/api/draft/picks" in routes
     assert normalize_player_name("Smith, John Jr.") == "johnsmith"
     assert normalize_player_name("Kenny Gainwell") == "kennethgainwell"
