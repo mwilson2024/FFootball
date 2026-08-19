@@ -53,8 +53,11 @@ imported through the Cheat Sheet belongs only to the account that uploaded it.
   five players side by side, use a random tie-breaker, or ask ChatGPT to choose from server-verified
   league values. Import legally obtained CSV rankings using
   `player_name,team,position,overall_rank`.
-- **Draft Room:** the admin can keep player selections locked, start the actual non-auction draft,
-  or open one shared mock room that follows MFL's order while storing practice picks separately.
+- **Draft Room:** the admin can keep player selections locked, choose MFL companion mode or a
+  real-time local draft, and open one shared mock room that follows MFL's order while storing
+  practice picks separately. Companion mode imports MFL picks every 30 seconds. Local mode lets the
+  team on the clock select in DraftDesk and broadcasts the result to every connected screen without
+  sending it to MFL. Changing the real-draft method while live pauses the room first.
   The room includes manual picks, queue, recommendations, roster need, a personal war room,
   live position-run/tier-cliff/value intelligence,
   next-pick survival heuristics, nearby opponent needs, full opposing-owner roster/need/tendency
@@ -130,10 +133,12 @@ commissioner credentials. `MFL_ENABLE_IMPORTS` supplies the initial default when
 exists. Auction import requires an exact XML preview and unchanged SHA-256 confirmation token. The app
 fetches fresh MFL state before POSTing and never submits automatically.
 
-Real draft picks are rejected until an admin starts the real draft. Starting shared mock mode pauses
-the real draft, and starting the real draft ends mock mode. Mock picks use a separate database table,
-reject stale simultaneous selections, and are never included in MFL reconciliation or commissioner
-imports. Closing auction staging also ends the live auction and locks new purchases.
+Real draft picks are rejected until an admin starts the real draft. Companion mode always rejects
+local real picks; local mode accepts them only from an admin or the MFL team currently on the clock.
+Starting shared mock mode pauses the real draft, and starting the real draft ends mock mode. Mock
+picks use a separate database table, reject stale simultaneous selections, and are never included in
+MFL reconciliation or commissioner imports. Closing auction staging also ends the live auction and
+locks new purchases.
 
 Auction CSV/XML, checksums, manifests, and draft recaps are written atomically to `exports/`. Ranking
 imports and checksums are retained under `data/imports/`. IDs remain strings so leading zeroes are

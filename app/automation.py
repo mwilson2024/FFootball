@@ -18,6 +18,7 @@ from app.models import AppSetting, DraftSession, League, LeagueType
 from app.settings_store import runtime_settings
 from app.source_sync import sync_enabled_sources
 from app.sync import sync_league
+from app.users import draft_mode
 
 LOGGER = logging.getLogger("uvicorn.error")
 LIVE_DRAFT_SYNC_SECONDS = 30
@@ -103,9 +104,7 @@ async def automatic_sync_once() -> dict[str, Any]:
         return {"leagues": league_results, **source_results}
 
 
-async def sync_live_draft_sessions(
-    db: Session, client: MFLClient
-) -> list[dict[str, Any]]:
+async def sync_live_draft_sessions(db: Session, client: MFLClient) -> list[dict[str, Any]]:
     sessions = list(
         db.scalars(
             select(DraftSession)
@@ -113,6 +112,7 @@ async def sync_live_draft_sessions(
             .order_by(DraftSession.league_id)
         )
     )
+    sessions = [session for session in sessions if draft_mode(db, session.league_id) == "companion"]
     results: list[dict[str, Any]] = []
     for session in sessions:
         try:

@@ -5,9 +5,15 @@
 <section class="admin-tools-grid" aria-label="Auction access and administrator controls">
   <article class="panel admin-tool-card admin-draft-board-card">
     <p class="eyebrow">DRAFT SESSION</p>
-    <h2>Real draft and shared mock</h2>
-    <p class="muted">Choose whether the room is locked, running the real league draft, or running one shared practice draft.</p>
-    <label class="admin-switch"><input id="admin-real-draft-toggle" type="checkbox" onchange="setAdminDraftLive(this.checked)"><span><strong>Real draft is live</strong><small>Unlocks real player selections for connected users. Real and mock modes cannot run together.</small></span></label>
+    <h2>Live draft and shared mock</h2>
+    <p class="muted">Choose where real picks are made, then open or lock the shared draft room.</p>
+    <fieldset class="draft-mode-choice">
+      <legend>Real draft method</legend>
+      <label class="admin-switch"><input id="admin-draft-mode-companion" name="admin-draft-mode" type="radio" value="companion" onchange="setAdminDraftMode(this.value)"><span><strong>MFL companion</strong><small>Owners make picks on MFL. DraftDesk imports them automatically every 30 seconds.</small></span></label>
+      <label class="admin-switch"><input id="admin-draft-mode-local" name="admin-draft-mode" type="radio" value="local" onchange="setAdminDraftMode(this.value)"><span><strong>Real-time local draft</strong><small>The team on the clock makes its pick in DraftDesk and everyone sees it immediately. Picks stay local and are not sent to MFL.</small></span></label>
+    </fieldset>
+    <p id="admin-draft-mode-status" class="muted" aria-live="polite"></p>
+    <label class="admin-switch"><input id="admin-real-draft-toggle" type="checkbox" onchange="setAdminDraftLive(this.checked)"><span><strong>Live draft room</strong><small>Starts the selected real draft method. Real and mock modes cannot run together.</small></span></label>
     <label class="admin-switch"><input id="admin-mock-draft-toggle" type="checkbox" onchange="setAdminMockDraft(this.checked)"><span><strong>Shared mock draft</strong><small>Everyone practices in the same room using MFL's order. Mock picks never become real picks or write to MFL.</small></span></label>
     <p id="admin-draft-board-status" class="admin-draft-board-status" aria-live="polite">Loading draft status…</p>
     <p id="admin-mock-draft-status" class="muted" aria-live="polite"></p>

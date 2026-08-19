@@ -211,6 +211,58 @@ def test_real_draft_is_locked_and_shared_mock_picks_are_isolated(seeded) -> None
         app.dependency_overrides.clear()
 
 
+def test_admin_can_choose_and_run_a_real_time_local_draft(seeded) -> None:
+    _draft_order_snapshot(seeded)
+    bootstrap_user(seeded, "wilsonmw", admin_usernames={"wilsonmw"})
+
+    def override_db():
+        yield seeded
+
+    app.dependency_overrides[get_db] = override_db
+    try:
+        with TestClient(app) as client:
+            token, session = _session("wilsonmw")
+            client.cookies.set(SESSION_COOKIE, token)
+            selected = client.put(
+                "/api/admin/draft-mode?league_id=00999",
+                headers={"X-CSRF-Token": session.csrf_token},
+                json={"mode": "local"},
+            )
+            started = client.put(
+                "/api/draft/live?league_id=00999",
+                headers={"X-CSRF-Token": session.csrf_token},
+                json={"is_live": True},
+            )
+            live_state = client.get("/api/draft/state?league_id=00999")
+            picked = client.post(
+                "/api/draft/picks",
+                headers={"X-CSRF-Token": session.csrf_token},
+                json={"league_id": "00999", "player_id": "0001234", "overall_pick": 1},
+            )
+            shared_state = client.get("/api/draft/state?league_id=00999")
+            switched = client.put(
+                "/api/admin/draft-mode?league_id=00999",
+                headers={"X-CSRF-Token": session.csrf_token},
+                json={"mode": "companion"},
+            )
+            companion_state = client.get("/api/draft/state?league_id=00999")
+
+        assert selected.json() == {"mode": "local", "is_live": False, "paused": False}
+        assert started.json()["is_live"] is True
+        assert live_state.json()["draft_mode"] == "local"
+        assert live_state.json()["permissions"]["can_make_pick"] is True
+        assert picked.status_code == 201
+        assert picked.json()["source"] == "local"
+        assert picked.json()["franchise_id"] == "0001"
+        assert shared_state.json()["current_drafter"]["franchise_id"] == "0002"
+        assert switched.json() == {"mode": "companion", "is_live": False, "paused": True}
+        assert companion_state.json()["draft_mode"] == "companion"
+        assert companion_state.json()["live"]["is_live"] is False
+        assert companion_state.json()["permissions"]["can_make_pick"] is False
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_auction_closed_staging_and_live_permissions(seeded) -> None:
     bootstrap_user(seeded, "tester", admin_usernames={"wilsonmw"})
 

@@ -68,6 +68,7 @@ from app.depth_charts import depth_chart_overview
 from app.draft import (
     DraftValidationError,
     add_mock_pick,
+    add_pick,
     apply_reconciliation,
     draft_intelligence,
     draft_state,
@@ -122,6 +123,7 @@ from app.schemas import (
     AuctionRobModeUpdate,
     AuctionStageUpdate,
     CommissionerImportsUpdate,
+    DraftModeUpdate,
     DraftPickCreate,
     DraftPickUpdate,
     IdentityUpdate,
@@ -178,6 +180,7 @@ from app.users import (
     authorized_league_ids,
     bootstrap_user,
     current_account,
+    draft_mode,
     effective_source_settings,
     is_current_admin,
     league_setting,
@@ -186,6 +189,7 @@ from app.users import (
     reset_source_settings,
     save_auction_rob_mode,
     save_auction_stage,
+    save_draft_mode,
     save_mfl_memberships,
     save_source_setting,
     strategy_json,
@@ -193,7 +197,7 @@ from app.users import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260818.16"
+templates.env.globals["asset_version"] = "20260819.1"
 SESSION_SIGNING_SECRET = ""
 
 
@@ -228,9 +232,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     auto_sync_task: asyncio.Task[None] | None = None
     if settings.auto_sync_enabled:
         auto_sync_task = asyncio.create_task(daily_sync_loop(settings), name="daily-mfl-sync")
-    live_draft_sync_task = asyncio.create_task(
-        live_draft_sync_loop(), name="live-mfl-draft-sync"
-    )
+    live_draft_sync_task = asyncio.create_task(live_draft_sync_loop(), name="live-mfl-draft-sync")
     try:
         yield
     finally:
@@ -1927,12 +1929,14 @@ def api_draft_state(
     selected_franchise = franchise_id or league_setting(db, league_id).franchise_id
     mock = mock_draft_status(db, league_id)
     if mock["enabled"]:
-        return mock_draft_state(
+        state = mock_draft_state(
             db,
             league_id,
             selected_franchise,
             include_intelligence=include_intelligence,
         )
+        state["draft_mode"] = draft_mode(db, league_id)
+        return state
     state = draft_state(
         db,
         league_id,
@@ -1940,17 +1944,37 @@ def api_draft_state(
         include_intelligence=include_intelligence,
     )
     is_live = bool(state["live"]["is_live"])
+    method = draft_mode(db, league_id)
+    league = _league_or_404(db, league_id)
+    user_franchise_id = _current_user_franchise_id(db, league)
+    current_drafter = state.get("current_drafter")
+    is_admin = is_current_admin(db)
+    is_user_turn = bool(
+        current_drafter
+        and user_franchise_id
+        and current_drafter.get("franchise_id") == user_franchise_id
+    )
+    can_make_pick = bool(is_live and method == "local" and (is_admin or is_user_turn))
+    if not is_live:
+        locked_reason = "The admin has not started the live draft"
+    elif method == "companion":
+        locked_reason = "Companion mode: make picks on MFL; DraftDesk imports them every 30 seconds"
+    elif current_drafter is None:
+        locked_reason = "The draft is complete"
+    elif not user_franchise_id and not is_admin:
+        locked_reason = "Connect your MFL team in My Account to make local picks"
+    else:
+        locked_reason = (
+            f"Waiting for {current_drafter.get('franchise_name') or 'the team on the clock'}"
+        )
     state.update(
         {
             "mode": "real",
+            "draft_mode": method,
             "mock": mock,
             "permissions": {
-                "can_make_pick": False,
-                "locked_reason": (
-                    "Companion mode: make picks on MFL; DraftDesk imports them every 30 seconds"
-                    if is_live
-                    else "The admin has not started the live draft"
-                ),
+                "can_make_pick": can_make_pick,
+                "locked_reason": None if can_make_pick else locked_reason,
             },
         }
     )
@@ -1969,6 +1993,19 @@ def api_draft_intelligence(
 def api_set_draft_live(payload: AuctionLiveUpdate, league_id: str, db: Db) -> dict[str, Any]:
     _require_admin(db)
     return set_draft_live(db, league_id, payload.is_live)
+
+
+@app.put("/api/admin/draft-mode")
+def update_admin_draft_mode(payload: DraftModeUpdate, league_id: str, db: Db) -> dict[str, Any]:
+    _require_admin(db)
+    _league_or_404(db, league_id)
+    previous = draft_mode(db, league_id)
+    was_live = bool(draft_state(db, league_id, include_intelligence=False)["live"]["is_live"])
+    paused = previous != payload.mode and was_live
+    if paused:
+        set_draft_live(db, league_id, False)
+    mode = save_draft_mode(db, league_id, payload.mode)
+    return {"mode": mode, "is_live": was_live and not paused, "paused": paused}
 
 
 @app.get("/api/admin/mock-draft")
@@ -2036,13 +2073,48 @@ def create_draft_pick(payload: DraftPickCreate, db: Db) -> dict[str, Any]:
                     "message": "Players are locked until an admin starts the live draft",
                 },
             )
-        raise HTTPException(
-            409,
-            detail={
-                "code": "mfl_companion_only",
-                "message": "Make real draft picks on MFL; DraftDesk imports them automatically",
-            },
+        if draft_mode(db, payload.league_id) == "companion":
+            raise HTTPException(
+                409,
+                detail={
+                    "code": "mfl_companion_only",
+                    "message": "Make real draft picks on MFL; DraftDesk imports them automatically",
+                },
+            )
+        current = state.get("current_drafter")
+        if current is None:
+            raise HTTPException(
+                409,
+                detail={"code": "draft_complete", "message": "The draft is complete"},
+            )
+        league = _league_or_404(db, payload.league_id)
+        user_franchise_id = _current_user_franchise_id(db, league)
+        if not is_current_admin(db) and user_franchise_id != current.get("franchise_id"):
+            raise HTTPException(
+                403,
+                detail={
+                    "code": "not_on_clock",
+                    "message": "Only the team currently on the clock can make this pick",
+                },
+            )
+        if payload.overall_pick not in (None, current["overall_pick"]):
+            raise HTTPException(
+                409,
+                detail={
+                    "code": "draft_pick_moved",
+                    "message": "Another participant already made that pick; refresh the board",
+                },
+            )
+        local_payload = payload.model_copy(
+            update={
+                "franchise_id": current["franchise_id"],
+                "round": current["round"],
+                "pick": current["pick"],
+                "overall_pick": current["overall_pick"],
+            }
         )
+        result = pick_json(db, add_pick(db, local_payload))
+        stream = "draft-picks"
     _audit_mutation(
         db,
         stream=stream,

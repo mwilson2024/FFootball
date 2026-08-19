@@ -133,6 +133,8 @@ def test_live_draft_board_is_linked_from_draft_room_and_admin() -> None:
     assert "Open live draft board" in draft
     assert 'href="/draft-board?league_id={{ selected_league_id }}"' in draft
     assert 'id="admin-draft-board-launch"' in settings
+    assert 'id="admin-draft-mode-companion"' in settings
+    assert 'id="admin-draft-mode-local"' in settings
     assert 'id="admin-real-draft-toggle"' in settings
     assert 'id="admin-mock-draft-toggle"' in settings
     assert 'id="admin-mock-draft-reset"' in settings
@@ -150,13 +152,15 @@ def test_live_draft_board_is_linked_from_draft_room_and_admin() -> None:
     assert "renderChronologicalDraftBoard" in script
 
 
-def test_real_draft_ui_is_an_mfl_companion() -> None:
+def test_real_draft_ui_supports_companion_and_local_modes() -> None:
     script = (TEMPLATES.parent / "static" / "app.js").read_text(encoding="utf-8")
 
     assert "MFL companion is live" in script
     assert "import automatically every 30 seconds" in script
     assert "make selections on MFL" in script
     assert "MFL only" in script
+    assert "Real-time local draft is live" in script
+    assert "setAdminDraftMode" in script
 
 
 def test_draft_room_has_personal_war_room_and_live_intelligence() -> None:

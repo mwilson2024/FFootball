@@ -102,6 +102,10 @@ class AuctionLiveUpdate(BaseModel):
     is_live: bool
 
 
+class DraftModeUpdate(BaseModel):
+    mode: str = Field(pattern="^(companion|local)$")
+
+
 class AuctionStageUpdate(BaseModel):
     enabled: bool
 

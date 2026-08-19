@@ -16,6 +16,7 @@ from app.draft import set_draft_live
 from app.mfl import MFLResponse
 from app.models import DataSource, DraftPick
 from app.sources import initialize_sources
+from app.users import save_draft_mode
 
 
 def test_next_daily_sync_stays_at_one_am_eastern_across_seasons() -> None:
@@ -104,5 +105,16 @@ def test_live_draft_sync_does_not_contact_mfl_while_draft_is_paused(seeded: Sess
     class FailClient:
         async def export(self, *_args, **_kwargs):
             raise AssertionError("MFL must not be called for a paused draft")
+
+    assert asyncio.run(sync_live_draft_sessions(seeded, FailClient())) == []
+
+
+def test_live_draft_sync_does_not_contact_mfl_in_local_mode(seeded: Session) -> None:
+    set_draft_live(seeded, "00999", True)
+    save_draft_mode(seeded, "00999", "local")
+
+    class FailClient:
+        async def export(self, *_args, **_kwargs):
+            raise AssertionError("MFL must not be called for a local real-time draft")
 
     assert asyncio.run(sync_live_draft_sessions(seeded, FailClient())) == []

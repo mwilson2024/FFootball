@@ -25,6 +25,8 @@ from app.user_context import (
 DEFAULT_AUCTION_STRATEGY = "balanced"
 ROB_MODE_SETTING_KEY = "auction_rob_mode"
 AUCTION_STAGE_SETTING_PREFIX = "auction_stage:"
+DRAFT_MODE_SETTING_PREFIX = "draft_mode:"
+DRAFT_MODES = {"companion", "local"}
 AUCTION_STRATEGIES: dict[str, dict[str, Any]] = {
     "balanced": {
         "name": "Balanced value",
@@ -219,6 +221,29 @@ def save_auction_stage(db: Session, league_id: str, enabled: bool) -> bool:
     setting.updated_at = datetime.now(UTC)
     db.commit()
     return enabled
+
+
+def draft_mode(db: Session, league_id: str) -> str:
+    """Return the shared real-draft source for a league."""
+    setting = db.get(AppSetting, f"{DRAFT_MODE_SETTING_PREFIX}{league_id}")
+    if setting is None or setting.value not in DRAFT_MODES:
+        return "companion"
+    return setting.value
+
+
+def save_draft_mode(db: Session, league_id: str, mode: str) -> str:
+    if mode not in DRAFT_MODES:
+        raise ValueError("Draft mode must be companion or local")
+    key = f"{DRAFT_MODE_SETTING_PREFIX}{league_id}"
+    setting = db.get(AppSetting, key)
+    if setting is None:
+        setting = AppSetting(key=key, value=mode)
+        db.add(setting)
+    else:
+        setting.value = mode
+        setting.updated_at = datetime.now(UTC)
+    db.commit()
+    return mode
 
 
 def effective_source_settings(db: Session) -> dict[str, dict[str, Any]]:
