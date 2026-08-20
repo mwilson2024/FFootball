@@ -17,7 +17,14 @@ from urllib.parse import quote, urlparse
 
 import httpx
 from fastapi import Body, Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    RedirectResponse,
+    Response,
+    StreamingResponse,
+)
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, or_, select
@@ -87,6 +94,7 @@ from app.draft import (
     undo_draft,
     update_pick,
 )
+from app.draft_analysis import build_draft_analysis
 from app.draft_links import draft_link_groups
 from app.exports import build_xml, export_csv, export_xml
 from app.mfl import MFLAuthenticationError, MFLClient, MFLError
@@ -115,6 +123,7 @@ from app.models import (
     UserSourceSetting,
 )
 from app.power_rankings import build_power_rankings, chatgpt_power_rankings
+from app.realtime import league_events
 from app.schemas import (
     AdminRoleUpdate,
     AssistantRequest,
@@ -197,7 +206,7 @@ from app.users import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260820.3"
+templates.env.globals["asset_version"] = "20260820.5"
 SESSION_SIGNING_SECRET = ""
 
 
@@ -437,7 +446,7 @@ def _audit_mutation(
     after: Any = None,
     details: Any = None,
 ) -> dict[str, Any]:
-    return append_audit_event(
+    result = append_audit_event(
         runtime_settings(db).audit_directory,
         stream=stream,
         action=action,
@@ -448,6 +457,8 @@ def _audit_mutation(
         after=after,
         details=details,
     )
+    league_events.publish(league_id, f"{stream}:{action}", {"entity_id": entity_id})
+    return result
 
 
 def _auction_live(db: Session, league_id: str) -> AuctionLiveState:
@@ -465,6 +476,7 @@ def _bump_auction(db: Session, league_id: str) -> AuctionLiveState:
     state.updated_by = active_username()
     state.updated_at = datetime.now(UTC)
     db.commit()
+    league_events.publish(league_id, "auction-state", {"revision": state.revision})
     return state
 
 
@@ -2078,10 +2090,43 @@ def api_draft_intelligence(
     return draft_intelligence(db, league_id, selected_franchise)
 
 
+@app.get("/api/draft/analysis")
+def api_draft_analysis(
+    league_id: str,
+    db: Db,
+    franchise_id: str | None = None,
+    what_if_overall_pick: int | None = Query(None, ge=1),
+    alternative_player_id: str | None = None,
+) -> dict[str, Any]:
+    selected_franchise = franchise_id or league_setting(db, league_id).franchise_id
+    return build_draft_analysis(
+        db,
+        league_id,
+        selected_franchise,
+        what_if_overall_pick=what_if_overall_pick,
+        alternative_player_id=alternative_player_id,
+    )
+
+
+@app.get("/api/leagues/{league_id}/events")
+def league_event_stream(league_id: str, db: Db) -> StreamingResponse:
+    _league_or_404(db, league_id)
+    return StreamingResponse(
+        league_events.stream(league_id),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 @app.put("/api/draft/live")
 def api_set_draft_live(payload: AuctionLiveUpdate, league_id: str, db: Db) -> dict[str, Any]:
     _require_admin(db)
-    return set_draft_live(db, league_id, payload.is_live)
+    result = set_draft_live(db, league_id, payload.is_live)
+    league_events.publish(league_id, "draft-live", result)
+    return result
 
 
 @app.put("/api/admin/draft-mode")
@@ -2768,7 +2813,9 @@ def update_admin_auction_stage(
         live.updated_by = active_username()
         live.updated_at = datetime.now(UTC)
         db.commit()
-    return admin_auction_stage(db, selected)
+    result = admin_auction_stage(db, selected)
+    league_events.publish(selected, "auction-stage", result)
+    return result
 
 
 @app.get("/api/admin/interactive-auction")
@@ -3048,7 +3095,9 @@ def set_auction_live(
     state.updated_by = active_username()
     state.updated_at = datetime.now(UTC)
     db.commit()
-    return {"is_live": state.is_live, "revision": state.revision}
+    result = {"is_live": state.is_live, "revision": state.revision}
+    league_events.publish(selected, "auction-live", result)
+    return result
 
 
 @app.put("/api/auction/nomination-order")

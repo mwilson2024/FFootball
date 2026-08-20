@@ -15,6 +15,7 @@ from app.db import SessionLocal
 from app.draft import apply_reconciliation, reconcile_preview
 from app.mfl import MFLClient
 from app.models import AppSetting, DraftSession, League, LeagueType
+from app.realtime import league_events
 from app.settings_store import runtime_settings
 from app.source_sync import sync_enabled_sources
 from app.sync import sync_league
@@ -146,6 +147,11 @@ async def sync_live_draft_sessions(db: Session, client: MFLClient) -> list[dict[
                 }
             )
             if applied:
+                league_events.publish(
+                    session.league_id,
+                    "mfl-draft-sync",
+                    {"applied_count": applied},
+                )
                 LOGGER.info(
                     "Automatic live draft sync applied %s MFL pick(s) for league %s",
                     applied,

@@ -61,7 +61,12 @@ imported through the Cheat Sheet belongs only to the account that uploaded it.
   sending it to MFL. Changing the real-draft method while live pauses the room first.
   The room includes manual picks, queue, recommendations, roster need, a personal war room,
   live position-run/tier-cliff/value intelligence,
-  next-pick survival heuristics, nearby opponent needs, full opposing-owner roster/need/tendency
+  next-pick survival heuristics, and an expandable Draft Scenario Lab for every recommendation.
+  The lab shows the expected final roster strength, next-pick survival, likely alternatives,
+  position-cliff pressure, bye/lineup effects, value versus waiting, and model confidence with its
+  contributing sources. The post-draft section adds projected standings, position grades,
+  steals/reaches, roster weaknesses, and a read-only “what if” replay that never changes MFL.
+  Nearby opponent needs, full opposing-owner roster/need/tendency
   profiles, undo, MFL `draftResults` reconciliation
   preview, recap export, and a full-screen live board that switches between team columns and
   chronological pick order. During a real live draft, admins can correct the player, franchise,
@@ -73,8 +78,8 @@ imported through the Cheat Sheet belongs only to the account that uploaded it.
   optionally replace manual entry with the shared nomination and bidding room. Only the signed-in
   MFL owner whose team is currently up may nominate; connected owners bid for their own franchise,
   the room shows the nominated player's photo and live high bid, and an admin awards the winner.
-  The room stays hidden while this option is off. The auction also has shared
-  three-second viewer updates, atomic purchases, correction/reassignment tools, strategy-aware
+  The room stays hidden while this option is off. The auction also has server-pushed viewer
+  updates, atomic purchases, correction/reassignment tools, strategy-aware
   dynamic pricing, live market intelligence, and a personal auction war room with roster needs,
   affordable targets, bye conflicts, and opposing-owner budget and bidding profiles. It also
   includes undo/redo, CSV, MFL XML, and a commissioner-only MFL import that requires a fresh XML
@@ -209,4 +214,22 @@ exactly `/app/data` and include it in your normal Railway volume backup routine.
 
 The production cookie is HTTP-only, secure, SameSite=Lax, HMAC-signed, and valid for 30 days.
 Mutating requests require a CSRF token; login attempts are rate-limited; host validation and common
-browser security headers are enabled. Railway must use HTTPS (its generated domains do by default).
+  browser security headers are enabled. Railway must use HTTPS (its generated domains do by default).
+
+## Season projection model and live delivery
+
+DraftDesk's `season-outcomes-v1` model is intentionally separate from the ranking blend. When an
+imported source contains a real full-season projection, the model uses it. Otherwise it recalculates
+the latest nflverse regular-season stat line with the selected league's imported linear MFL scoring
+rules, then regresses that result toward the player's current role. The UI reports median, ceiling,
+floor, workload, injury risk, confidence, source names, and the exact basis. Weekly MFL projections
+and rank-derived fallbacks are never relabeled as vendor season projections. Flat weekly threshold
+bonuses are excluded from season-total recalculation because aggregate stats cannot reveal how many
+individual weeks crossed the threshold.
+
+The server remains the only process that polls MFL during a live companion draft (once every 30
+seconds). It publishes applied picks and local draft/auction mutations through a same-origin
+server-sent event stream. Connected Draft Rooms, live boards, and Auction Rooms refresh from that
+event; a slower fallback refresh remains in place if a proxy or browser cannot keep an event stream
+open. The in-memory event broker assumes the documented one-replica SQLite Railway deployment. Use
+a shared broker such as Redis together with Postgres before running multiple replicas.

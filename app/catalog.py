@@ -23,6 +23,7 @@ from app.models import (
     RosterAssignment,
     SourcePlayerValue,
 )
+from app.projections import build_projection_board
 from app.users import effective_auction_strategy
 
 
@@ -617,6 +618,11 @@ def player_detail(db: Session, league_id: str, player_id: str) -> dict[str, Any]
         {},
     )
     league = db.scalar(select(League).where(League.id == league_id).order_by(League.season.desc()))
+    season_projection = (
+        build_projection_board(db, league, list(board.values())).get(player_id, {})
+        if league
+        else {}
+    )
     metadata = player.metadata_json or {}
     external_links: list[dict[str, Any]] = []
     is_team_defense = player.position.upper() in {"DEF", "DST", "D/ST"}
@@ -794,6 +800,7 @@ def player_detail(db: Session, league_id: str, player_id: str) -> dict[str, Any]
                 "league_value_score": row.get("custom_score"),
                 "projection_note": row.get("projection_note"),
             },
+            "season_projection": season_projection,
             "source_rank_details": source_rank_details,
         },
         "source_values": [

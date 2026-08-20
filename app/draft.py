@@ -27,6 +27,7 @@ from app.models import (
     Player,
     RosterAssignment,
 )
+from app.projections import build_projection_board, lineup_projection
 from app.schemas import DraftPickCreate, DraftPickUpdate
 
 
@@ -929,6 +930,7 @@ def _draft_intelligence_payload(
     completed = [item for item in ordered if item.get("completed")]
     completed_player_ids = {str(item["player_id"]) for item in completed if item.get("player_id")}
     board_by_id = {row["player_id"]: row for row in board}
+    projections = build_projection_board(db, league, board)
     available = [
         row
         for row in board
@@ -1210,6 +1212,17 @@ def _draft_intelligence_payload(
         for row in available
         if row.get("tier") is not None
     )
+    selected_player_ids = owned_by_franchise.get(franchise_id or "", set())
+    selected_byes = Counter(
+        int(players_by_id[player_id].bye_week or 0)
+        for player_id in selected_player_ids
+        if player_id in players_by_id and players_by_id[player_id].bye_week
+    )
+    future_my_picks = [
+        int(item["overall_pick"])
+        for item in remaining_slots
+        if franchise_id and item.get("franchise_id") == franchise_id and item.get("overall_pick")
+    ]
     recommended: list[dict[str, Any]] = []
     for row in available:
         position = _normalized_position(row.get("position"))
@@ -1226,6 +1239,84 @@ def _draft_intelligence_payload(
         if preference.get("do_not_draft"):
             score -= 100
         survival = _survival_estimate(row, survival_target_pick)
+        projection = projections.get(row["player_id"], {})
+        same_position_wait = [
+            candidate
+            for candidate in available
+            if candidate["player_id"] != row["player_id"]
+            and _normalized_position(candidate.get("position")) == position
+            and (
+                survival_target_pick is None
+                or int(candidate.get("consensus_rank") or 99999) >= max(1, survival_target_pick - 8)
+            )
+        ]
+        same_position_wait.sort(key=lambda item: int(item.get("consensus_rank") or 99999))
+        wait_projection = (
+            projections.get(same_position_wait[0]["player_id"], {}) if same_position_wait else {}
+        )
+        candidate_ids = set(selected_player_ids) | {str(row["player_id"])}
+        used_ids = set(candidate_ids)
+        for target_pick in future_my_picks[1:]:
+            expected = next(
+                (
+                    candidate
+                    for candidate in available
+                    if candidate["player_id"] not in used_ids
+                    and int(candidate.get("consensus_rank") or 99999) >= max(1, target_pick - 7)
+                ),
+                None,
+            )
+            if expected is not None:
+                used_ids.add(str(expected["player_id"]))
+        expected_roster = lineup_projection(used_ids, board_by_id, projections, league.lineup_json)
+        alternatives = []
+        if survival_target_pick is not None:
+            alternative_pool = sorted(
+                (
+                    candidate
+                    for candidate in available
+                    if candidate["player_id"] != row["player_id"]
+                ),
+                key=lambda candidate: (
+                    abs(int(candidate.get("consensus_rank") or 99999) - survival_target_pick),
+                    0
+                    if primary_needs.get(_normalized_position(candidate.get("position")), 0)
+                    else 1,
+                    int(candidate.get("consensus_rank") or 99999),
+                ),
+            )
+            for alternative in alternative_pool[:3]:
+                alternative_projection = projections.get(alternative["player_id"], {})
+                alternatives.append(
+                    {
+                        "player_id": alternative["player_id"],
+                        "player_name": alternative["player_name"],
+                        "position": _normalized_position(alternative.get("position")),
+                        "consensus_rank": alternative.get("consensus_rank"),
+                        "median": alternative_projection.get("median"),
+                        "survival": _survival_estimate(alternative, survival_target_pick),
+                    }
+                )
+        disappearance = 100 - int((survival or {}).get("chance", 50))
+        if remaining_in_tier <= 2:
+            cliff_probability = min(95, disappearance + 18)
+        elif remaining_in_tier <= 4:
+            cliff_probability = int(round(disappearance * 0.65))
+        elif remaining_in_tier <= 8:
+            cliff_probability = int(round(disappearance * 0.35))
+        else:
+            cliff_probability = int(round(disappearance * min(0.2, 4 / max(remaining_in_tier, 1))))
+        cliff_probability = max(2, cliff_probability)
+        player = players_by_id.get(str(row["player_id"])) or db.get(Player, str(row["player_id"]))
+        bye_week = int(player.bye_week) if player is not None and player.bye_week else None
+        bye_overlap = selected_byes.get(bye_week, 0) if bye_week else 0
+        median = float(projection.get("median") or 0)
+        wait_median = float(wait_projection.get("median") or 0)
+        confidence = int(
+            round(
+                (int(projection.get("confidence") or 35) * 0.75) + (75 if survival else 45) * 0.25
+            )
+        )
         reasons = [f"#{row.get('consensus_rank')} on your live board"]
         if need_slots:
             suffix = "s" if need_slots != 1 else ""
@@ -1259,6 +1350,49 @@ def _draft_intelligence_payload(
                 "survival": survival,
                 "recommendation_score": round(score, 4),
                 "recommendation_reason": "; ".join(reasons),
+                "projection": projection,
+                "scenario": {
+                    "expected_final_roster_strength": expected_roster["roster_strength"],
+                    "projected_starter_points": expected_roster["projected_starter_points"],
+                    "survival_chance": (survival or {}).get("chance"),
+                    "next_pick": survival_target_pick,
+                    "best_likely_alternatives": alternatives,
+                    "position_cliff_probability": cliff_probability,
+                    "bye_week": bye_week,
+                    "bye_overlap": bye_overlap,
+                    "bye_consequence": (
+                        f"Adds a third Week {bye_week} bye to this roster"
+                        if bye_week and bye_overlap >= 2
+                        else (
+                            f"Overlaps with {bye_overlap} current "
+                            f"player{'s' if bye_overlap != 1 else ''} in Week {bye_week}"
+                        )
+                        if bye_week and bye_overlap
+                        else f"No current Week {bye_week} overlap"
+                        if bye_week
+                        else "Bye week is not available"
+                    ),
+                    "lineup_consequence": (
+                        f"Fills an open {position} starter slot"
+                        if need_slots
+                        else "Adds depth rather than filling an open primary starter"
+                    ),
+                    "expected_value_gained_vs_waiting": round(median - wait_median, 1),
+                    "waiting_comparison_player": same_position_wait[0]["player_name"]
+                    if same_position_wait
+                    else None,
+                    "confidence": confidence,
+                    "confidence_label": "High"
+                    if confidence >= 75
+                    else "Medium"
+                    if confidence >= 55
+                    else "Low",
+                    "sources": projection.get("sources", []),
+                    "method": (
+                        "Deterministic real-draft forecast from the current MFL order; "
+                        "no mock opponents or bot drafting."
+                    ),
+                },
             }
         )
     recommended.sort(
@@ -1269,7 +1403,6 @@ def _draft_intelligence_payload(
         )
     )
 
-    selected_player_ids = owned_by_franchise.get(franchise_id or "", set())
     bye_groups: dict[int, list[str]] = {}
     roster_players: list[dict[str, Any]] = []
     for player_id in selected_player_ids:
