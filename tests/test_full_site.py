@@ -47,6 +47,7 @@ from app.sources import (
     sync_local_ranking_source,
     sync_nflverse,
 )
+from app.users import save_source_setting
 
 
 def add_rank(
@@ -74,6 +75,7 @@ def add_rank(
 
 def test_consensus_ignores_missing_ranks_and_preserves_all_players(seeded: Session) -> None:
     initialize_sources(seeded)
+    save_source_setting(seeded, "league_model", enabled=True, weight=Decimal("1"))
     add_rank(seeded, "0001234", 1, mfl_rank=2, adp=Decimal("4"))
     add_rank(seeded, "99", 2)
     seeded.commit()

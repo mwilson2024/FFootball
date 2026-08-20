@@ -342,6 +342,17 @@ def test_local_csv_received_data_is_visible_without_unapproved_fields(seeded):
             snapshot_id="local-csv-test",
         )
     )
+    seeded.add(
+        SourcePlayerValue(
+            source_id="mfl_adp",
+            league_id=None,
+            player_id="0001234",
+            value_type="adp",
+            raw_value_json={"adp": "12.3", "api_key": "must-never-be-returned"},
+            normalized_value=Decimal("12.3"),
+            snapshot_id="mfl-adp-test",
+        )
+    )
     seeded.commit()
 
     def override_db():
@@ -359,6 +370,8 @@ def test_local_csv_received_data_is_visible_without_unapproved_fields(seeded):
             client.cookies.set(SESSION_COOKIE, token)
             response = client.get("/api/sources/fantasypros_redraft_csv/data")
             download = client.get("/api/sources/fantasypros_redraft_csv/download.csv")
+            mfl_response = client.get("/api/sources/mfl_adp/data")
+            mfl_download = client.get("/api/sources/mfl_adp/download.csv")
             source_list = client.get("/api/sources")
 
         assert response.status_code == 200
@@ -367,12 +380,24 @@ def test_local_csv_received_data_is_visible_without_unapproved_fields(seeded):
         assert "api_key" not in response.json()["rows"][0]["raw"]
         assert download.status_code == 200
         assert "FantasyPros_2026_Draft_ALL_Rankings.csv" in download.headers["content-disposition"]
+        assert mfl_response.status_code == 200
+        assert mfl_response.json()["rows"][0]["value_type"] == "adp"
+        assert mfl_response.json()["rows"][0]["raw"]["adp"] == "12.3"
+        assert "api_key" not in mfl_response.json()["rows"][0]["raw"]
+        assert "adp" in mfl_response.json()["raw_columns"]
+        assert mfl_download.status_code == 200
+        assert "mfl_adp_spreadsheet.csv" in mfl_download.headers["content-disposition"]
+        assert "must-never-be-returned" not in mfl_download.text
         fantasypros = next(
             item for item in source_list.json() if item["id"] == "fantasypros_redraft_csv"
         )
         assert fantasypros["name"] == "FantasyPros 2026 Redraft Rankings"
         assert fantasypros["visibility"] == "shared"
         assert "FantasyPros_2026_Draft_ALL_Rankings.csv" in fantasypros["attribution"]
+        assert (
+            next(item for item in source_list.json() if item["id"] == "mfl_adp")["received_count"]
+            == 1
+        )
     finally:
         app.dependency_overrides.clear()
 

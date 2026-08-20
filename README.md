@@ -48,8 +48,9 @@ imported through the Cheat Sheet belongs only to the account that uploaded it.
   position/team/owner/availability/personal-tag filters, and server-side pagination.
 - **League Rosters:** every franchise and player, slots, positional counts and needs, salaries,
   keeper status, and strength. Auction leagues also show remaining funds and maximum legal bid.
-- **Cheat Sheet:** a per-league percentile blend of enabled rank sources plus the local scoring/VOR
-  model. It displays source count, mean, median, best/worst, range, and disagreement. Compare two to
+- **Cheat Sheet:** a per-league percentile blend of enabled rank sources, with an optional local
+  scoring/VOR model that defaults off. It displays source count, mean, median, best/worst, range,
+  and disagreement. Compare two to
   five players side by side, use a random tie-breaker, or ask ChatGPT to choose from server-verified
   league values. Import legally obtained CSV rankings using
   `player_name,team,position,overall_rank`.
@@ -82,8 +83,8 @@ imported through the Cheat Sheet belongs only to the account that uploaded it.
   bench depth, and unfilled lineup spots, with an optional on-demand ChatGPT league judgment.
 - **Bye Advisor:** compare every active bye or choose one roster player manually, then see the best
   available same-position replacements using overall rank and the selected week's matchup.
-- **Data Sources:** inspect shared cached sources and privately preview, include, exclude, or weight
-  each one for your board: MFL, the attributed CC-BY-4.0
+- **Data Sources:** inspect every source in a printable, downloadable spreadsheet and privately
+  preview, include, exclude, or weight each one for your board: MFL, the attributed CC-BY-4.0
   GNG Pigskin board, six full shared ranking CSVs, free Sleeper metadata/trends, CC-BY-4.0 nflverse
   identity, weekly depth chart, schedule, and historical player-stat data, and private user CSV
   imports.
@@ -117,7 +118,8 @@ from the complete uploaded files and is attributed with its filename. Sleeper tr
 schedule difficulty use small ranking weights, while their metadata also enriches player profiles.
 Source health records last attempt, success, error, cache interval, license, terms, and whether the
 source is shared or private.
-The site remains fully usable with MFL and the local league model alone.
+The league scoring/VOR model defaults off so the uploaded and synchronized rankings lead the board;
+each user may turn the model on and choose its influence from Ranking Sources.
 
 Both configured leagues and every automatic source refresh daily at **1:00 AM America/New_York**.
 The scheduler is part of the web service, honors daylight-saving time, attempts both leagues even

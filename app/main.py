@@ -20,7 +20,7 @@ from fastapi import Body, Depends, FastAPI, File, Form, HTTPException, Query, Re
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
@@ -197,7 +197,7 @@ from app.users import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260820.1"
+templates.env.globals["asset_version"] = "20260820.2"
 SESSION_SIGNING_SECRET = ""
 
 
@@ -1208,7 +1208,12 @@ def sources(db: Db) -> list[dict[str, Any]]:
     ).group_by(SourcePlayerValue.source_id, SourcePlayerValue.league_id)
     count_query = count_query.where(SourcePlayerValue.source_id.in_(visible_source_ids))
     if allowed is not None:
-        count_query = count_query.where(SourcePlayerValue.league_id.in_(allowed))
+        count_query = count_query.where(
+            or_(
+                SourcePlayerValue.league_id.in_(allowed),
+                SourcePlayerValue.league_id.is_(None),
+            )
+        )
     counts: dict[str, dict[str, int]] = {}
     for source_id, league_id, count in db.execute(count_query):
         counts.setdefault(str(source_id), {})[str(league_id or "global")] = int(count)
@@ -1234,101 +1239,185 @@ def sources(db: Db) -> list[dict[str, Any]]:
     ]
 
 
+SOURCE_RAW_PRIVATE_KEYS = {
+    "apikey",
+    "authorization",
+    "cookie",
+    "password",
+    "secret",
+    "token",
+}
+SOURCE_RAW_COLUMN_PRIORITY = (
+    "overall_rank",
+    "position_rank",
+    "tier",
+    "projection",
+    "projected_points",
+    "adp",
+    "aav",
+    "auction_value",
+    "bye_week",
+    "week",
+    "opponent",
+    "depth_order",
+    "source_file",
+    "source_label",
+)
+
+
+def _safe_source_value(value: Any) -> Any:
+    if isinstance(value, dict):
+        return _safe_source_raw(value)
+    if isinstance(value, list):
+        return [_safe_source_value(item) for item in value]
+    return value
+
+
+def _safe_source_raw(raw: dict[str, Any]) -> dict[str, Any]:
+    return {
+        str(key): _safe_source_value(value)
+        for key, value in raw.items()
+        if "".join(character for character in str(key).casefold() if character.isalnum())
+        not in SOURCE_RAW_PRIVATE_KEYS
+    }
+
+
+def _source_spreadsheet_payload(
+    db: Session, source_id: str, *, limit: int | None
+) -> dict[str, Any]:
+    source = db.get(DataSource, source_id)
+    if source is None or not source_visible_to_user(source_id, active_username()):
+        raise HTTPException(404, detail={"code": "source_not_found", "message": "Source not found"})
+    filters = [SourcePlayerValue.source_id == source_id]
+    allowed = authorized_league_ids(db)
+    if allowed is not None:
+        filters.append(
+            or_(
+                SourcePlayerValue.league_id.in_(allowed),
+                SourcePlayerValue.league_id.is_(None),
+            )
+        )
+    total = int(db.scalar(select(func.count(SourcePlayerValue.id)).where(*filters)) or 0)
+    query = (
+        select(SourcePlayerValue, Player)
+        .join(Player, Player.id == SourcePlayerValue.player_id)
+        .where(*filters)
+        .order_by(
+            SourcePlayerValue.value_type,
+            SourcePlayerValue.league_id,
+            SourcePlayerValue.normalized_value,
+            Player.name,
+        )
+    )
+    if limit is not None:
+        query = query.limit(limit)
+    records = list(db.execute(query))
+    league_names = {
+        item.id: item.name
+        for item in db.scalars(select(League).order_by(League.name, League.id))
+        if allowed is None or item.id in allowed
+    }
+    raw_columns: set[str] = set()
+    rows = []
+    for value, player in records:
+        raw = _safe_source_raw(value.raw_value_json or {})
+        raw_columns.update(raw)
+        rows.append(
+            {
+                "league_id": value.league_id,
+                "league_name": league_names.get(str(value.league_id), "All leagues"),
+                "player_id": player.id,
+                "player_name": player.name,
+                "nfl_team": player.nfl_team,
+                "position": player.position,
+                "value_type": value.value_type,
+                "normalized_value": str(value.normalized_value)
+                if value.normalized_value is not None
+                else None,
+                "raw": raw,
+                "snapshot_id": value.snapshot_id,
+                "source_updated_at": value.source_updated_at,
+                "fetched_at": value.fetched_at,
+            }
+        )
+    ordered_raw_columns = [key for key in SOURCE_RAW_COLUMN_PRIORITY if key in raw_columns]
+    ordered_raw_columns.extend(sorted(raw_columns.difference(ordered_raw_columns)))
+    return {
+        "source_id": source.id,
+        "source_name": source.name,
+        "total_count": total,
+        "returned_count": len(rows),
+        "raw_columns": ordered_raw_columns,
+        "rows": rows,
+    }
+
+
 @app.get("/api/sources/{source_id}/data")
 def source_received_data(
     source_id: str,
     db: Db,
     limit: int = Query(default=100, ge=1, le=250),
 ) -> dict[str, Any]:
-    if source_id not in LOCAL_RANKING_SOURCE_IDS:
-        raise HTTPException(
-            400,
-            detail={
-                "code": "preview_not_supported",
-                "message": "Row preview is available for bundled local ranking CSV sources",
-            },
-        )
-    source = db.get(DataSource, source_id)
-    if source is None:
-        raise HTTPException(404, detail={"code": "source_not_found", "message": "Source not found"})
-    filters = [SourcePlayerValue.source_id == source_id]
-    allowed = authorized_league_ids(db)
-    if allowed is not None:
-        filters.append(SourcePlayerValue.league_id.in_(allowed))
-    total = int(db.scalar(select(func.count(SourcePlayerValue.id)).where(*filters)) or 0)
-    records = list(
-        db.execute(
-            select(SourcePlayerValue, Player)
-            .join(Player, Player.id == SourcePlayerValue.player_id)
-            .where(*filters)
-            .order_by(
-                SourcePlayerValue.league_id,
-                SourcePlayerValue.normalized_value,
-                Player.name,
-            )
-            .limit(limit)
-        )
-    )
-    league_names = {
-        item.id: item.name
-        for item in db.scalars(select(League).order_by(League.name, League.id))
-        if allowed is None or item.id in allowed
-    }
-    safe_fields = (
-        "player_name",
-        "team",
-        "position",
-        "overall_rank",
-        "position_rank",
-        "tier",
-        "projection",
-        "auction_value",
-        "bye_week",
-        "source_file",
-        "source_label",
-    )
-    rows = []
-    for value, player in records:
-        raw = value.raw_value_json or {}
-        rows.append(
-            {
-                "league_id": value.league_id,
-                "league_name": league_names.get(str(value.league_id), str(value.league_id)),
-                "player_id": player.id,
-                "player_name": player.name,
-                "nfl_team": player.nfl_team,
-                "position": player.position,
-                "rank_signal": str(value.normalized_value)
-                if value.normalized_value is not None
-                else None,
-                "raw": {key: raw[key] for key in safe_fields if raw.get(key) is not None},
-                "snapshot_id": value.snapshot_id,
-                "source_updated_at": value.source_updated_at,
-                "fetched_at": value.fetched_at,
-            }
-        )
-    return {
-        "source_id": source.id,
-        "source_name": source.name,
-        "total_count": total,
-        "returned_count": len(rows),
-        "rows": rows,
-    }
+    return _source_spreadsheet_payload(db, source_id, limit=limit)
 
 
 @app.get("/api/sources/{source_id}/download.csv")
-def download_source_csv(source_id: str, db: Db) -> FileResponse:
+def download_source_csv(source_id: str, db: Db) -> Response:
     spec = LOCAL_RANKING_SPECS.get(source_id)
     source = db.get(DataSource, source_id)
-    if spec is None or source is None or not source_visible_to_user(source_id, active_username()):
+    if source is None or not source_visible_to_user(source_id, active_username()):
         raise HTTPException(404, detail={"code": "source_not_found", "message": "Source not found"})
-    path = Path(spec["path"])
-    if not path.is_file():
-        raise HTTPException(
-            404,
-            detail={"code": "source_file_missing", "message": "The ranking CSV is not available"},
+    if spec is not None:
+        path = Path(spec["path"])
+        if path.is_file():
+            return FileResponse(path, media_type="text/csv", filename=path.name)
+
+    spreadsheet = _source_spreadsheet_payload(db, source_id, limit=None)
+    raw_columns = spreadsheet["raw_columns"]
+    output = io.StringIO(newline="")
+    writer = csv.writer(output)
+    writer.writerow(
+        [
+            "league",
+            "player_name",
+            "player_id",
+            "nfl_team",
+            "position",
+            "data_type",
+            "normalized_value",
+            "snapshot_id",
+            "source_updated_at",
+            "loaded_at",
+            *raw_columns,
+        ]
+    )
+    for row in spreadsheet["rows"]:
+        raw = row["raw"]
+        writer.writerow(
+            [
+                row["league_name"],
+                row["player_name"],
+                row["player_id"],
+                row["nfl_team"],
+                row["position"],
+                row["value_type"],
+                row["normalized_value"],
+                row["snapshot_id"],
+                row["source_updated_at"],
+                row["fetched_at"],
+                *[
+                    json.dumps(raw.get(column), ensure_ascii=False)
+                    if isinstance(raw.get(column), (dict, list))
+                    else raw.get(column)
+                    for column in raw_columns
+                ],
+            ]
         )
-    return FileResponse(path, media_type="text/csv", filename=path.name)
+    return Response(
+        output.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{source.id}_spreadsheet.csv"'},
+    )
 
 
 @app.put("/api/setup/sources/{source_id}")

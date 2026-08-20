@@ -256,7 +256,7 @@ def effective_source_settings(db: Session) -> dict[str, dict[str, Any]]:
     }
     return {
         source.id: {
-            "enabled": saved[source.id].enabled if source.id in saved else True,
+            "enabled": saved[source.id].enabled if source.id in saved else source.enabled,
             "weight": Decimal(saved[source.id].weight)
             if source.id in saved
             else Decimal(source.weight),

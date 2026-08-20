@@ -78,7 +78,7 @@ DEFAULT_SOURCES: list[dict[str, Any]] = [
         "id": "league_model",
         "name": "League Scoring & VOR Model",
         "kind": "ranking",
-        "enabled": True,
+        "enabled": False,
         "weight": Decimal("1"),
         "terms_url": None,
         "license": "Local model",
@@ -252,7 +252,7 @@ def initialize_sources(db: Session) -> None:
             "cache_ttl_seconds",
         ):
             setattr(source, field, values[field])
-        source.enabled = True
+        source.enabled = values["enabled"]
         # Global rows are canonical defaults. Personal slider values live in
         # UserSourceSetting and must not depend on stale weights in a deployed DB.
         source.weight = values["weight"]

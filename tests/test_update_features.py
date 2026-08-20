@@ -8,6 +8,7 @@ from app.catalog import player_detail, query_players
 from app.models import Player, RankingSnapshot, RosterAssignment, SourcePlayerValue
 from app.power_rankings import build_power_rankings
 from app.sources import initialize_sources
+from app.users import save_source_setting
 
 
 def _rank(db: Session, player_id: str, rank: int, value: int) -> None:
@@ -77,6 +78,7 @@ def test_availability_exposes_team_name_but_filters_with_team_id(seeded: Session
 
 def test_player_profile_lists_source_rank_depth_and_all_stats(seeded: Session) -> None:
     initialize_sources(seeded)
+    save_source_setting(seeded, "league_model", enabled=True, weight=Decimal("1"))
     _rank(seeded, "0001234", 1, 25)
     player = seeded.get_one(Player, "0001234")
     player.metadata_json = {"sleeper": {"depth_chart_position": "RB", "depth_chart_order": 1}}

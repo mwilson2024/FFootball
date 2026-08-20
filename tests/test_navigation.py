@@ -69,11 +69,25 @@ def test_player_comparison_schema_accepts_five_but_rejects_six() -> None:
         PlayerComparisonRequest(player_ids=["1", "2", "3", "4", "5", "6"])
 
 
-def test_sources_csv_preview_is_printable_and_downloadable() -> None:
+def test_every_source_has_a_printable_and_downloadable_spreadsheet() -> None:
     sources = (TEMPLATES / "sources.html").read_text(encoding="utf-8")
+    script = (TEMPLATES.parent / "static" / "app.js").read_text(encoding="utf-8")
 
     assert "printSourceData()" in sources
     assert 'id="source-data-download"' in sources
+    assert "SOURCE SPREADSHEET" in sources
+    assert "View spreadsheet" in script
+    assert "View CSV rows" not in script
+
+
+def test_cheat_sheet_links_to_ranking_tuning_without_snapshots() -> None:
+    cheat_sheet = (TEMPLATES / "cheat_sheet.html").read_text(encoding="utf-8")
+    script = (TEMPLATES.parent / "static" / "app.js").read_text(encoding="utf-8")
+
+    assert 'href="/sources"' in cheat_sheet
+    assert "Tune rankings" in cheat_sheet
+    assert "Save snapshot" not in cheat_sheet
+    assert "saveSnapshot" not in script
 
 
 def test_nomination_controls_live_in_admin_and_budget_boxes_show_turns() -> None:
@@ -180,6 +194,10 @@ def test_draft_room_has_personal_war_room_and_live_intelligence() -> None:
     assert "renderWarRoom" in script
     assert "viewDraftWarRoom" in script
     assert "Roster strength" in script
+    war_room_selector = script.split("async function viewDraftWarRoom", 1)[1].split(
+        "function renderWarRoom", 1
+    )[0]
+    assert "scrollIntoView" not in war_room_selector
     assert "renderDraftIntelligence" in script
     assert "selectDraftIntelPlayer" in script
     assert "Player focus" in script

@@ -150,6 +150,7 @@ def test_reset_source_settings_restores_defaults_for_only_current_user(
     initialize_sources(seeded)
     alice = set_active_username("Alice")
     try:
+        assert effective_source_settings(seeded)["league_model"]["enabled"] is False
         save_source_setting(seeded, "sleeper", enabled=False, weight=Decimal("8.5"))
         assert effective_source_settings(seeded)["sleeper"] == {
             "enabled": False,
@@ -161,6 +162,7 @@ def test_reset_source_settings_restores_defaults_for_only_current_user(
             "enabled": True,
             "weight": Decimal("0.25"),
         }
+        assert effective_source_settings(seeded)["league_model"]["enabled"] is False
     finally:
         reset_active_username(alice)
 

@@ -27,7 +27,7 @@ def test_next_daily_sync_stays_at_one_am_eastern_across_seasons() -> None:
     assert winter == datetime(2026, 1, 5, 6, 0, tzinfo=UTC)
 
 
-def test_source_initialization_turns_every_source_on(db: Session) -> None:
+def test_source_initialization_applies_source_defaults(db: Session) -> None:
     from app.main import update_source
     from app.schemas import SourceUpdate
 
@@ -44,7 +44,8 @@ def test_source_initialization_turns_every_source_on(db: Session) -> None:
     sources = list(db.query(DataSource).all())
 
     assert sources
-    assert all(source.enabled for source in sources)
+    assert db.get(DataSource, "league_model").enabled is False
+    assert all(source.enabled for source in sources if source.id != "league_model")
     assert all(Decimal(source.weight) > 0 for source in sources)
     assert db.get(DataSource, "espn_dynasty_csv") is not None
     assert db.get(DataSource, "fantasypros_redraft_csv") is not None
