@@ -29,6 +29,7 @@
     <label class="admin-switch"><input id="admin-auction-stage-toggle" type="checkbox" onchange="setAdminAuctionStage(this.checked)"><span><strong>Open auction staging</strong><small>Admins can prepare and test purchases while members remain read-only.</small></span></label>
     <label class="admin-switch"><input id="admin-auction-live-toggle" type="checkbox" onchange="setAdminAuctionLive(this.checked)"><span><strong>Auction is live</strong><small>Unlocks purchases for eligible users. Going live automatically opens staging.</small></span></label>
     <label class="admin-switch"><input id="interactive-auction-toggle" type="checkbox" onchange="setInteractiveAuction(this.checked)"><span><strong>Use live nominations and bidding</strong><small>Only the team currently up can nominate. Every signed-in owner can bid for their selected MFL franchise.</small></span></label>
+    <div class="admin-auction-handoff"><div><strong>Mid-auction handoff</strong><small>Keep every saved purchase, budget, and the next nomination turn while switching from admin entry to live owner bidding.</small></div><button id="admin-auction-handoff" class="primary" type="button" onclick="handoffAuctionToOwners()">Switch to live owner bidding</button></div>
     <p id="admin-auction-stage-status" class="muted" aria-live="polite">Loading auction status…</p>
     <p id="interactive-auction-status" class="muted" aria-live="polite"></p>
   </article>

@@ -206,7 +206,7 @@ from app.users import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260820.7"
+templates.env.globals["asset_version"] = "20260820.8"
 SESSION_SIGNING_SECRET = ""
 
 
@@ -2845,6 +2845,55 @@ def update_admin_interactive_auction(
     db.commit()
     _bump_auction(db, league_id)
     return _interactive_auction_json(db, league_id)
+
+
+@app.post("/api/admin/interactive-auction/handoff")
+def handoff_auction_to_live_bidding(league_id: str, db: Db) -> dict[str, Any]:
+    """Atomically move a manual auction into the shared owner bidding room."""
+    _require_admin(db)
+    _league_or_404(db, league_id)
+    nomination_before = nomination_state(db, league_id)
+    purchase_count = int(
+        db.scalar(
+            select(func.count(AuctionPurchase.id)).where(
+                AuctionPurchase.league_id == league_id,
+                AuctionPurchase.active.is_(True),
+            )
+        )
+        or 0
+    )
+    live = _auction_live(db, league_id)
+    interactive = _interactive_auction(db, league_id)
+    before = {
+        "live": live.is_live,
+        "interactive": interactive.enabled,
+        "purchase_count": purchase_count,
+        "nomination": nomination_before,
+    }
+    save_auction_stage(db, league_id, True)
+    live.is_live = True
+    interactive.enabled = True
+    interactive.revision += 1
+    interactive.updated_at = datetime.now(UTC)
+    db.commit()
+    live = _bump_auction(db, league_id)
+    room = _interactive_auction_json(db, league_id)
+    result = {
+        "mode": "live_owner_bidding",
+        "preserved_purchase_count": purchase_count,
+        "live": {"is_live": live.is_live, "revision": live.revision},
+        "nomination": nomination_state(db, league_id),
+        "interactive_bidding": room,
+    }
+    _audit_mutation(
+        db,
+        stream="auction-mode",
+        action="handoff_to_live_bidding",
+        league_id=league_id,
+        before=before,
+        after=result,
+    )
+    return result
 
 
 @app.post("/api/auction/interactive/nominate", status_code=201)

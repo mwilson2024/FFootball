@@ -80,6 +80,9 @@ imported through the Cheat Sheet belongs only to the account that uploaded it.
   optionally replace manual entry with the shared nomination and bidding room. Only the signed-in
   MFL owner whose team is currently up may nominate; connected owners bid for their own franchise,
   the room shows the nominated player's photo and live high bid, and an admin awards the winner.
+  An admin can hand off to owner bidding in the middle of an auction with one action: saved
+  purchases, budgets, roster counts, and the next nomination turn are preserved while manual entry
+  is locked and the shared room is pushed to every connected screen.
   The room stays hidden while this option is off. The auction also has server-pushed viewer
   updates, atomic purchases, correction/reassignment tools, strategy-aware
   dynamic pricing, live market intelligence, and a personal auction war room with roster needs,

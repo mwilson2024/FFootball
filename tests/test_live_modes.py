@@ -462,6 +462,88 @@ def test_interactive_auction_enforces_turns_shared_bids_and_admin_award(seeded) 
         app.dependency_overrides.clear()
 
 
+def test_mid_auction_handoff_preserves_purchases_and_next_nominator(seeded) -> None:
+    bootstrap_user(seeded, "bidder", admin_usernames={"wilsonmw"})
+    seeded.add(
+        UserLeagueSetting(
+            username="bidder",
+            league_id="00999",
+            franchise_id="0002",
+            auction_strategy_json={"template": "balanced"},
+        )
+    )
+    seeded.commit()
+
+    def override_db():
+        yield seeded
+
+    app.dependency_overrides[get_db] = override_db
+    try:
+        with TestClient(app) as client:
+            admin_token, admin_session = _session("wilsonmw")
+            client.cookies.set(SESSION_COOKIE, admin_token)
+            staged = client.put(
+                "/api/admin/auction-stage?league_id=00999",
+                headers={"X-CSRF-Token": admin_session.csrf_token},
+                json={"enabled": True},
+            )
+            manual_purchase = client.post(
+                "/api/auction/purchases",
+                headers={"X-CSRF-Token": admin_session.csrf_token},
+                json={
+                    "league_id": "00999",
+                    "franchise_id": "0001",
+                    "player_id": "0001234",
+                    "amount": "2",
+                    "status": "ROSTER",
+                },
+            )
+            before = client.get("/api/auction/state?league_id=00999")
+            handoff = client.post(
+                "/api/admin/interactive-auction/handoff?league_id=00999",
+                headers={"X-CSRF-Token": admin_session.csrf_token},
+            )
+            after = client.get("/api/auction/state?league_id=00999")
+            blocked_manual = client.post(
+                "/api/auction/purchases",
+                headers={"X-CSRF-Token": admin_session.csrf_token},
+                json={
+                    "league_id": "00999",
+                    "franchise_id": "0001",
+                    "player_id": "99",
+                    "amount": "2",
+                    "status": "ROSTER",
+                },
+            )
+
+            bidder_token, bidder_session = _session("bidder")
+            client.cookies.set(SESSION_COOKIE, bidder_token)
+            nominated = client.post(
+                "/api/auction/interactive/nominate",
+                headers={"X-CSRF-Token": bidder_session.csrf_token},
+                json={"league_id": "00999", "player_id": "99"},
+            )
+
+        assert staged.status_code == 200
+        assert manual_purchase.status_code == 201
+        assert before.json()["nomination"]["current_franchise_id"] == "0002"
+        assert handoff.status_code == 200
+        assert handoff.json()["mode"] == "live_owner_bidding"
+        assert handoff.json()["preserved_purchase_count"] == 1
+        assert handoff.json()["live"]["is_live"] is True
+        assert handoff.json()["interactive_bidding"]["enabled"] is True
+        assert handoff.json()["nomination"]["current_franchise_id"] == "0002"
+        assert len(after.json()["purchases"]) == 1
+        assert after.json()["purchases"][0]["player_id"] == "0001234"
+        assert after.json()["can_record_purchase"] is False
+        assert blocked_manual.status_code == 409
+        assert blocked_manual.json()["detail"]["code"] == "interactive_auction_required"
+        assert nominated.status_code == 201
+        assert nominated.json()["nominating_franchise_id"] == "0002"
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_presence_heartbeat_marks_logged_in_user_online_for_admin(seeded) -> None:
     bootstrap_user(seeded, "tester", admin_usernames={"wilsonmw"})
 
