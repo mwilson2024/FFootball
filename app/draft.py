@@ -970,6 +970,49 @@ def _draft_intelligence_payload(
             counts[position] = counts.get(position, 0) + 1
         position_counts_by_franchise[owner_id] = counts
 
+    ranked_pool_size = max(
+        (int(row["consensus_rank"]) for row in board if row.get("consensus_rank") is not None),
+        default=0,
+    )
+    roster_strength_by_franchise: dict[str, dict[str, Any]] = {}
+    for owner_id, player_ids in owned_by_franchise.items():
+        ranks = sorted(
+            int(board_by_id[player_id]["consensus_rank"])
+            for player_id in player_ids
+            if player_id in board_by_id and board_by_id[player_id].get("consensus_rank") is not None
+        )
+        score = (
+            sum((ranked_pool_size + 1 - rank) / ranked_pool_size * 100 for rank in ranks)
+            if ranked_pool_size
+            else 0
+        )
+        roster_strength_by_franchise[owner_id] = {
+            "roster_strength_score": round(score, 1),
+            "roster_strength_average_rank": round(sum(ranks) / len(ranks), 1) if ranks else None,
+            "roster_strength_ranked_players": len(ranks),
+        }
+    strength_order = sorted(
+        roster_strength_by_franchise,
+        key=lambda owner_id: (
+            -roster_strength_by_franchise[owner_id]["roster_strength_score"],
+            roster_strength_by_franchise[owner_id]["roster_strength_average_rank"] or 999999,
+            owner_id,
+        ),
+    )
+    previous_score: float | None = None
+    displayed_rank = 0
+    for index, owner_id in enumerate(strength_order, 1):
+        score = roster_strength_by_franchise[owner_id]["roster_strength_score"]
+        if previous_score is None or score != previous_score:
+            displayed_rank = index
+            previous_score = score
+        roster_strength_by_franchise[owner_id].update(
+            {
+                "roster_strength_rank": displayed_rank,
+                "roster_strength_team_count": len(franchises),
+            }
+        )
+
     requirements = _lineup_requirements(league)
     selected_counts = position_counts_by_franchise.get(franchise_id or "", {})
     position_plan = _position_plan(requirements, selected_counts)
@@ -1065,6 +1108,7 @@ def _draft_intelligence_payload(
                 "on_clock": bool(
                     remaining_slots and remaining_slots[0].get("franchise_id") == owner_id
                 ),
+                **roster_strength_by_franchise.get(owner_id, {}),
             }
         )
     opponent_insights.sort(
@@ -1277,6 +1321,20 @@ def _draft_intelligence_payload(
         "on_clock": on_clock,
         "bye_warnings": bye_warnings,
         "roster": roster_players,
+        **roster_strength_by_franchise.get(
+            franchise_id or "",
+            {
+                "roster_strength_score": 0,
+                "roster_strength_average_rank": None,
+                "roster_strength_ranked_players": 0,
+                "roster_strength_rank": None,
+                "roster_strength_team_count": len(franchises),
+            },
+        ),
+        "roster_strength_method": (
+            "Each rostered or drafted player earns points from their place on your live "
+            "consensus board; higher-ranked players earn more."
+        ),
     }
     intelligence = {
         "position_runs": position_runs,

@@ -53,6 +53,8 @@ def test_league_and_auction_state_are_json_serializable(seeded):
         assert auction.json()["intelligence"]["opponent_insights"][0]["franchise_name"] == "Beta"
         assert draft.status_code == 200
         assert draft.json()["war_room"]["franchise_id"] == "0001"
+        assert "roster_strength_score" in draft.json()["war_room"]
+        assert "roster_strength_rank" in draft.json()["war_room"]
         assert "position_runs" in draft.json()["intelligence"]
         assert draft.json()["intelligence"]["opponent_insights"][0]["franchise_name"] == "Beta"
         assert assistant.status_code == 200

@@ -487,6 +487,11 @@ def test_personal_war_room_and_live_intelligence_follow_real_mfl_order(
     assert war_room["next_pick"] == 4
     assert war_room["following_pick"] == 6
     assert war_room["picks_remaining"] == 2
+    assert war_room["roster_strength_score"] == 20.0
+    assert war_room["roster_strength_average_rank"] == 5.0
+    assert war_room["roster_strength_ranked_players"] == 1
+    assert war_room["roster_strength_rank"] == 2
+    assert war_room["roster_strength_team_count"] == 2
     assert intelligence["position_runs"][0]["position"] == "QB"
     assert intelligence["position_runs"][0]["count"] == 3
     assert intelligence["tier_cliffs"][0]["remaining"] == 1
@@ -494,9 +499,17 @@ def test_personal_war_room_and_live_intelligence_follow_real_mfl_order(
     assert intelligence["opponent_insights"][0]["franchise_name"] == "Beta"
     assert intelligence["opponent_insights"][0]["next_pick"] == 5
     assert intelligence["opponent_insights"][0]["recent_picks"][0]["position"] == "QB"
+    assert intelligence["opponent_insights"][0]["roster_strength_rank"] == 1
     assert intelligence["recommendations"][0]["player_id"] == "103"
     assert intelligence["recommendations"][0]["need_slots"] == 1
     assert intelligence["recommendations"][0]["survival"]["target_pick"] == 6
+
+    opponent_view = draft_intelligence(seeded, "00999", "0002")["war_room"]
+    assert opponent_view["franchise_name"] == "Beta"
+    assert opponent_view["position_counts"] == {"QB": 3}
+    assert opponent_view["roster_count"] == 3
+    assert opponent_view["roster_strength_score"] == 240.0
+    assert opponent_view["roster_strength_rank"] == 1
 
 
 def test_user_csv_preview_import_and_queue_persist(seeded: Session, tmp_path) -> None:
