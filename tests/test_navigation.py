@@ -184,6 +184,8 @@ def test_draft_room_has_personal_war_room_and_live_intelligence() -> None:
     assert 'id="draft-war-room"' in draft
     assert 'id="war-room-label"' in draft
     assert 'id="war-room-personal-button"' in draft
+    assert 'id="war-room-targets-button"' in draft
+    assert 'id="draft-recommendations"' in draft
     assert 'id="war-room-positions"' in draft
     assert 'id="opponent-needs"' in draft
     assert 'id="draft-owner-insights"' in draft
@@ -193,11 +195,17 @@ def test_draft_room_has_personal_war_room_and_live_intelligence() -> None:
     assert "Teams between your picks" in draft
     assert "renderWarRoom" in script
     assert "viewDraftWarRoom" in script
+    assert "viewPotentialTargets" in script
+    assert "View potential targets" in draft
     assert "Roster strength" in script
     war_room_selector = script.split("async function viewDraftWarRoom", 1)[1].split(
-        "function renderWarRoom", 1
+        "function viewPotentialTargets", 1
     )[0]
     assert "scrollIntoView" not in war_room_selector
+    target_jump = script.split("function viewPotentialTargets", 1)[1].split(
+        "function renderWarRoom", 1
+    )[0]
+    assert "scrollIntoView" in target_jump
     assert "renderDraftIntelligence" in script
     assert "selectDraftIntelPlayer" in script
     assert "Player focus" in script
