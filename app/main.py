@@ -12,11 +12,22 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
-from typing import Annotated, Any, cast
+from typing import Annotated, Any, Literal, cast
 from urllib.parse import quote, urlparse
 
 import httpx
-from fastapi import Body, Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
+from fastapi import (
+    BackgroundTasks,
+    Body,
+    Depends,
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+)
 from fastapi.responses import (
     FileResponse,
     HTMLResponse,
@@ -94,7 +105,6 @@ from app.draft import (
     undo_draft,
     update_pick,
 )
-from app.draft_analysis import build_draft_analysis
 from app.draft_links import draft_link_groups
 from app.exports import build_xml, export_csv, export_xml
 from app.mfl import MFLAuthenticationError, MFLClient, MFLError
@@ -122,7 +132,15 @@ from app.models import (
     UserPresence,
     UserSourceSetting,
 )
-from app.power_rankings import build_power_rankings, chatgpt_power_rankings
+from app.power_cache import (
+    cached_draft_analysis,
+    cached_power_rankings,
+    power_snapshot_exists,
+    refresh_all_power_snapshots_job,
+    refresh_power_snapshot_job,
+    round_refresh_due,
+)
+from app.power_rankings import chatgpt_power_rankings
 from app.realtime import league_events
 from app.schemas import (
     AdminRoleUpdate,
@@ -207,7 +225,7 @@ from app.users import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260820.10"
+templates.env.globals["asset_version"] = "20260820.11"
 SESSION_SIGNING_SECRET = ""
 
 
@@ -243,12 +261,20 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     if settings.auto_sync_enabled:
         auto_sync_task = asyncio.create_task(daily_sync_loop(settings), name="daily-mfl-sync")
     live_draft_sync_task = asyncio.create_task(live_draft_sync_loop(), name="live-mfl-draft-sync")
+    power_cache_task: asyncio.Task[None] | None = None
+    if get_db not in app.dependency_overrides:
+        power_cache_task = asyncio.create_task(
+            asyncio.to_thread(refresh_all_power_snapshots_job, "startup"),
+            name="power-rankings-cache-warmup",
+        )
     try:
         yield
     finally:
         await stop_daily_sync(live_draft_sync_task)
         if auto_sync_task is not None:
             await stop_daily_sync(auto_sync_task)
+        if power_cache_task is not None:
+            await stop_daily_sync(power_cache_task)
 
 
 app = FastAPI(title="MFL Fantasy Draft Manager", version="1.0.0", lifespan=lifespan)
@@ -411,6 +437,30 @@ def _require_admin(db: Session) -> None:
             403,
             detail={"code": "admin_required", "message": "An administrator must do that"},
         )
+
+
+def _queue_round_power_refresh(
+    background_tasks: BackgroundTasks,
+    db: Session,
+    league_id: str,
+    mode: Literal["draft", "auction"],
+) -> None:
+    if round_refresh_due(db, league_id, mode):
+        background_tasks.add_task(
+            refresh_power_snapshot_job,
+            league_id,
+            f"{mode}-round-complete",
+        )
+
+
+def _queue_power_refresh(
+    background_tasks: BackgroundTasks,
+    db: Session,
+    league_id: str,
+    trigger: str,
+) -> None:
+    if power_snapshot_exists(db, league_id):
+        background_tasks.add_task(refresh_power_snapshot_job, league_id, trigger)
 
 
 def _admin_user_json(db: Session, account: UserAccount) -> dict[str, Any]:
@@ -1815,7 +1865,7 @@ def get_bye_week_advice(
 @app.get("/api/leagues/{league_id}/power-rankings")
 def get_power_rankings(league_id: str, db: Db) -> dict[str, Any]:
     _league_or_404(db, league_id)
-    return build_power_rankings(db, league_id)
+    return cached_power_rankings(db, league_id)
 
 
 @app.get("/api/depth-charts")
@@ -2129,7 +2179,7 @@ def api_draft_analysis(
     alternative_player_id: str | None = None,
 ) -> dict[str, Any]:
     selected_franchise = franchise_id or league_setting(db, league_id).franchise_id
-    return build_draft_analysis(
+    return cached_draft_analysis(
         db,
         league_id,
         selected_franchise,
@@ -2196,7 +2246,9 @@ def reset_admin_mock_draft(league_id: str, db: Db) -> dict[str, Any]:
 
 
 @app.post("/api/draft/picks", status_code=201)
-def create_draft_pick(payload: DraftPickCreate, db: Db) -> dict[str, Any]:
+def create_draft_pick(
+    payload: DraftPickCreate, background_tasks: BackgroundTasks, db: Db
+) -> dict[str, Any]:
     if payload.is_mock:
         state = mock_draft_state(db, payload.league_id, include_intelligence=False)
         current = state.get("current_drafter")
@@ -2287,11 +2339,15 @@ def create_draft_pick(payload: DraftPickCreate, db: Db) -> dict[str, Any]:
         entity_id=result["id"],
         after=result,
     )
+    if not payload.is_mock:
+        _queue_round_power_refresh(background_tasks, db, payload.league_id, "draft")
     return result
 
 
 @app.patch("/api/draft/picks/{pick_id}")
-def patch_draft_pick(pick_id: str, payload: DraftPickUpdate, db: Db) -> dict[str, Any]:
+def patch_draft_pick(
+    pick_id: str, payload: DraftPickUpdate, background_tasks: BackgroundTasks, db: Db
+) -> dict[str, Any]:
     _require_admin(db)
     current = db.get(DraftPick, pick_id)
     if (
@@ -2313,11 +2369,12 @@ def patch_draft_pick(pick_id: str, payload: DraftPickUpdate, db: Db) -> dict[str
         before=before,
         after=result,
     )
+    _queue_power_refresh(background_tasks, db, result["league_id"], "draft-pick-correction")
     return result
 
 
 @app.delete("/api/draft/picks/{pick_id}", status_code=204)
-def delete_draft_pick(pick_id: str, db: Db) -> None:
+def delete_draft_pick(pick_id: str, background_tasks: BackgroundTasks, db: Db) -> None:
     _require_admin(db)
     current = db.get(DraftPick, pick_id)
     if current is None:
@@ -2338,10 +2395,11 @@ def delete_draft_pick(pick_id: str, db: Db) -> None:
         entity_id=pick_id,
         before=before,
     )
+    _queue_power_refresh(background_tasks, db, league_id, "draft-pick-delete")
 
 
 @app.post("/api/draft/undo", status_code=204)
-def api_draft_undo(league_id: str, db: Db) -> None:
+def api_draft_undo(league_id: str, background_tasks: BackgroundTasks, db: Db) -> None:
     _require_admin(db)
     if not draft_state(db, league_id, include_intelligence=False)["live"]["is_live"]:
         raise HTTPException(
@@ -2350,6 +2408,7 @@ def api_draft_undo(league_id: str, db: Db) -> None:
         )
     undo_draft(db, league_id)
     _audit_mutation(db, stream="draft-picks", action="undo", league_id=league_id)
+    _queue_power_refresh(background_tasks, db, league_id, "draft-undo")
 
 
 @app.get("/api/draft/recommendations")
@@ -2363,6 +2422,7 @@ def api_recommendations(
 async def reconcile_draft(
     league_id: str,
     db: Db,
+    background_tasks: BackgroundTasks,
     payload: Annotated[dict[str, Any] | None, Body()] = None,
     apply: bool = False,
 ) -> dict[str, Any]:
@@ -2383,6 +2443,11 @@ async def reconcile_draft(
         league_id=league_id,
         details={"applied_count": count, "preview": preview},
     )
+    if count:
+        if round_refresh_due(db, league_id, "draft"):
+            background_tasks.add_task(
+                refresh_power_snapshot_job, league_id, "mfl-draft-round-complete"
+            )
     return {"applied": True, "applied_count": count, **preview}
 
 
@@ -3136,7 +3201,9 @@ def place_interactive_auction_bid(payload: InteractiveAuctionBidCreate, db: Db) 
 
 
 @app.post("/api/admin/interactive-auction/award", status_code=201)
-def award_interactive_auction(league_id: str, db: Db) -> dict[str, Any]:
+def award_interactive_auction(
+    league_id: str, background_tasks: BackgroundTasks, db: Db
+) -> dict[str, Any]:
     _require_admin(db)
     state = _interactive_auction(db, league_id)
     if (
@@ -3180,6 +3247,7 @@ def award_interactive_auction(league_id: str, db: Db) -> dict[str, Any]:
         entity_id=purchase.id,
         after=created,
     )
+    _queue_round_power_refresh(background_tasks, db, league_id, "auction")
     return created
 
 
@@ -3260,7 +3328,9 @@ def randomize_auction_nomination_order(db: Db, league_id: str | None = None) -> 
 
 
 @app.post("/api/auction/reset")
-def reset_local_auction(db: Db, league_id: str | None = None) -> dict[str, Any]:
+def reset_local_auction(
+    background_tasks: BackgroundTasks, db: Db, league_id: str | None = None
+) -> dict[str, Any]:
     _require_admin(db)
     selected = league_id or runtime_settings(db).mfl_auction_league_id
     _league_or_404(db, selected)
@@ -3295,6 +3365,7 @@ def reset_local_auction(db: Db, league_id: str | None = None) -> dict[str, Any]:
         after=[],
         details={"reset_count": reset_count},
     )
+    _queue_power_refresh(background_tasks, db, selected, "auction-reset")
     return {
         "reset_count": reset_count,
         "nomination": nomination,
@@ -3303,7 +3374,7 @@ def reset_local_auction(db: Db, league_id: str | None = None) -> dict[str, Any]:
 
 
 @app.post("/api/auction/purchases", status_code=201)
-def purchase(payload: PurchaseCreate, db: Db) -> dict[str, Any]:
+def purchase(payload: PurchaseCreate, background_tasks: BackgroundTasks, db: Db) -> dict[str, Any]:
     live = _auction_live(db, payload.league_id)
     staged = auction_stage_enabled(db, payload.league_id)
     if _interactive_auction(db, payload.league_id).enabled:
@@ -3338,11 +3409,14 @@ def purchase(payload: PurchaseCreate, db: Db) -> dict[str, Any]:
         entity_id=result.id,
         after=created,
     )
+    _queue_round_power_refresh(background_tasks, db, payload.league_id, "auction")
     return created
 
 
 @app.patch("/api/auction/purchases/{purchase_id}")
-def patch_purchase(purchase_id: str, payload: PurchaseUpdate, db: Db) -> dict[str, Any]:
+def patch_purchase(
+    purchase_id: str, payload: PurchaseUpdate, background_tasks: BackgroundTasks, db: Db
+) -> dict[str, Any]:
     _require_admin(db)
     current = db.get(AuctionPurchase, purchase_id)
     before = _purchase_json(db, current) if current else None
@@ -3358,11 +3432,12 @@ def patch_purchase(purchase_id: str, payload: PurchaseUpdate, db: Db) -> dict[st
         before=before,
         after=updated,
     )
+    _queue_power_refresh(background_tasks, db, result.league_id, "auction-purchase-correction")
     return updated
 
 
 @app.delete("/api/auction/purchases/{purchase_id}", status_code=204)
-def remove_purchase(purchase_id: str, db: Db) -> None:
+def remove_purchase(purchase_id: str, background_tasks: BackgroundTasks, db: Db) -> None:
     _require_admin(db)
     current = db.get(AuctionPurchase, purchase_id)
     before = _purchase_json(db, current) if current else None
@@ -3377,26 +3452,29 @@ def remove_purchase(purchase_id: str, db: Db) -> None:
         entity_id=purchase_id,
         before=before,
     )
+    _queue_power_refresh(background_tasks, db, league_id, "auction-purchase-delete")
 
 
 @app.post("/api/auction/undo", status_code=204)
-def undo_purchase(db: Db, league_id: str | None = None) -> None:
+def undo_purchase(background_tasks: BackgroundTasks, db: Db, league_id: str | None = None) -> None:
     _require_admin(db)
     settings = runtime_settings(db)
     selected = league_id or settings.mfl_auction_league_id
     undo(db, selected)
     _bump_auction(db, selected)
     _audit_mutation(db, stream="auction-purchases", action="undo", league_id=selected)
+    _queue_power_refresh(background_tasks, db, selected, "auction-undo")
 
 
 @app.post("/api/auction/redo", status_code=204)
-def redo_purchase(db: Db, league_id: str | None = None) -> None:
+def redo_purchase(background_tasks: BackgroundTasks, db: Db, league_id: str | None = None) -> None:
     _require_admin(db)
     settings = runtime_settings(db)
     selected = league_id or settings.mfl_auction_league_id
     redo(db, selected)
     _bump_auction(db, selected)
     _audit_mutation(db, stream="auction-purchases", action="redo", league_id=selected)
+    _queue_power_refresh(background_tasks, db, selected, "auction-redo")
 
 
 @app.get("/api/auction/export.csv")

@@ -15,6 +15,11 @@ from app.db import SessionLocal
 from app.draft import apply_reconciliation, reconcile_preview
 from app.mfl import MFLClient
 from app.models import AppSetting, DraftSession, League, LeagueType
+from app.power_cache import (
+    refresh_all_power_snapshots_job,
+    refresh_power_snapshot_job,
+    round_refresh_due,
+)
 from app.realtime import league_events
 from app.settings_store import runtime_settings
 from app.source_sync import sync_enabled_sources
@@ -94,6 +99,7 @@ async def automatic_sync_once() -> dict[str, Any]:
                         }
                     )
         source_results = await sync_enabled_sources(db, settings)
+        await asyncio.to_thread(refresh_all_power_snapshots_job, "daily-sync")
         completed_at = datetime.now(UTC)
         _save_status(db, "auto_sync_last_completed_at", completed_at.isoformat())
         LOGGER.info(
@@ -157,6 +163,12 @@ async def sync_live_draft_sessions(db: Session, client: MFLClient) -> list[dict[
                     applied,
                     session.league_id,
                 )
+                if round_refresh_due(db, session.league_id, "draft"):
+                    await asyncio.to_thread(
+                        refresh_power_snapshot_job,
+                        session.league_id,
+                        "mfl-draft-round-complete",
+                    )
         except Exception as exc:
             LOGGER.warning(
                 "Automatic live draft sync failed for league %s: %s: %s",

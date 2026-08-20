@@ -200,6 +200,17 @@ class AppSetting(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class PowerRankingSnapshot(Base):
+    __tablename__ = "power_ranking_snapshots"
+
+    league_id: Mapped[str] = mapped_column(String, primary_key=True)
+    payload_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    draft_round: Mapped[int] = mapped_column(Integer, default=0)
+    auction_round: Mapped[int] = mapped_column(Integer, default=0)
+    trigger: Mapped[str] = mapped_column(String(80), default="startup")
+    computed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class UserAccount(Base):
     __tablename__ = "user_accounts"
 

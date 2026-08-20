@@ -36,6 +36,8 @@ def test_post_draft_analysis_lives_only_on_power_rankings() -> None:
     assert "selectPowerRankingTeam" in script
     assert "View full roster" in script
     assert "power-roster-table" in script
+    assert "powerCacheLabel" in script
+    assert "Stored" in script
     draft_loader = script.split("async function loadDraft()", 1)[1].split(
         "function renderDraftLive", 1
     )[0]

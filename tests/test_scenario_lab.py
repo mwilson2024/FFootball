@@ -8,12 +8,20 @@ from app.catalog import draftable_consensus
 from app.draft import draft_intelligence
 from app.draft_analysis import build_draft_analysis
 from app.models import (
+    AuctionPurchase,
     DataSource,
     League,
     MFLSnapshot,
+    PowerRankingSnapshot,
     RankingSnapshot,
     RosterAssignment,
     SourcePlayerValue,
+)
+from app.power_cache import (
+    cached_draft_analysis,
+    cached_power_rankings,
+    refresh_power_snapshot,
+    round_refresh_due,
 )
 from app.projections import build_projection_board, lineup_projection, score_historical_stats
 from app.realtime import LeagueEventBroker
@@ -102,7 +110,7 @@ def test_projection_board_exposes_season_distribution_and_provenance(seeded: Ses
     assert "Imported MFL scoring rules" in projection["sources"]
 
 
-def test_scenario_lab_and_post_draft_analysis_use_real_order(seeded: Session) -> None:
+def test_scenario_lab_and_post_draft_analysis_use_real_order(seeded: Session, monkeypatch) -> None:
     now = datetime.now(UTC)
     _ranking(seeded, "0001234", 1, "20")
     _ranking(seeded, "99", 2, "15")
@@ -154,6 +162,45 @@ def test_scenario_lab_and_post_draft_analysis_use_real_order(seeded: Session) ->
     assert roster_player["is_starter"] is True
     assert roster_player["median"] is not None
     assert roster_player["roster_status"] == "ROSTER"
+
+    stored = refresh_power_snapshot(seeded, "00999", trigger="test-warmup")
+    assert (
+        stored.payload_json["teams"]["0001"]["selected_team"]["roster_players"][0]["player_id"]
+        == "0001234"
+    )
+    assert seeded.get(PowerRankingSnapshot, "00999") is not None
+
+    def unexpected_compute(*args, **kwargs):
+        raise AssertionError("stored Power Rankings should not recompute on a team click")
+
+    monkeypatch.setattr("app.power_cache.build_draft_analysis", unexpected_compute)
+    monkeypatch.setattr("app.power_cache.build_power_rankings", unexpected_compute)
+    cached_team = cached_draft_analysis(seeded, "00999", "0001")
+    cached_power = cached_power_rankings(seeded, "00999")
+    assert cached_team["selected_team"]["franchise_name"] == "Alpha"
+    assert cached_team["cache"]["trigger"] == "test-warmup"
+    assert cached_power["rankings"][0]["franchise_name"] == "Alpha"
+
+    seeded.add_all(
+        [
+            AuctionPurchase(
+                league_id="00999",
+                franchise_id="0001",
+                player_id="0001234",
+                amount=Decimal("1"),
+                purchase_order=1,
+            ),
+            AuctionPurchase(
+                league_id="00999",
+                franchise_id="0002",
+                player_id="99",
+                amount=Decimal("1"),
+                purchase_order=2,
+            ),
+        ]
+    )
+    seeded.commit()
+    assert round_refresh_due(seeded, "00999", "auction") is True
 
 
 @pytest.mark.asyncio

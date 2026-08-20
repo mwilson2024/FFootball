@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 
 import app.main as main_module
 from app.auth import SESSION_COOKIE, make_session_token
+from app.config import get_settings
 from app.db import get_db
 from app.main import app
 from app.models import (
@@ -602,9 +603,10 @@ def test_admin_can_turn_another_connected_league_into_an_independent_auction(see
         franchise = seeded.scalar(select(Franchise).where(Franchise.league_id == "00888"))
         assert changed.status_code == 200
         assert changed.json()["league_type"] == "auction"
-        assert Decimal(changed.json()["starting_budget"]) == Decimal("200")
+        expected_budget = get_settings().auction_default_budget
+        assert Decimal(changed.json()["starting_budget"]) == expected_budget
         assert league is not None and league.league_type == "auction"
-        assert franchise is not None and franchise.starting_budget == Decimal("200")
+        assert franchise is not None and franchise.starting_budget == expected_budget
         assert room.status_code == 200
         assert 'window.AUCTION_LEAGUE_ID="00888"' in room.text
         assert "/api/auction/export.csv?league_id=00888" in room.text
