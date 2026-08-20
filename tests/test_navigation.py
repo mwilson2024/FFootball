@@ -43,9 +43,27 @@ def test_post_draft_analysis_lives_only_on_power_rankings() -> None:
 
 def test_account_contains_keeper_and_scoring_links() -> None:
     account = (TEMPLATES / "account.html").read_text(encoding="utf-8")
+    script = (TEMPLATES.parent / "static" / "app.js").read_text(encoding="utf-8")
 
     assert 'href="/keepers"' in account
     assert 'href="/scoring"' in account
+    assert "Shared draft format" in script
+    assert "/api/admin/leagues/" in script
+    assert "/format" in script
+
+
+def test_auction_page_supports_multiple_leagues_and_scoped_exports() -> None:
+    auction = (TEMPLATES / "auction.html").read_text(encoding="utf-8")
+    settings = (TEMPLATES / "settings.html").read_text(encoding="utf-8")
+    script = (TEMPLATES.parent / "static" / "app.js").read_text(encoding="utf-8")
+
+    assert "Auction league" in auction
+    assert "auction_leagues" in auction
+    assert "/api/auction/export.csv?league_id={{ league.id }}" in auction
+    assert "/api/auction/export.xml?league_id={{ league.id }}" in auction
+    assert 'id="admin-auction-league"' in settings
+    assert "loadAdminAuctionLeagues" in script
+    assert "selectAdminAuctionLeague" in script
 
 
 def test_admin_shows_persistent_commissioner_import_toggle() -> None:

@@ -561,19 +561,26 @@ def calculate_rankings(db: Session, league: League, responses: dict[str, MFLResp
 async def sync_configured(
     db: Session, client: MFLClient, settings: Settings
 ) -> list[dict[str, Any]]:
-    league_ids = [
-        league_id
-        for league_id in [settings.mfl_keeper_league_id, settings.mfl_auction_league_id]
-        if league_id
-    ]
-    if not league_ids:
-        raise ValueError("Configure at least one MFL league ID in .env")
-    results = []
-    for league_id in dict.fromkeys(league_ids):
-        stored = db.scalar(
-            select(League).where(League.id == league_id, League.season == settings.mfl_season)
+    stored_leagues = {
+        league.id: LeagueType(league.league_type)
+        for league in db.scalars(select(League).where(League.season == settings.mfl_season))
+    }
+    league_ids = list(
+        dict.fromkeys(
+            [
+                league_id
+                for league_id in [settings.mfl_keeper_league_id, settings.mfl_auction_league_id]
+                if league_id
+            ]
+            + list(stored_leagues)
         )
-        override = LeagueType(stored.league_type) if stored else None
-        results.append(await sync_league(db, client, settings, league_id, override))
+    )
+    if not league_ids:
+        raise ValueError("Connect at least one MFL league")
+    results = []
+    for league_id in league_ids:
+        results.append(
+            await sync_league(db, client, settings, league_id, stored_leagues.get(league_id))
+        )
     sync_local_ranking_sources(db)
     return results

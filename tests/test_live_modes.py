@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
@@ -10,6 +11,8 @@ from app.main import app
 from app.models import (
     AuctionPurchase,
     DraftPick,
+    Franchise,
+    League,
     MFLSnapshot,
     MockDraftPick,
     Player,
@@ -540,6 +543,73 @@ def test_mid_auction_handoff_preserves_purchases_and_next_nominator(seeded) -> N
         assert blocked_manual.json()["detail"]["code"] == "interactive_auction_required"
         assert nominated.status_code == 201
         assert nominated.json()["nominating_franchise_id"] == "0002"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_admin_can_turn_another_connected_league_into_an_independent_auction(seeded) -> None:
+    seeded.add(
+        League(
+            id="00888",
+            season=2026,
+            league_type="keeper",
+            name="Second League",
+            roster_size=4,
+            starting_budget=None,
+            minimum_bid=Decimal("1"),
+            settings_json={},
+            scoring_rules_json={},
+            lineup_json={"QB": 1, "RB": 1},
+            warnings_json=[],
+        )
+    )
+    seeded.add(
+        Franchise(
+            id="1001",
+            league_id="00888",
+            name="Gamma",
+            starting_budget=Decimal("0"),
+            roster_slots=4,
+        )
+    )
+    seeded.commit()
+    bootstrap_user(seeded, "member", admin_usernames={"wilsonmw"})
+
+    def override_db():
+        yield seeded
+
+    app.dependency_overrides[get_db] = override_db
+    try:
+        with TestClient(app) as client:
+            admin_token, admin_session = _session("wilsonmw", {"00999", "00888"})
+            client.cookies.set(SESSION_COOKIE, admin_token)
+            changed = client.put(
+                "/api/admin/leagues/00888/format",
+                headers={"X-CSRF-Token": admin_session.csrf_token},
+                json={"league_type": "auction"},
+            )
+            room = client.get("/auction?league_id=00888")
+
+            member_token, member_session = _session("member", {"00999", "00888"})
+            client.cookies.set(SESSION_COOKIE, member_token)
+            forbidden = client.put(
+                "/api/admin/leagues/00888/format",
+                headers={"X-CSRF-Token": member_session.csrf_token},
+                json={"league_type": "keeper"},
+            )
+
+        league = seeded.scalar(select(League).where(League.id == "00888"))
+        franchise = seeded.scalar(select(Franchise).where(Franchise.league_id == "00888"))
+        assert changed.status_code == 200
+        assert changed.json()["league_type"] == "auction"
+        assert Decimal(changed.json()["starting_budget"]) == Decimal("200")
+        assert league is not None and league.league_type == "auction"
+        assert franchise is not None and franchise.starting_budget == Decimal("200")
+        assert room.status_code == 200
+        assert 'window.AUCTION_LEAGUE_ID="00888"' in room.text
+        assert "/api/auction/export.csv?league_id=00888" in room.text
+        assert "Second League" in room.text
+        assert forbidden.status_code == 403
     finally:
         app.dependency_overrides.clear()
 

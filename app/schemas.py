@@ -98,6 +98,10 @@ class LeagueConnect(BaseModel):
         return str(value).strip()
 
 
+class LeagueFormatUpdate(BaseModel):
+    league_type: str = Field(pattern="^(keeper|auction)$")
+
+
 class AuctionLiveUpdate(BaseModel):
     is_live: bool
 

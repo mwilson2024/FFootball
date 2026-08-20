@@ -83,6 +83,8 @@ imported through the Cheat Sheet belongs only to the account that uploaded it.
   An admin can hand off to owner bidding in the middle of an auction with one action: saved
   purchases, budgets, roster counts, and the next nomination turn are preserved while manual entry
   is locked and the shared room is pushed to every connected screen.
+  Multiple connected leagues can be marked as auctions. Each has an independent room, budget,
+  purchases, live state, nomination order, exports, and Admin session controls.
   The room stays hidden while this option is off. The auction also has server-pushed viewer
   updates, atomic purchases, correction/reassignment tools, strategy-aware
   dynamic pricing, live market intelligence, and a personal auction war room with roster needs,

@@ -142,6 +142,7 @@ from app.schemas import (
     InteractiveAuctionUpdate,
     KeeperCreate,
     LeagueConnect,
+    LeagueFormatUpdate,
     MFLConnectionTest,
     MockDraftUpdate,
     PlayerComparisonRequest,
@@ -206,7 +207,7 @@ from app.users import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260820.8"
+templates.env.globals["asset_version"] = "20260820.9"
 SESSION_SIGNING_SECRET = ""
 
 
@@ -1004,12 +1005,37 @@ def scoring_page(request: Request, db: Db, league_id: str | None = None) -> Any:
 
 
 @app.get("/auction", response_class=HTMLResponse)
-def auction_room(request: Request, db: Db) -> Any:
+def auction_room(request: Request, db: Db, league_id: str | None = None) -> Any:
     settings = runtime_settings(db)
-    context = _page_context(db, "Auction room", settings.mfl_auction_league_id)
-    context["league"] = db.scalar(select(League).where(League.id == settings.mfl_auction_league_id))
+    auction_leagues = list(
+        db.scalars(
+            select(League).where(League.league_type == LeagueType.AUCTION).order_by(League.name)
+        )
+    )
+    allowed = authorized_league_ids(db)
+    if allowed is not None:
+        auction_leagues = [item for item in auction_leagues if item.id in allowed]
+    selected_league: League | None
+    if league_id:
+        selected_league = _league_or_404(db, league_id)
+        if selected_league.league_type != LeagueType.AUCTION:
+            raise HTTPException(
+                409,
+                detail={
+                    "code": "auction_league_required",
+                    "message": "An administrator must mark this league as an auction first",
+                },
+            )
+    else:
+        selected_league = next(
+            (item for item in auction_leagues if item.id == settings.mfl_auction_league_id),
+            auction_leagues[0] if auction_leagues else None,
+        )
+    selected = selected_league.id if selected_league else None
+    context = _page_context(db, "Auction room", selected)
+    context["league"] = selected_league
+    context["auction_leagues"] = auction_leagues
     context["rob_mode"] = auction_rob_mode(db)
-    selected = settings.mfl_auction_league_id
     live = _auction_live(db, selected) if selected else None
     staged = auction_stage_enabled(db, selected) if selected else False
     interactive = _interactive_auction(db, selected).enabled if selected else False
@@ -1515,7 +1541,11 @@ async def sync_source(db: Db, source_id: str = Query(...)) -> dict[str, Any]:
 
 @app.get("/api/leagues")
 def leagues(db: Db) -> list[dict[str, Any]]:
-    return [_league_json(item) for item in db.scalars(select(League).order_by(League.name))]
+    items = list(db.scalars(select(League).order_by(League.name)))
+    allowed = authorized_league_ids(db)
+    if allowed is not None:
+        items = [item for item in items if item.id in allowed]
+    return [_league_json(item) for item in items]
 
 
 @app.get("/api/leagues/{league_id}")
@@ -2459,6 +2489,48 @@ async def connect_account_league(payload: LeagueConnect, db: Db) -> dict[str, An
         "league_type": payload.league_type,
         "franchise_id": setting.franchise_id,
     }
+
+
+@app.put("/api/admin/leagues/{league_id}/format")
+def update_league_format(league_id: str, payload: LeagueFormatUpdate, db: Db) -> dict[str, Any]:
+    """Change the shared draft format for every user of a connected league."""
+    _require_admin(db)
+    league = _league_or_404(db, league_id)
+    before = {"league_type": league.league_type, "starting_budget": str(league.starting_budget)}
+    league.league_type = payload.league_type
+    if payload.league_type == LeagueType.AUCTION:
+        settings = runtime_settings(db)
+        raw_budget = next(
+            (
+                league.settings_json.get(key)
+                for key in ("auctionStartingFunds", "auctionFunds", "salaryCapAmount")
+                if league.settings_json.get(key) not in (None, "")
+            ),
+            None,
+        )
+        try:
+            starting_budget = Decimal(str(raw_budget)) if raw_budget is not None else None
+        except (ArithmeticError, ValueError):
+            starting_budget = None
+        starting_budget = (
+            league.starting_budget or starting_budget or settings.auction_default_budget
+        )
+        league.starting_budget = starting_budget
+        for franchise in db.scalars(select(Franchise).where(Franchise.league_id == league_id)):
+            if Decimal(franchise.starting_budget or 0) <= 0:
+                franchise.starting_budget = starting_budget
+    db.commit()
+    after = {"league_type": league.league_type, "starting_budget": str(league.starting_budget)}
+    _audit_mutation(
+        db,
+        stream="league-format",
+        action="update",
+        league_id=league_id,
+        entity_id=league_id,
+        before=before,
+        after=after,
+    )
+    return {"league_id": league.id, **after}
 
 
 @app.put("/api/account/leagues/{league_id}")

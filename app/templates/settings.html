@@ -26,6 +26,7 @@
   <article class="panel admin-tool-card">
     <p class="eyebrow">AUCTION SESSION</p>
     <h2>Staging and live auction</h2>
+    <label>Manage auction league<select id="admin-auction-league" onchange="selectAdminAuctionLeague(this.value)"><option value="">Loading auction leagues…</option></select></label>
     <label class="admin-switch"><input id="admin-auction-stage-toggle" type="checkbox" onchange="setAdminAuctionStage(this.checked)"><span><strong>Open auction staging</strong><small>Admins can prepare and test purchases while members remain read-only.</small></span></label>
     <label class="admin-switch"><input id="admin-auction-live-toggle" type="checkbox" onchange="setAdminAuctionLive(this.checked)"><span><strong>Auction is live</strong><small>Unlocks purchases for eligible users. Going live automatically opens staging.</small></span></label>
     <label class="admin-switch"><input id="interactive-auction-toggle" type="checkbox" onchange="setInteractiveAuction(this.checked)"><span><strong>Use live nominations and bidding</strong><small>Only the team currently up can nominate. Every signed-in owner can bid for their selected MFL franchise.</small></span></label>
