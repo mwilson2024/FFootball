@@ -2,12 +2,15 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
+from fastapi import BackgroundTasks
 from sqlalchemy.orm import Session
 
 from app.catalog import draftable_consensus
 from app.draft import draft_intelligence
 from app.draft_analysis import build_draft_analysis
+from app.main import _queue_round_power_refresh
 from app.models import (
+    AuctionLiveState,
     AuctionPurchase,
     DataSource,
     League,
@@ -201,6 +204,17 @@ def test_scenario_lab_and_post_draft_analysis_use_real_order(seeded: Session, mo
     )
     seeded.commit()
     assert round_refresh_due(seeded, "00999", "auction") is True
+
+    background_tasks = BackgroundTasks()
+    _queue_round_power_refresh(background_tasks, seeded, "00999", "auction")
+    assert len(background_tasks.tasks) == 0
+
+    live = seeded.get(AuctionLiveState, "00999")
+    assert live is not None
+    live.is_live = True
+    seeded.commit()
+    _queue_round_power_refresh(background_tasks, seeded, "00999", "auction")
+    assert len(background_tasks.tasks) == 1
 
 
 @pytest.mark.asyncio

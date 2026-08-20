@@ -129,10 +129,6 @@ def round_refresh_due(db: Session, league_id: str, mode: Literal["draft", "aucti
     return _completed_auction_round(db, league_id) > snapshot.auction_round
 
 
-def power_snapshot_exists(db: Session, league_id: str) -> bool:
-    return db.get(PowerRankingSnapshot, league_id) is not None
-
-
 def _cache_meta(snapshot: PowerRankingSnapshot) -> dict[str, Any]:
     return {
         "stored": True,

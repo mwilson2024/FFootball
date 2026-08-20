@@ -135,7 +135,6 @@ from app.models import (
 from app.power_cache import (
     cached_draft_analysis,
     cached_power_rankings,
-    power_snapshot_exists,
     refresh_all_power_snapshots_job,
     refresh_power_snapshot_job,
     round_refresh_due,
@@ -445,22 +444,17 @@ def _queue_round_power_refresh(
     league_id: str,
     mode: Literal["draft", "auction"],
 ) -> None:
+    if mode == "draft":
+        if not draft_state(db, league_id, include_intelligence=False)["live"]["is_live"]:
+            return
+    elif not _auction_live(db, league_id).is_live:
+        return
     if round_refresh_due(db, league_id, mode):
         background_tasks.add_task(
             refresh_power_snapshot_job,
             league_id,
             f"{mode}-round-complete",
         )
-
-
-def _queue_power_refresh(
-    background_tasks: BackgroundTasks,
-    db: Session,
-    league_id: str,
-    trigger: str,
-) -> None:
-    if power_snapshot_exists(db, league_id):
-        background_tasks.add_task(refresh_power_snapshot_job, league_id, trigger)
 
 
 def _admin_user_json(db: Session, account: UserAccount) -> dict[str, Any]:
@@ -2345,9 +2339,7 @@ def create_draft_pick(
 
 
 @app.patch("/api/draft/picks/{pick_id}")
-def patch_draft_pick(
-    pick_id: str, payload: DraftPickUpdate, background_tasks: BackgroundTasks, db: Db
-) -> dict[str, Any]:
+def patch_draft_pick(pick_id: str, payload: DraftPickUpdate, db: Db) -> dict[str, Any]:
     _require_admin(db)
     current = db.get(DraftPick, pick_id)
     if (
@@ -2369,12 +2361,11 @@ def patch_draft_pick(
         before=before,
         after=result,
     )
-    _queue_power_refresh(background_tasks, db, result["league_id"], "draft-pick-correction")
     return result
 
 
 @app.delete("/api/draft/picks/{pick_id}", status_code=204)
-def delete_draft_pick(pick_id: str, background_tasks: BackgroundTasks, db: Db) -> None:
+def delete_draft_pick(pick_id: str, db: Db) -> None:
     _require_admin(db)
     current = db.get(DraftPick, pick_id)
     if current is None:
@@ -2395,11 +2386,10 @@ def delete_draft_pick(pick_id: str, background_tasks: BackgroundTasks, db: Db) -
         entity_id=pick_id,
         before=before,
     )
-    _queue_power_refresh(background_tasks, db, league_id, "draft-pick-delete")
 
 
 @app.post("/api/draft/undo", status_code=204)
-def api_draft_undo(league_id: str, background_tasks: BackgroundTasks, db: Db) -> None:
+def api_draft_undo(league_id: str, db: Db) -> None:
     _require_admin(db)
     if not draft_state(db, league_id, include_intelligence=False)["live"]["is_live"]:
         raise HTTPException(
@@ -2408,7 +2398,6 @@ def api_draft_undo(league_id: str, background_tasks: BackgroundTasks, db: Db) ->
         )
     undo_draft(db, league_id)
     _audit_mutation(db, stream="draft-picks", action="undo", league_id=league_id)
-    _queue_power_refresh(background_tasks, db, league_id, "draft-undo")
 
 
 @app.get("/api/draft/recommendations")
@@ -2444,10 +2433,7 @@ async def reconcile_draft(
         details={"applied_count": count, "preview": preview},
     )
     if count:
-        if round_refresh_due(db, league_id, "draft"):
-            background_tasks.add_task(
-                refresh_power_snapshot_job, league_id, "mfl-draft-round-complete"
-            )
+        _queue_round_power_refresh(background_tasks, db, league_id, "draft")
     return {"applied": True, "applied_count": count, **preview}
 
 
@@ -3328,9 +3314,7 @@ def randomize_auction_nomination_order(db: Db, league_id: str | None = None) -> 
 
 
 @app.post("/api/auction/reset")
-def reset_local_auction(
-    background_tasks: BackgroundTasks, db: Db, league_id: str | None = None
-) -> dict[str, Any]:
+def reset_local_auction(db: Db, league_id: str | None = None) -> dict[str, Any]:
     _require_admin(db)
     selected = league_id or runtime_settings(db).mfl_auction_league_id
     _league_or_404(db, selected)
@@ -3365,7 +3349,6 @@ def reset_local_auction(
         after=[],
         details={"reset_count": reset_count},
     )
-    _queue_power_refresh(background_tasks, db, selected, "auction-reset")
     return {
         "reset_count": reset_count,
         "nomination": nomination,
@@ -3414,9 +3397,7 @@ def purchase(payload: PurchaseCreate, background_tasks: BackgroundTasks, db: Db)
 
 
 @app.patch("/api/auction/purchases/{purchase_id}")
-def patch_purchase(
-    purchase_id: str, payload: PurchaseUpdate, background_tasks: BackgroundTasks, db: Db
-) -> dict[str, Any]:
+def patch_purchase(purchase_id: str, payload: PurchaseUpdate, db: Db) -> dict[str, Any]:
     _require_admin(db)
     current = db.get(AuctionPurchase, purchase_id)
     before = _purchase_json(db, current) if current else None
@@ -3432,12 +3413,11 @@ def patch_purchase(
         before=before,
         after=updated,
     )
-    _queue_power_refresh(background_tasks, db, result.league_id, "auction-purchase-correction")
     return updated
 
 
 @app.delete("/api/auction/purchases/{purchase_id}", status_code=204)
-def remove_purchase(purchase_id: str, background_tasks: BackgroundTasks, db: Db) -> None:
+def remove_purchase(purchase_id: str, db: Db) -> None:
     _require_admin(db)
     current = db.get(AuctionPurchase, purchase_id)
     before = _purchase_json(db, current) if current else None
@@ -3452,29 +3432,26 @@ def remove_purchase(purchase_id: str, background_tasks: BackgroundTasks, db: Db)
         entity_id=purchase_id,
         before=before,
     )
-    _queue_power_refresh(background_tasks, db, league_id, "auction-purchase-delete")
 
 
 @app.post("/api/auction/undo", status_code=204)
-def undo_purchase(background_tasks: BackgroundTasks, db: Db, league_id: str | None = None) -> None:
+def undo_purchase(db: Db, league_id: str | None = None) -> None:
     _require_admin(db)
     settings = runtime_settings(db)
     selected = league_id or settings.mfl_auction_league_id
     undo(db, selected)
     _bump_auction(db, selected)
     _audit_mutation(db, stream="auction-purchases", action="undo", league_id=selected)
-    _queue_power_refresh(background_tasks, db, selected, "auction-undo")
 
 
 @app.post("/api/auction/redo", status_code=204)
-def redo_purchase(background_tasks: BackgroundTasks, db: Db, league_id: str | None = None) -> None:
+def redo_purchase(db: Db, league_id: str | None = None) -> None:
     _require_admin(db)
     settings = runtime_settings(db)
     selected = league_id or settings.mfl_auction_league_id
     redo(db, selected)
     _bump_auction(db, selected)
     _audit_mutation(db, stream="auction-purchases", action="redo", league_id=selected)
-    _queue_power_refresh(background_tasks, db, selected, "auction-redo")
 
 
 @app.get("/api/auction/export.csv")
