@@ -64,8 +64,8 @@ imported through the Cheat Sheet belongs only to the account that uploaded it.
   next-pick survival heuristics, and an expandable Draft Scenario Lab for every recommendation.
   The lab shows the expected final roster strength, next-pick survival, likely alternatives,
   position-cliff pressure, bye/lineup effects, value versus waiting, and model confidence with its
-  contributing sources. The post-draft section adds projected standings, position grades,
-  steals/reaches, roster weaknesses, and a read-only “what if” replay that never changes MFL.
+  contributing sources. Projected standings and the read-only “what if” replay live separately
+  under Power Rankings so the live Draft Room does not rebuild league-wide analysis on each update.
   Nearby opponent needs, full opposing-owner roster/need/tendency
   profiles, undo, MFL `draftResults` reconciliation
   preview, recap export, and a full-screen live board that switches between team columns and
@@ -85,7 +85,9 @@ imported through the Cheat Sheet belongs only to the account that uploaded it.
   includes undo/redo, CSV, MFL XML, and a commissioner-only MFL import that requires a fresh XML
   preview plus explicit confirmation.
 - **Power Rankings:** a deterministic league-strength board based on legal starting-lineup value,
-  bench depth, and unfilled lineup spots, with an optional on-demand ChatGPT league judgment.
+  bench depth, and unfilled lineup spots. Its post-draft lab adds projected standings, position
+  grades, steals/reaches, roster weaknesses, and a read-only counterfactual replay, plus an optional
+  on-demand ChatGPT league judgment.
 - **Bye Advisor:** compare every active bye or choose one roster player manually, then see the best
   available same-position replacements using overall rank and the selected week's matchup.
 - **Data Sources:** inspect every source in a printable, downloadable spreadsheet and privately

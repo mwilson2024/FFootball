@@ -21,6 +21,26 @@ def test_primary_navigation_prioritizes_live_draft_workflows() -> None:
     assert 'href="/scoring"' not in navigation
 
 
+def test_post_draft_analysis_lives_only_on_power_rankings() -> None:
+    draft = (TEMPLATES / "draft.html").read_text(encoding="utf-8")
+    power = (TEMPLATES / "power_rankings.html").read_text(encoding="utf-8")
+    script = (TEMPLATES.parent / "static" / "app.js").read_text(encoding="utf-8")
+
+    assert "POST-DRAFT &amp; COUNTERFACTUAL ANALYSIS" not in draft
+    assert 'id="projected-standings-body"' not in draft
+    assert "POST-DRAFT &amp; COUNTERFACTUAL ANALYSIS" in power
+    assert 'id="power-analysis-franchise"' in power
+    assert 'id="projected-standings-body"' in power
+    draft_loader = script.split("async function loadDraft()", 1)[1].split(
+        "function renderDraftLive", 1
+    )[0]
+    power_loader = script.split("async function loadPowerDraftAnalysis", 1)[1].split(
+        "async function initPowerRankings", 1
+    )[0]
+    assert "/api/draft/analysis" not in draft_loader
+    assert "/api/draft/analysis" in power_loader
+
+
 def test_account_contains_keeper_and_scoring_links() -> None:
     account = (TEMPLATES / "account.html").read_text(encoding="utf-8")
 
