@@ -184,6 +184,35 @@ def test_live_draft_board_is_linked_from_draft_room_and_admin() -> None:
     assert "initLiveDraftBoard()" in board
     assert "renderTeamDraftBoard" in script
     assert "renderChronologicalDraftBoard" in script
+    assert 'id="draft-tv-mode"' in board
+    assert 'id="tv-board-stage"' in board
+    assert 'id="tv-recent-picks"' in board
+    assert "toggleDraftBoardTvMode" in script
+    assert "renderTvDraftStage" in script
+    assert "TV layout is on" in script
+
+
+def test_draft_advisor_offers_broader_fantasy_topics_and_opinions() -> None:
+    base = (TEMPLATES / "base.html").read_text(encoding="utf-8")
+    assistant = (TEMPLATES.parent / "assistant.py").read_text(encoding="utf-8")
+    script = (TEMPLATES.parent / "static" / "app.js").read_text(encoding="utf-8")
+
+    for label in (
+        "Next pick",
+        "Roster needs",
+        "Compare players",
+        "Auction plan",
+        "Trade / keeper",
+        "Lineup / waivers",
+    ):
+        assert label in base
+    assert "setAssistantTopic" in script
+    assert "trades, keepers, auctions, lineups, waivers, bye weeks" in script
+    assert "experienced and opinionated fantasy-football strategist" in assistant
+    assert "waiver and FAAB strategy" in assistant
+    assert "clear recommendation or lean" in assistant
+    assert "identify the biggest downside" in assistant
+    assert '"max_output_tokens": 1100' in assistant
 
 
 def test_real_draft_ui_supports_companion_and_local_modes() -> None:

@@ -69,7 +69,9 @@ imported through the Cheat Sheet belongs only to the account that uploaded it.
   Nearby opponent needs, full opposing-owner roster/need/tendency
   profiles, undo, MFL `draftResults` reconciliation
   preview, recap export, and a full-screen live board that switches between team columns and
-  chronological pick order. During a real live draft, admins can correct the player, franchise,
+  chronological pick order. TV mode adds a large on-the-clock stage, last and next selection,
+  recent-pick ticker, simplified controls, and a `T` keyboard shortcut for a room display. During a
+  real live draft, admins can correct the player, franchise,
   round, or pick number on locally recorded selections, or remove a bad selection entirely.
 - **Keepers:** MFL-selected keepers and the available league board. Local choices remain distinct
   until an explicit export or submission.
@@ -105,7 +107,10 @@ imported through the Cheat Sheet belongs only to the account that uploaded it.
 - **My Account:** select your franchise and auction strategy. Player tiers, targets, sleepers,
   queues, and source adjustments belong only to the signed-in MFL user.
 - **League assistant:** optional OpenAI-powered advice using the selected user franchise, roster,
-  budget, scoring, and lineup context. It cannot submit bids or picks.
+  budget, scoring, and lineup context. It gives clearly labeled opinions on picks, comparisons,
+  tiers, redraft, keeper, dynasty, auctions, trades, lineups, waivers, FAAB, bye weeks, injuries,
+  workloads, matchups, and roster construction. It cannot submit bids, trades, waivers, lineups, or
+  picks, and it states when current league data is not available.
 
 Use `/` to focus the current page search and `?` to show keyboard help. Dense tables retain sticky
 headers and scroll inside their panels.

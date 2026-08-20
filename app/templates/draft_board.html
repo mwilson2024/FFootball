@@ -20,12 +20,18 @@
     <div class="live-board-actions">
       <span id="live-board-status" class="live-board-badge loading">Loading</span>
       <button id="draft-sound" type="button" onclick="toggleDraftSound()" aria-pressed="true">Sound on</button>
+      <button id="draft-tv-mode" type="button" onclick="toggleDraftBoardTvMode()" aria-pressed="false">TV mode</button>
       <button type="button" onclick="toggleDraftBoardFullscreen()">Full screen</button>
       <a class="button" href="/draft?league_id={{ selected_league_id }}">Draft Room</a>
     </div>
   </header>
 
   <main class="live-board-shell">
+    <section id="tv-board-stage" class="tv-board-stage" aria-label="TV draft status" aria-live="polite">
+      <article><span>Last selection</span><strong id="tv-last-player">Waiting for the first pick</strong><small id="tv-last-detail">The latest completed selection will appear here.</small></article>
+      <article class="tv-on-clock"><span>On the clock</span><strong id="tv-current-team">Loading…</strong><small id="tv-current-detail">—</small></article>
+      <article><span>Up next</span><strong id="tv-next-team">—</strong><small id="tv-next-detail">—</small></article>
+    </section>
     <div class="live-board-toolbar">
       <div class="live-board-view-switch" role="group" aria-label="Draft board view">
         <button id="team-board-view-button" class="active" type="button" onclick="setLiveDraftBoardView('team')" aria-pressed="true">Team view</button>
@@ -40,6 +46,7 @@
     <section id="live-draft-view" aria-label="Draft picks in selection order" hidden>
       <div id="chronological-draft-board" class="chronological-draft-board"><div class="live-board-empty">Loading live draft view…</div></div>
     </section>
+    <section class="tv-recent-strip" aria-label="Recent draft selections"><span>Recent picks</span><div id="tv-recent-picks">Waiting for selections…</div></section>
   </main>
   <div id="toast" role="status" aria-live="polite"></div>
   <script src="/static/app.js?v={{ asset_version }}"></script>
