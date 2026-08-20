@@ -146,6 +146,14 @@ def test_scenario_lab_and_post_draft_analysis_use_real_order(seeded: Session) ->
     assert analysis["projection_model"] == "season-outcomes-v1"
     assert len(analysis["projected_standings"]) == 2
     assert analysis["selected_team"]["franchise_name"] == "Alpha"
+    assert len(analysis["selected_team"]["roster_players"]) == 1
+    roster_player = analysis["selected_team"]["roster_players"][0]
+    assert roster_player["player_id"] == "0001234"
+    assert roster_player["player_name"] == "Leading Zero"
+    assert roster_player["lineup_role"] == "Starter · RB"
+    assert roster_player["is_starter"] is True
+    assert roster_player["median"] is not None
+    assert roster_player["roster_status"] == "ROSTER"
 
 
 @pytest.mark.asyncio

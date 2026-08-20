@@ -31,6 +31,11 @@ def test_post_draft_analysis_lives_only_on_power_rankings() -> None:
     assert "POST-DRAFT &amp; COUNTERFACTUAL ANALYSIS" in power
     assert 'id="power-analysis-franchise"' in power
     assert 'id="projected-standings-body"' in power
+    assert "Click a team below" in power
+    assert "powerRosterHtml" in script
+    assert "selectPowerRankingTeam" in script
+    assert "View full roster" in script
+    assert "power-roster-table" in script
     draft_loader = script.split("async function loadDraft()", 1)[1].split(
         "function renderDraftLive", 1
     )[0]

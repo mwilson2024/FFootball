@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 from typing import Any
 
@@ -8,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.catalog import draftable_consensus
 from app.draft import DraftValidationError, draft_state
-from app.models import Franchise, League, RosterAssignment
+from app.models import Franchise, League, Player, RosterAssignment
 from app.projections import build_projection_board, lineup_projection
 
 
@@ -106,6 +107,127 @@ def _position_grades(
     return result
 
 
+def _roster_breakdown(
+    db: Session,
+    league_id: str,
+    franchise_id: str,
+    player_ids: set[str],
+    board_by_id: dict[str, dict[str, Any]],
+    projections: dict[str, dict[str, Any]],
+    lineup: dict[str, Any],
+    order: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Return every player plus the lineup role used by the projection model."""
+    aliases = {"K": "PK", "DST": "DEF", "D/ST": "DEF", "D": "DEF"}
+    player_models = (
+        {
+            player.id: player
+            for player in db.scalars(select(Player).where(Player.id.in_(player_ids)))
+        }
+        if player_ids
+        else {}
+    )
+    assignment_status = {
+        assignment.player_id: assignment.status
+        for assignment in db.scalars(
+            select(RosterAssignment).where(
+                RosterAssignment.league_id == league_id,
+                RosterAssignment.franchise_id == franchise_id,
+            )
+        )
+    }
+    draft_pick = {
+        str(slot["player_id"]): int(slot["overall_pick"])
+        for slot in order
+        if slot.get("completed")
+        and slot.get("franchise_id") == franchise_id
+        and slot.get("player_id")
+        and slot.get("overall_pick")
+    }
+    rows: list[dict[str, Any]] = []
+    for player_id in player_ids:
+        board = board_by_id.get(player_id, {})
+        projection = projections.get(player_id, {})
+        player = player_models.get(player_id)
+        position = str(board.get("position") or (player.position if player else "—")).upper()
+        rows.append(
+            {
+                "player_id": player_id,
+                "player_name": board.get("player_name") or (player.name if player else player_id),
+                "position": aliases.get(position, position),
+                "nfl_team": board.get("nfl_team") or (player.nfl_team if player else None),
+                "consensus_rank": board.get("consensus_rank"),
+                "league_adjusted_rank": board.get("league_adjusted_rank"),
+                "median": projection.get("median"),
+                "floor": projection.get("floor"),
+                "ceiling": projection.get("ceiling"),
+                "confidence": projection.get("confidence"),
+                "injury_risk": projection.get("injury_risk"),
+                "injury_status": player.injury_status if player else None,
+                "rookie": bool(player.rookie) if player else False,
+                "roster_status": assignment_status.get(player_id, "DRAFTED"),
+                "draft_pick": draft_pick.get(player_id),
+            }
+        )
+    rows.sort(
+        key=lambda row: (
+            -float(row.get("median") or 0),
+            int(row.get("consensus_rank") or 99999),
+            str(row["player_name"]).casefold(),
+        )
+    )
+    selected: set[str] = set()
+    roles: dict[str, str] = {}
+    for raw_position, raw_count in (lineup or {}).items():
+        position = str(raw_position).upper()
+        if position in {"FLEX", "SUPERFLEX", "QB_FLEX"}:
+            continue
+        try:
+            count = max(0, int(raw_count or 0))
+        except (TypeError, ValueError):
+            continue
+        eligible = {
+            aliases.get(item.strip(), item.strip())
+            for item in re.split(r"[,|+]", position)
+            if item.strip()
+        }
+        label = aliases.get(position, position)
+        candidates = [
+            row for row in rows if row["player_id"] not in selected and row["position"] in eligible
+        ]
+        for row in candidates[:count]:
+            selected.add(row["player_id"])
+            roles[row["player_id"]] = label
+    for label, eligible in (
+        ("SUPERFLEX", {"QB", "RB", "WR", "TE"}),
+        ("QB_FLEX", {"QB", "RB", "WR", "TE"}),
+        ("FLEX", {"RB", "WR", "TE"}),
+    ):
+        try:
+            count = max(0, int((lineup or {}).get(label, 0) or 0))
+        except (TypeError, ValueError):
+            count = 0
+        candidates = [
+            row for row in rows if row["player_id"] not in selected and row["position"] in eligible
+        ]
+        for row in candidates[:count]:
+            selected.add(row["player_id"])
+            roles[row["player_id"]] = label
+    for row in rows:
+        starter_role = roles.get(row["player_id"])
+        row["lineup_role"] = f"Starter · {starter_role}" if starter_role else "Bench"
+        row["is_starter"] = bool(starter_role)
+    rows.sort(
+        key=lambda row: (
+            not row["is_starter"],
+            str(row["lineup_role"]),
+            -float(row.get("median") or 0),
+            str(row["player_name"]).casefold(),
+        )
+    )
+    return rows
+
+
 def build_draft_analysis(
     db: Session,
     league_id: str,
@@ -174,6 +296,18 @@ def build_draft_analysis(
         )
 
     selected_team = next((row for row in standings if row["franchise_id"] == franchise_id), None)
+    if selected_team is not None and franchise_id is not None:
+        selected_team = dict(selected_team)
+        selected_team["roster_players"] = _roster_breakdown(
+            db,
+            league_id,
+            franchise_id,
+            ownership.get(franchise_id, set()),
+            board_by_id,
+            projections,
+            league.lineup_json,
+            order,
+        )
     selected_picks = [
         slot
         for slot in order
