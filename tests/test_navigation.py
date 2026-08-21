@@ -175,7 +175,8 @@ def test_nomination_controls_live_in_admin_and_budget_boxes_show_turns() -> None
     assert 'id="admin-auction-live-toggle"' in settings
     assert 'id="interactive-auction-toggle"' in settings
     assert 'id="admin-auction-handoff"' in settings
-    assert 'id="auction-owner-handoff"' in auction
+    assert 'id="auction-owner-handoff"' not in auction
+    assert "Switch to owner bidding" not in auction
     assert "Use live nominations and bidding" in settings
     assert 'id="interactive-auction-panel"' in auction
     assert "renderInteractiveAuction" in script
