@@ -25,6 +25,7 @@ from app.power_cache import (
     cached_power_rankings,
     refresh_power_snapshot,
     round_refresh_due,
+    stored_team_power,
 )
 from app.projections import build_projection_board, lineup_projection, score_historical_stats
 from app.realtime import LeagueEventBroker
@@ -166,7 +167,18 @@ def test_scenario_lab_and_post_draft_analysis_use_real_order(seeded: Session, mo
     assert roster_player["median"] is not None
     assert roster_player["roster_status"] == "ROSTER"
 
+    analysis_calls = 0
+
+    def tracked_analysis(*args, **kwargs):
+        nonlocal analysis_calls
+        analysis_calls += 1
+        assert kwargs["include_all_teams"] is True
+        assert kwargs["board"]
+        return build_draft_analysis(*args, **kwargs)
+
+    monkeypatch.setattr("app.power_cache.build_draft_analysis", tracked_analysis)
     stored = refresh_power_snapshot(seeded, "00999", trigger="test-warmup")
+    assert analysis_calls == 1
     assert (
         stored.payload_json["teams"]["0001"]["selected_team"]["roster_players"][0]["player_id"]
         == "0001234"
@@ -180,9 +192,12 @@ def test_scenario_lab_and_post_draft_analysis_use_real_order(seeded: Session, mo
     monkeypatch.setattr("app.power_cache.build_power_rankings", unexpected_compute)
     cached_team = cached_draft_analysis(seeded, "00999", "0001")
     cached_power = cached_power_rankings(seeded, "00999")
+    stored_team = stored_team_power(seeded, "00999", "0001")
     assert cached_team["selected_team"]["franchise_name"] == "Alpha"
     assert cached_team["cache"]["trigger"] == "test-warmup"
     assert cached_power["rankings"][0]["franchise_name"] == "Alpha"
+    assert stored_team is not None
+    assert stored_team["analysis"]["franchise_name"] == "Alpha"
 
     seeded.add_all(
         [

@@ -10,6 +10,7 @@ from typing import Any, Literal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.catalog import draftable_consensus
 from app.db import SessionLocal
 from app.draft import DraftValidationError, draft_state
 from app.draft_analysis import build_draft_analysis
@@ -72,16 +73,16 @@ def refresh_power_snapshot(
     league = db.scalar(select(League).where(League.id == league_id))
     if league is None:
         raise ValueError("League not found")
-    power = build_power_rankings(db, league_id)
-    overview = build_draft_analysis(db, league_id, None)
-    teams: dict[str, dict[str, Any]] = {}
-    for standing in overview.get("projected_standings") or []:
-        franchise_id = str(standing["franchise_id"])
-        detail = build_draft_analysis(db, league_id, franchise_id)
-        teams[franchise_id] = {
-            "selected_team": detail.get("selected_team"),
-            "eligible_picks": (detail.get("what_if") or {}).get("eligible_picks") or [],
-        }
+    board = draftable_consensus(db, league_id)
+    power = build_power_rankings(db, league_id, board=board)
+    overview = build_draft_analysis(
+        db,
+        league_id,
+        None,
+        include_all_teams=True,
+        board=board,
+    )
+    teams = overview.pop("team_details", {})
     snapshot = db.get(PowerRankingSnapshot, league_id)
     if snapshot is None:
         snapshot = PowerRankingSnapshot(league_id=league_id)
@@ -146,6 +147,30 @@ def cached_power_rankings(db: Session, league_id: str) -> dict[str, Any]:
     result = copy.deepcopy(snapshot.payload_json.get("power") or {})
     result["cache"] = _cache_meta(snapshot)
     return result
+
+
+def stored_team_power(db: Session, league_id: str, franchise_id: str) -> dict[str, Any] | None:
+    """Read one team's stored power report without starting a recalculation."""
+    snapshot = db.get(PowerRankingSnapshot, league_id)
+    if snapshot is None:
+        return None
+    power = next(
+        (
+            row
+            for row in (snapshot.payload_json.get("power") or {}).get("rankings", [])
+            if str(row.get("franchise_id")) == franchise_id
+        ),
+        None,
+    )
+    team = (snapshot.payload_json.get("teams") or {}).get(franchise_id) or {}
+    analysis = team.get("selected_team")
+    if power is None and analysis is None:
+        return None
+    return {
+        "power_ranking": copy.deepcopy(power),
+        "analysis": copy.deepcopy(analysis),
+        "cache": _cache_meta(snapshot),
+    }
 
 
 def cached_draft_analysis(

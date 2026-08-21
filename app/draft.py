@@ -613,6 +613,7 @@ def draft_state(
     franchise_id: str | None = None,
     *,
     include_intelligence: bool = False,
+    board: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     league = db.scalar(select(League).where(League.id == league_id))
     if league is None:
@@ -625,7 +626,7 @@ def draft_state(
             .order_by(DraftPick.overall_pick, DraftPick.selected_at)
         )
     )
-    board = draftable_consensus(db, league_id)
+    board = board if board is not None else draftable_consensus(db, league_id)
     queue = sorted(
         (
             row
@@ -696,6 +697,7 @@ def mock_draft_state(
     franchise_id: str | None = None,
     *,
     include_intelligence: bool = True,
+    board: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     league = db.scalar(select(League).where(League.id == league_id))
     if league is None:
@@ -706,6 +708,7 @@ def mock_draft_state(
         league_id,
         franchise_id,
         include_intelligence=include_intelligence,
+        board=board,
     )
     picks = list(
         db.scalars(

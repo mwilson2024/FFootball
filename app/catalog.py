@@ -349,8 +349,9 @@ def query_players(
     tag: str | None = None,
     sort: str = "consensus_rank",
     direction: str = "asc",
+    board: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    rows = draftable_consensus(db, league_id)
+    rows = board if board is not None else draftable_consensus(db, league_id)
     needle = (search or "").casefold().strip()
     selected_position = (position or "").upper()
     selected_team = (nfl_team or "").upper()

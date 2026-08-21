@@ -56,7 +56,12 @@ def _lineup_requirements(lineup: dict[str, Any]) -> tuple[dict[str, int], int, i
     return fixed, flex, superflex
 
 
-def build_power_rankings(db: Session, league_id: str) -> dict[str, Any]:
+def build_power_rankings(
+    db: Session,
+    league_id: str,
+    *,
+    board: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     league = db.scalar(select(League).where(League.id == league_id).order_by(League.season.desc()))
     if league is None:
         raise ValueError("League not found")
@@ -65,7 +70,7 @@ def build_power_rankings(db: Session, league_id: str) -> dict[str, Any]:
             select(Franchise).where(Franchise.league_id == league_id).order_by(Franchise.name)
         )
     )
-    board = draftable_consensus(db, league_id)
+    board = board if board is not None else draftable_consensus(db, league_id)
     fixed, flex_slots, superflex_slots = _lineup_requirements(league.lineup_json or {})
     teams: list[dict[str, Any]] = []
     for franchise in franchises:

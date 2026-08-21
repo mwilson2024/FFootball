@@ -235,13 +235,21 @@ def build_draft_analysis(
     *,
     what_if_overall_pick: int | None = None,
     alternative_player_id: str | None = None,
+    include_all_teams: bool = False,
+    board: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     league = db.scalar(select(League).where(League.id == league_id))
     if league is None:
         raise DraftValidationError("League does not exist")
-    state = draft_state(db, league_id, franchise_id, include_intelligence=False)
+    state = draft_state(
+        db,
+        league_id,
+        franchise_id,
+        include_intelligence=False,
+        board=board,
+    )
     order = list(state.get("draft_order") or [])
-    board = draftable_consensus(db, league_id)
+    board = board if board is not None else draftable_consensus(db, league_id)
     board_by_id = {str(row["player_id"]): row for row in board}
     projections = build_projection_board(db, league, board)
     franchises = list(
@@ -295,19 +303,46 @@ def build_draft_analysis(
             }
         )
 
-    selected_team = next((row for row in standings if row["franchise_id"] == franchise_id), None)
-    if selected_team is not None and franchise_id is not None:
-        selected_team = dict(selected_team)
-        selected_team["roster_players"] = _roster_breakdown(
+    detail_ids = (
+        [item.id for item in franchises]
+        if include_all_teams
+        else ([franchise_id] if franchise_id else [])
+    )
+    team_details: dict[str, dict[str, Any]] = {}
+    for detail_id in detail_ids:
+        standing = next((row for row in standings if row["franchise_id"] == detail_id), None)
+        if standing is None:
+            continue
+        selected = dict(standing)
+        selected["roster_players"] = _roster_breakdown(
             db,
             league_id,
-            franchise_id,
-            ownership.get(franchise_id, set()),
+            detail_id,
+            ownership.get(detail_id, set()),
             board_by_id,
             projections,
             league.lineup_json,
             order,
         )
+        picks = [
+            slot
+            for slot in order
+            if slot.get("completed")
+            and slot.get("franchise_id") == detail_id
+            and slot.get("player_id")
+        ]
+        team_details[detail_id] = {
+            "selected_team": selected,
+            "eligible_picks": [
+                {
+                    "overall_pick": slot.get("overall_pick"),
+                    "player_id": slot.get("player_id"),
+                    "player_name": slot.get("player_name"),
+                }
+                for slot in picks
+            ],
+        }
+    selected_team = (team_details.get(franchise_id or "") or {}).get("selected_team")
     selected_picks = [
         slot
         for slot in order
@@ -373,7 +408,7 @@ def build_draft_analysis(
                 ),
             }
 
-    return {
+    result = {
         "league_id": league_id,
         "methodology": (
             "League-scored season medians drive legal starting-lineup totals; bench depth "
@@ -385,15 +420,13 @@ def build_draft_analysis(
         "selected_team": selected_team,
         "pick_values": pick_values,
         "what_if": {
-            "eligible_picks": [
-                {
-                    "overall_pick": slot.get("overall_pick"),
-                    "player_id": slot.get("player_id"),
-                    "player_name": slot.get("player_name"),
-                }
-                for slot in selected_picks
-            ],
+            "eligible_picks": (team_details.get(franchise_id or "") or {}).get(
+                "eligible_picks", []
+            ),
             "alternatives": alternatives,
             "result": counterfactual,
         },
     }
+    if include_all_teams:
+        result["team_details"] = team_details
+    return result

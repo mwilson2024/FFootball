@@ -138,6 +138,7 @@ from app.power_cache import (
     refresh_all_power_snapshots_job,
     refresh_power_snapshot_job,
     round_refresh_due,
+    stored_team_power,
 )
 from app.power_rankings import chatgpt_power_rankings
 from app.realtime import league_events
@@ -224,7 +225,7 @@ from app.users import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260820.11"
+templates.env.globals["asset_version"] = "20260821.1"
 SESSION_SIGNING_SECRET = ""
 
 
@@ -1912,7 +1913,9 @@ def franchise_detail(league_id: str, franchise_id: str, db: Db) -> dict[str, Any
         raise HTTPException(
             404, detail={"code": "franchise_not_found", "message": "Franchise not found"}
         )
-    return cast(dict[str, Any], team)
+    detail = cast(dict[str, Any], team)
+    detail["stored_power"] = stored_team_power(db, league_id, franchise_id)
+    return detail
 
 
 @app.get("/api/leagues/{league_id}/keepers")
@@ -2094,14 +2097,16 @@ def update_preference(
     return {"league_id": league_id, "player_id": player_id, **payload.model_dump()}
 
 
-@app.get("/api/draft/state")
-def api_draft_state(
+def _draft_state_response(
+    db: Session,
     league_id: str,
-    db: Db,
-    franchise_id: str | None = None,
-    include_intelligence: bool = True,
+    franchise_id: str | None,
+    *,
+    include_intelligence: bool,
+    board: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    selected_franchise = franchise_id or league_setting(db, league_id).franchise_id
+    personal_franchise = league_setting(db, league_id).franchise_id
+    selected_franchise = franchise_id or personal_franchise
     mock = mock_draft_status(db, league_id)
     if mock["enabled"]:
         state = mock_draft_state(
@@ -2109,14 +2114,18 @@ def api_draft_state(
             league_id,
             selected_franchise,
             include_intelligence=include_intelligence,
+            board=board,
         )
         state["draft_mode"] = draft_mode(db, league_id)
+        state["selected_franchise_id"] = selected_franchise
+        state["personal_franchise_id"] = personal_franchise
         return state
     state = draft_state(
         db,
         league_id,
         selected_franchise,
         include_intelligence=include_intelligence,
+        board=board,
     )
     is_live = bool(state["live"]["is_live"])
     method = draft_mode(db, league_id)
@@ -2151,9 +2160,53 @@ def api_draft_state(
                 "can_make_pick": can_make_pick,
                 "locked_reason": None if can_make_pick else locked_reason,
             },
+            "selected_franchise_id": selected_franchise,
+            "personal_franchise_id": personal_franchise,
         }
     )
     return state
+
+
+@app.get("/api/draft/state")
+def api_draft_state(
+    league_id: str,
+    db: Db,
+    franchise_id: str | None = None,
+    include_intelligence: bool = True,
+) -> dict[str, Any]:
+    return _draft_state_response(
+        db,
+        league_id,
+        franchise_id,
+        include_intelligence=include_intelligence,
+    )
+
+
+@app.get("/api/draft/bootstrap")
+def api_draft_bootstrap(
+    league_id: str,
+    db: Db,
+    franchise_id: str | None = None,
+) -> dict[str, Any]:
+    """Return the initial Draft Room board from one shared consensus calculation."""
+    board = draftable_consensus(db, league_id)
+    return {
+        "state": _draft_state_response(
+            db,
+            league_id,
+            franchise_id,
+            include_intelligence=False,
+            board=board,
+        ),
+        "players": query_players(
+            db,
+            league_id,
+            availability="available",
+            per_page=500,
+            board=board,
+        ),
+        "franchises": franchises(league_id, db),
+    }
 
 
 @app.get("/api/draft/intelligence")

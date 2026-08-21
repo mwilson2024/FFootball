@@ -38,6 +38,7 @@ def test_post_draft_analysis_lives_only_on_power_rankings() -> None:
     assert "power-roster-table" in script
     assert "powerCacheLabel" in script
     assert "Stored" in script
+    assert "power-team-page-link" in script
     draft_loader = script.split("async function loadDraft()", 1)[1].split(
         "function renderDraftLive", 1
     )[0]
@@ -45,7 +46,21 @@ def test_post_draft_analysis_lives_only_on_power_rankings() -> None:
         "async function initPowerRankings", 1
     )[0]
     assert "/api/draft/analysis" not in draft_loader
+    assert "/api/draft/bootstrap" in draft_loader
+    assert "/api/players?" not in draft_loader
+    assert "void loadDraftIntelligence" in draft_loader
+    assert "['power-rankings-cache']" in script
     assert "/api/draft/analysis" in power_loader
+
+
+def test_franchise_page_uses_the_stored_power_report() -> None:
+    franchise = (TEMPLATES / "franchise.html").read_text(encoding="utf-8")
+    script = (TEMPLATES.parent / "static" / "app.js").read_text(encoding="utf-8")
+
+    assert "STORED POWER REPORT" in franchise
+    assert 'id="franchise-power-metrics"' in franchise
+    assert 'href="/power-rankings?league_id=' in franchise
+    assert "renderStoredFranchisePower(team.stored_power)" in script
 
 
 def test_account_contains_keeper_and_scoring_links() -> None:

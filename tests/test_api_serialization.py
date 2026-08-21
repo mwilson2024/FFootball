@@ -12,7 +12,7 @@ from app.sources import initialize_sources
 from app.users import bootstrap_user
 
 
-def test_league_and_auction_state_are_json_serializable(seeded):
+def test_league_and_auction_state_are_json_serializable(seeded, monkeypatch):
     seeded.add(
         UserLeagueSetting(
             username="tester",
@@ -27,6 +27,15 @@ def test_league_and_auction_state_are_json_serializable(seeded):
         yield seeded
 
     app.dependency_overrides[get_db] = override_db
+    original_consensus = main_module.draftable_consensus
+    consensus_calls = 0
+
+    def counted_consensus(*args, **kwargs):
+        nonlocal consensus_calls
+        consensus_calls += 1
+        return original_consensus(*args, **kwargs)
+
+    monkeypatch.setattr(main_module, "draftable_consensus", counted_consensus)
     try:
         with TestClient(app) as client:
             token, _ = make_session_token(
@@ -40,6 +49,7 @@ def test_league_and_auction_state_are_json_serializable(seeded):
             league = client.get("/api/leagues/00999")
             auction = client.get("/api/auction/state?league_id=00999")
             draft = client.get("/api/draft/state?league_id=00999")
+            bootstrap = client.get("/api/draft/bootstrap?league_id=00999")
             assistant = client.get("/api/assistant/status?league_id=00999")
         assert leagues.status_code == 200
         assert leagues.json()[0]["id"] == "00999"
@@ -57,6 +67,12 @@ def test_league_and_auction_state_are_json_serializable(seeded):
         assert "roster_strength_rank" in draft.json()["war_room"]
         assert "position_runs" in draft.json()["intelligence"]
         assert draft.json()["intelligence"]["opponent_insights"][0]["franchise_name"] == "Beta"
+        assert bootstrap.status_code == 200
+        assert bootstrap.json()["state"]["selected_franchise_id"] == "0001"
+        assert "intelligence" not in bootstrap.json()["state"]
+        assert bootstrap.json()["players"]["items"][0]["player_id"] == "0001234"
+        assert len(bootstrap.json()["franchises"]) == 2
+        assert consensus_calls == 1
         assert assistant.status_code == 200
         assert assistant.json()["league_name"] == "Test League"
         assert assistant.json()["franchise_id"] == "0001"
