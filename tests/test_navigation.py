@@ -83,6 +83,16 @@ def test_auction_page_supports_multiple_leagues_and_scoped_exports() -> None:
     assert "auction_leagues" in auction
     assert "/api/auction/export.csv?league_id={{ league.id }}" in auction
     assert "/api/auction/export.xml?league_id={{ league.id }}" in auction
+    assert "Preview MFL import" not in auction
+    assert ">MFL Import<" in auction
+    assert "Download CSV" in auction
+    assert "Download MFL XML" in auction
+    assert "Direct commissioner import" in auction
+    assert 'id="mfl-commissioner-import" hidden' in auction
+    assert "openMflImport()" in auction
+    assert "showMflCommissionerImport()" in auction
+    assert "function openMflImport" in script
+    assert "async function showMflCommissionerImport" in script
     assert 'id="admin-auction-league"' in settings
     assert "loadAdminAuctionLeagues" in script
     assert "selectAdminAuctionLeague" in script
