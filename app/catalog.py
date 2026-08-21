@@ -145,13 +145,24 @@ def _is_draftable(row: dict[str, Any], allowed: set[str]) -> bool:
     return bool(positions & allowed)
 
 
+def consensus_tier(rank: int) -> int:
+    """Return the shared ADFL/TMFL tier for an overall consensus rank."""
+    if rank <= 24:
+        return 1
+    if rank <= 60:
+        return 2
+    if rank <= 120:
+        return 3
+    if rank <= 200:
+        return 4
+    return 5
+
+
 def draftable_consensus(
     db: Session,
     league_id: str,
     source_overrides: dict[str, dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
-    league = db.scalar(select(League).where(League.id == league_id).order_by(League.season.desc()))
-    stable_keeper_tiers = bool(league and league.league_type == LeagueType.KEEPER)
     allowed = draftable_positions(db, league_id)
     rows = [
         row
@@ -175,20 +186,11 @@ def draftable_consensus(
     defense_index = 0
     for row in rows:
         rank = int(row["consensus_rank"])
-        calculated_tier = (
-            1 if rank <= 24 else 2 if rank <= 60 else 3 if rank <= 120 else 4 if rank <= 200 else 5
-        )
-        source_tier = _number(row.get("source_tier"))
-        if source_tier is not None:
-            calculated_tier = min(calculated_tier, max(1, int(source_tier)))
+        calculated_tier = consensus_tier(rank)
         manual_tier = row["preference"].get("manual_tier")
-        initial_tier = _number(row.get("tier"))
         if manual_tier is not None:
             tier = int(manual_tier)
             tier_source = "manual"
-        elif stable_keeper_tiers and initial_tier is not None:
-            tier = int(initial_tier)
-            tier_source = "initial synced board"
         else:
             tier = calculated_tier
             tier_source = "consensus"

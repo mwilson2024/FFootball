@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.auction import add_purchase
 from app.catalog import (
+    consensus_tier,
     draftable_positions,
     player_detail,
     player_filters,
@@ -188,7 +189,15 @@ def test_dynamic_bid_reacts_to_selected_players_and_remaining_money(seeded: Sess
     assert after["99"]["suggested_auction_value"] == before["99"]["suggested_auction_value"]
 
 
-def test_keeper_tier_stays_on_initial_synced_board_after_a_pick(seeded: Session) -> None:
+@pytest.mark.parametrize(
+    ("rank", "tier"),
+    [(1, 1), (24, 1), (25, 2), (60, 2), (61, 3), (120, 3), (121, 4), (200, 4), (201, 5)],
+)
+def test_consensus_tier_boundaries_are_shared_by_both_leagues(rank: int, tier: int) -> None:
+    assert consensus_tier(rank) == tier
+
+
+def test_keeper_tier_uses_consensus_rank_and_stays_stable_after_a_pick(seeded: Session) -> None:
     initialize_sources(seeded)
     league = seeded.scalar(select(League).where(League.id == "00999"))
     assert league is not None
@@ -229,9 +238,9 @@ def test_keeper_tier_stays_on_initial_synced_board_after_a_pick(seeded: Session)
     )
     after = {row["player_id"]: row for row in query_players(seeded, "00999")["items"]}
 
-    assert before["0001234"]["tier"] == 4
-    assert after["0001234"]["tier"] == 4
-    assert after["0001234"]["tier_source"] == "initial synced board"
+    assert before["0001234"]["tier"] == 1
+    assert after["0001234"]["tier"] == 1
+    assert after["0001234"]["tier_source"] == "consensus"
 
 
 def test_auction_purchase_payload_includes_player_and_franchise_names(seeded: Session) -> None:
