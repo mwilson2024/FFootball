@@ -1,825 +1,885 @@
-RK,TIERS,PLAYER NAME,TEAM,POS,BYE WEEK,UPSIDE ,BUST ,SOS SEASON,ECR VS. ADP
-1,1,Jahmyr Gibbs,DET,RB1,6,5 out of 5,1 out of 5,5 out of 5 stars,0
-2,1,Bijan Robinson,ATL,RB2,11,5 out of 5,1 out of 5,2 out of 5 stars,0
-3,1,Ja'Marr Chase,CIN,WR1,6,5 out of 5,1 out of 5,4 out of 5 stars,0
-4,1,Puka Nacua,LAR,WR2,11,5 out of 5,2 out of 5,1 out of 5 stars,0
-5,1,Jaxon Smith-Njigba,SEA,WR3,11,5 out of 5,2 out of 5,3 out of 5 stars,1
-6,1,Amon-Ra St. Brown,DET,WR4,6,5 out of 5,1 out of 5,4 out of 5 stars,2
-7,1,Christian McCaffrey,SF,RB3,8,4 out of 5,4 out of 5,2 out of 5 stars,-2
-8,1,Jonathan Taylor,IND,RB4,13,4 out of 5,3 out of 5,4 out of 5 stars,-1
-9,2,CeeDee Lamb,DAL,WR5,14,4 out of 5,2 out of 5,2 out of 5 stars,3
-10,2,Justin Jefferson,MIN,WR6,6,5 out of 5,2 out of 5,5 out of 5 stars,0
-11,2,James Cook III,BUF,RB5,7,4 out of 5,2 out of 5,2 out of 5 stars,-2
-12,2,Ashton Jeanty,LV,RB6,13,5 out of 5,2 out of 5,2 out of 5 stars,-1
-13,2,Drake London,ATL,WR7,11,4 out of 5,2 out of 5,3 out of 5 stars,4
-14,2,Chase Brown,CIN,RB7,6,5 out of 5,2 out of 5,2 out of 5 stars,1
-15,2,A.J. Brown,NE,WR8,11,5 out of 5,3 out of 5,2 out of 5 stars,8
-16,2,Brock Bowers,LV,TE1,13,5 out of 5,2 out of 5,3 out of 5 stars,4
-17,2,Saquon Barkley,PHI,RB8,10,4 out of 5,3 out of 5,4 out of 5 stars,-3
-18,2,De'Von Achane,MIA,RB9,6,4 out of 5,4 out of 5,3 out of 5 stars,-5
-19,2,Nico Collins,HOU,WR9,8,4 out of 5,3 out of 5,3 out of 5 stars,5
-20,2,Omarion Hampton,LAC,RB10,7,5 out of 5,2 out of 5,3 out of 5 stars,-4
-21,3,Derrick Henry,BAL,RB11,13,4 out of 5,2 out of 5,3 out of 5 stars,1
-22,3,George Pickens,DAL,WR10,14,4 out of 5,4 out of 5,2 out of 5 stars,3
-23,3,Trey McBride,ARI,TE2,14,4 out of 5,3 out of 5,2 out of 5 stars,-4
-24,3,Kenneth Walker III,KC,RB12,5,4 out of 5,4 out of 5,3 out of 5 stars,-6
-25,3,Rashee Rice,KC,WR11,5,4 out of 5,4 out of 5,2 out of 5 stars,4
-26,3,Chris Olave,NO,WR12,8,4 out of 5,4 out of 5,3 out of 5 stars,2
-,3,,,,,,,,
-27,3,Josh Allen,BUF,QB1,7,5 out of 5,2 out of 5,3 out of 5 stars,-6
-28,3,DeVonta Smith,PHI,WR13,10,4 out of 5,2 out of 5,4 out of 5 stars,6
-29,3,Zay Flowers,BAL,WR14,13,5 out of 5,2 out of 5,4 out of 5 stars,9
-30,3,Malik Nabers,NYG,WR15,8,4 out of 5,4 out of 5,4 out of 5 stars,2
-31,3,Kyren Williams,LAR,RB13,11,4 out of 5,2 out of 5,5 out of 5 stars,-1
-32,3,Tee Higgins,CIN,WR16,6,5 out of 5,2 out of 5,4 out of 5 stars,5
-33,3,Tetairoa McMillan,CAR,WR17,5,4 out of 5,4 out of 5,2 out of 5 stars,6
-34,3,Jeremiyah Love,ARI,RB14,14,5 out of 5,2 out of 5,2 out of 5 stars,-8
-35,3,Lamar Jackson,BAL,QB2,13,4 out of 5,3 out of 5,3 out of 5 stars,1
-36,4,Emeka Egbuka,TB,WR18,10,4 out of 5,3 out of 5,4 out of 5 stars,4
-37,4,Josh Jacobs,GB,RB15,11,4 out of 5,4 out of 5,4 out of 5 stars,-10
-38,4,Breece Hall,NYJ,RB16,13,4 out of 5,3 out of 5,3 out of 5 stars,-5
-39,4,Ladd McConkey,LAC,WR19,7,4 out of 5,3 out of 5,2 out of 5 stars,5
-40,4,Javonte Williams,DAL,RB17,14,4 out of 5,3 out of 5,4 out of 5 stars,-9
-41,4,Garrett Wilson,NYJ,WR20,13,4 out of 5,4 out of 5,4 out of 5 stars,1
-42,4,Colston Loveland,CHI,TE3,10,5 out of 5,2 out of 5,2 out of 5 stars,-1
-43,4,Jaylen Waddle,DEN,WR21,10,4 out of 5,3 out of 5,2 out of 5 stars,5
-44,4,Drake Maye,NE,QB3,11,5 out of 5,2 out of 5,2 out of 5 stars,10
-45,4,Terry McLaurin,WAS,WR22,7,4 out of 5,2 out of 5,2 out of 5 stars,10
-46,4,Travis Etienne Jr.,NO,RB18,8,4 out of 5,4 out of 5,3 out of 5 stars,-3
-47,4,Davante Adams,LAR,WR23,11,3 out of 5,4 out of 5,1 out of 5 stars,11
-48,4,Luther Burden III,CHI,WR24,10,4 out of 5,4 out of 5,3 out of 5 stars,-1
-49,4,Joe Burrow,CIN,QB4,6,4 out of 5,4 out of 5,3 out of 5 stars,0
-50,4,Cam Skattebo,NYG,RB19,8,4 out of 5,3 out of 5,4 out of 5 stars,-15
-51,4,Jameson Williams,DET,WR25,6,4 out of 5,4 out of 5,4 out of 5 stars,8
-52,4,Jayden Daniels,WAS,QB5,7,4 out of 5,4 out of 5,2 out of 5 stars,9
-53,4,Mike Evans,SF,WR26,8,4 out of 5,3 out of 5,2 out of 5 stars,9
-54,4,Bucky Irving,TB,RB20,10,3 out of 5,4 out of 5,2 out of 5 stars,-9
-55,4,D'Andre Swift,CHI,RB21,10,3 out of 5,3 out of 5,2 out of 5 stars,1
-56,4,Quinshon Judkins,CLE,RB22,11,4 out of 5,4 out of 5,3 out of 5 stars,-10
-57,4,Tyler Warren,IND,TE4,13,5 out of 5,2 out of 5,3 out of 5 stars,-5
-58,4,Christian Watson,GB,WR27,11,5 out of 5,4 out of 5,5 out of 5 stars,7
-59,4,David Montgomery,HOU,RB23,8,4 out of 5,2 out of 5,4 out of 5 stars,-6
-60,5,DJ Moore,BUF,WR28,7,4 out of 5,2 out of 5,4 out of 5 stars,-9
-61,5,TreVeyon Henderson,NE,RB24,11,4 out of 5,3 out of 5,2 out of 5 stars,-11
-62,5,Jalen Hurts,PHI,QB6,10,4 out of 5,3 out of 5,5 out of 5 stars,2
-63,5,Rome Odunze,CHI,WR29,10,4 out of 5,2 out of 5,3 out of 5 stars,0
-64,5,Bhayshul Tuten,JAC,RB25,7,4 out of 5,3 out of 5,4 out of 5 stars,-7
-65,5,Jadarian Price,SEA,RB26,11,4 out of 5,4 out of 5,4 out of 5 stars,-5
-66,5,Tucker Kraft,GB,TE5,11,4 out of 5,2 out of 5,2 out of 5 stars,0
-67,5,Caleb Williams,CHI,QB7,10,5 out of 5,2 out of 5,3 out of 5 stars,6
-68,5,Justin Herbert,LAC,QB8,7,4 out of 5,2 out of 5,2 out of 5 stars,11
-69,5,Carnell Tate,TEN,WR30,9,4 out of 5,2 out of 5,3 out of 5 stars,0
-70,5,Jaylen Warren,PIT,RB27,9,4 out of 5,4 out of 5,2 out of 5 stars,-2
-71,5,Marvin Harrison Jr.,ARI,WR31,14,3 out of 5,4 out of 5,2 out of 5 stars,6
-72,5,Brian Thomas Jr.,JAC,WR32,7,3 out of 5,4 out of 5,4 out of 5 stars,-2
-73,5,Tony Pollard,TEN,RB28,9,3 out of 5,3 out of 5,3 out of 5 stars,7
-74,5,Harold Fannin Jr.,CLE,TE6,11,4 out of 5,3 out of 5,3 out of 5 stars,-7
-75,5,DK Metcalf,PIT,WR33,9,4 out of 5,3 out of 5,3 out of 5 stars,9
-76,5,Parker Washington,JAC,WR34,7,4 out of 5,3 out of 5,4 out of 5 stars,-1
-77,5,Trevor Lawrence,JAC,QB9,7,5 out of 5,2 out of 5,4 out of 5 stars,8
-78,5,Rhamondre Stevenson,NE,RB29,11,4 out of 5,3 out of 5,2 out of 5 stars,-6
-79,5,Dak Prescott,DAL,QB10,14,4 out of 5,2 out of 5,2 out of 5 stars,3
-80,5,Sam LaPorta,DET,TE7,6,4 out of 5,2 out of 5,3 out of 5 stars,-6
-81,5,Alec Pierce,IND,WR35,13,4 out of 5,4 out of 5,4 out of 5 stars,10
-82,5,Chuba Hubbard,CAR,RB30,5,2 out of 5,4 out of 5,1 out of 5 stars,-6
-83,5,Kyle Pitts Sr.,ATL,TE8,11,4 out of 5,4 out of 5,3 out of 5 stars,-12
-84,6,Rico Dowdle,PIT,RB31,9,4 out of 5,4 out of 5,2 out of 5 stars,-6
-85,6,Courtland Sutton,DEN,WR36,10,2 out of 5,4 out of 5,2 out of 5 stars,5
-86,6,Chris Godwin Jr.,TB,WR37,10,4 out of 5,4 out of 5,4 out of 5 stars,6
-87,6,Jordyn Tyson,NO,WR38,8,4 out of 5,4 out of 5,3 out of 5 stars,-4
-88,6,Jaxson Dart,NYG,QB11,8,5 out of 5,4 out of 5,4 out of 5 stars,0
-89,6,J.K. Dobbins,DEN,RB32,10,4 out of 5,4 out of 5,2 out of 5 stars,0
-90,6,RJ Harvey,DEN,RB33,10,2 out of 5,4 out of 5,2 out of 5 stars,-9
-,6,,,,,,,,
-91,6,Michael Pittman Jr.,PIT,WR39,9,3 out of 5,4 out of 5,3 out of 5 stars,11
-92,6,Michael Wilson,ARI,WR40,14,-,-,2 out of 5 stars,-5
-93,6,Brock Purdy,SF,QB12,8,4 out of 5,1 out of 5,1 out of 5 stars,6
-94,6,Quentin Johnston,LAC,WR41,7,4 out of 5,4 out of 5,2 out of 5 stars,12
-95,6,Kyle Monangai,CHI,RB34,10,4 out of 5,3 out of 5,2 out of 5 stars,-9
-96,6,Blake Corum,LAR,RB35,11,4 out of 5,4 out of 5,5 out of 5 stars,-3
-97,6,Josh Downs,IND,WR42,13,3 out of 5,4 out of 5,4 out of 5 stars,12
-98,6,Patrick Mahomes II,KC,QB13,5,2 out of 5,4 out of 5,2 out of 5 stars,-2
-99,6,Bo Nix,DEN,QB14,10,4 out of 5,2 out of 5,3 out of 5 stars,2
-100,6,Wan'Dale Robinson,TEN,WR43,9,3 out of 5,3 out of 5,3 out of 5 stars,18
-101,6,Makai Lemon,PHI,WR44,10,4 out of 5,3 out of 5,4 out of 5 stars,-3
-102,6,Travis Kelce,KC,TE9,5,3 out of 5,2 out of 5,4 out of 5 stars,-5
-103,6,Matthew Stafford,LAR,QB15,11,4 out of 5,3 out of 5,3 out of 5 stars,1
-104,6,Kenny Gainwell,TB,RB36,10,4 out of 5,3 out of 5,2 out of 5 stars,1
-105,6,Jordan Addison,MIN,WR45,6,4 out of 5,3 out of 5,5 out of 5 stars,3
-106,6,Rachaad White,WAS,RB37,7,4 out of 5,2 out of 5,4 out of 5 stars,6
-107,6,Jakobi Meyers,JAC,WR46,7,2 out of 5,3 out of 5,4 out of 5 stars,9
-108,6,George Kittle,SF,TE10,8,4 out of 5,4 out of 5,3 out of 5 stars,-13
-109,6,Jayden Reed,GB,WR47,11,4 out of 5,4 out of 5,5 out of 5 stars,6
-110,6,Jared Goff,DET,QB16,6,4 out of 5,1 out of 5,5 out of 5 stars,4
-111,6,Jonathon Brooks,CAR,RB38,5,4 out of 5,4 out of 5,1 out of 5 stars,-17
-112,6,Jacory Croskey-Merritt,WAS,RB39,7,3 out of 5,4 out of 5,4 out of 5 stars,-2
-113,6,Aaron Jones Sr.,MIN,RB40,6,1 out of 5,4 out of 5,4 out of 5 stars,4
-114,6,Dalton Kincaid,BUF,TE11,7,2 out of 5,4 out of 5,3 out of 5 stars,-14
-115,6,Jordan Mason,MIN,RB41,6,3 out of 5,4 out of 5,4 out of 5 stars,-8
-116,6,Kyler Murray,MIN,QB17,6,4 out of 5,3 out of 5,5 out of 5 stars,11
-117,7,Jake Ferguson,DAL,TE12,14,2 out of 5,4 out of 5,2 out of 5 stars,-6
-118,7,Dallas Goedert,PHI,TE13,10,4 out of 5,4 out of 5,4 out of 5 stars,1
-119,7,Baker Mayfield,TB,QB18,10,3 out of 5,4 out of 5,2 out of 5 stars,12
-120,7,Isaiah Likely,NYG,TE14,8,4 out of 5,4 out of 5,3 out of 5 stars,-17
-121,7,Xavier Worthy,KC,WR48,5,4 out of 5,4 out of 5,2 out of 5 stars,2
-122,7,Mark Andrews,BAL,TE15,13,4 out of 5,4 out of 5,4 out of 5 stars,-9
-123,7,Jordan Love,GB,QB19,11,4 out of 5,2 out of 5,4 out of 5 stars,5
-124,7,Jayden Higgins,HOU,WR49,8,4 out of 5,3 out of 5,3 out of 5 stars,31
-125,7,Tyler Shough,NO,QB20,8,4 out of 5,2 out of 5,3 out of 5 stars,17
-126,7,Tyrone Tracy Jr.,NYG,RB42,8,4 out of 5,4 out of 5,4 out of 5 stars,12
-127,7,Chris Rodriguez Jr.,JAC,RB43,7,3 out of 5,4 out of 5,4 out of 5 stars,29
-128,7,Romeo Doubs,NE,WR50,11,4 out of 5,3 out of 5,2 out of 5 stars,7
-129,7,Khalil Shakir,BUF,WR51,7,1 out of 5,4 out of 5,4 out of 5 stars,24
-130,7,Jalen Coker,CAR,WR52,5,4 out of 5,3 out of 5,2 out of 5 stars,32
-131,7,Woody Marks,HOU,RB44,8,3 out of 5,4 out of 5,4 out of 5 stars,15
-132,7,Tyler Allgeier,ARI,RB45,14,4 out of 5,4 out of 5,2 out of 5 stars,1
-133,7,Malik Willis,MIA,QB21,6,4 out of 5,4 out of 5,3 out of 5 stars,1
-134,7,KC Concepcion,CLE,WR53,11,4 out of 5,4 out of 5,3 out of 5 stars,5
-135,7,Matthew Golden,GB,WR54,11,4 out of 5,4 out of 5,5 out of 5 stars,8
-136,7,Zach Charbonnet,SEA,RB46,11,3 out of 5,4 out of 5,4 out of 5 stars,-12
-137,7,Tyjae Spears,TEN,RB47,9,3 out of 5,4 out of 5,3 out of 5 stars,20
-138,7,Alvin Kamara,NO,RB48,8,2 out of 5,4 out of 5,3 out of 5 stars,6
-139,7,Rashid Shaheed,SEA,WR55,11,4 out of 5,4 out of 5,3 out of 5 stars,6
-140,7,Juwan Johnson,NO,TE16,8,4 out of 5,4 out of 5,2 out of 5 stars,8
-141,7,Sam Darnold,SEA,QB22,11,1 out of 5,4 out of 5,4 out of 5 stars,8
-142,7,Dylan Sampson,CLE,RB49,11,4 out of 5,2 out of 5,3 out of 5 stars,29
-143,7,C.J. Stroud,HOU,QB23,8,3 out of 5,4 out of 5,4 out of 5 stars,16
-144,7,Brenton Strange,JAC,TE17,7,4 out of 5,3 out of 5,3 out of 5 stars,-3
-145,7,Keaton Mitchell,LAC,RB50,7,4 out of 5,3 out of 5,3 out of 5 stars,33
-146,7,Chig Okonkwo,WAS,TE18,7,4 out of 5,4 out of 5,1 out of 5 stars,1
-147,7,Tank Bigsby,PHI,RB51,10,4 out of 5,4 out of 5,4 out of 5 stars,34
-148,7,Brian Robinson Jr.,ATL,RB52,11,1 out of 5,4 out of 5,2 out of 5 stars,-16
-149,7,Hunter Henry,NE,TE19,11,2 out of 5,3 out of 5,4 out of 5 stars,-12
-150,7,Isiah Pacheco,DET,RB53,6,3 out of 5,4 out of 5,5 out of 5 stars,10
-151,7,Oronde Gadsden II,LAC,TE20,7,2 out of 5,4 out of 5,4 out of 5 stars,-21
-152,7,Cam Ward,TEN,QB24,9,4 out of 5,4 out of 5,3 out of 5 stars,12
-153,7,Jauan Jennings,MIN,WR56,6,2 out of 5,4 out of 5,5 out of 5 stars,8
-154,7,Daniel Jones,IND,QB25,13,4 out of 5,4 out of 5,4 out of 5 stars,22
-155,7,Deebo Samuel Sr.,SF,WR57,8,4 out of 5,4 out of 5,2 out of 5 stars,-19
-156,7,Jonah Coleman,DEN,RB54,10,3 out of 5,4 out of 5,2 out of 5 stars,-6
-157,7,Adonai Mitchell,NYJ,WR58,13,4 out of 5,3 out of 5,4 out of 5 stars,71
-158,8,Jerry Jeudy,CLE,WR59,11,2 out of 5,4 out of 5,3 out of 5 stars,44
-159,8,Dalton Schultz,HOU,TE21,8,3 out of 5,2 out of 5,4 out of 5 stars,16
-160,8,Bryce Young,CAR,QB26,5,3 out of 5,4 out of 5,2 out of 5 stars,5
-161,8,Tre Tucker,LV,WR60,13,3 out of 5,2 out of 5,2 out of 5 stars,69
-162,8,Jalen McMillan,TB,WR61,10,4 out of 5,4 out of 5,4 out of 5 stars,18
-163,8,Stefon Diggs,WAS,WR62,7,4 out of 5,3 out of 5,2 out of 5 stars,-38
-164,8,De'Zhaun Stribling,SF,WR63,8,3 out of 5,4 out of 5,2 out of 5 stars,3
-165,8,Denzel Boston,CLE,WR64,11,4 out of 5,4 out of 5,3 out of 5 stars,4
-166,8,Omar Cooper Jr.,NYJ,WR65,13,4 out of 5,3 out of 5,4 out of 5 stars,11
-167,8,Tre' Harris,LAC,WR66,7,4 out of 5,2 out of 5,2 out of 5 stars,64
-168,8,T.J. Hockenson,MIN,TE22,6,3 out of 5,4 out of 5,4 out of 5 stars,6
-169,8,AJ Barner,SEA,TE23,11,4 out of 5,2 out of 5,3 out of 5 stars,3
-170,8,Braelon Allen,NYJ,RB55,13,2 out of 5,4 out of 5,3 out of 5 stars,39
-171,8,Travis Hunter,JAC,WR67,7,3 out of 5,4 out of 5,4 out of 5 stars,-3
-172,8,Jacoby Brissett,ARI,QB27,14,3 out of 5,4 out of 5,2 out of 5 stars,50
-173,8,Sean Tucker,TB,RB56,10,3 out of 5,4 out of 5,2 out of 5 stars,52
-174,8,Ryan Flournoy,DAL,WR68,14,4 out of 5,4 out of 5,2 out of 5 stars,83
-175,8,Kenyon Sadiq,NYJ,TE24,13,3 out of 5,4 out of 5,4 out of 5 stars,-23
-176,8,Ray Davis,BUF,RB57,7,-,-,2 out of 5 stars,60
-177,8,Kayshon Boutte,NE,WR69,11,3 out of 5,4 out of 5,2 out of 5 stars,29
-178,8,Kimani Vidal,LAC,RB58,7,2 out of 5,4 out of 5,3 out of 5 stars,54
-179,8,Jalen Nailor,LV,WR70,13,-,-,2 out of 5 stars,7
-180,8,Houston Texans,HOU,DST1,8,-,-,2 out of 5 stars,-60
-181,8,Emmett Johnson,KC,RB59,5,4 out of 5,4 out of 5,3 out of 5 stars,1
-182,8,Dontayvion Wicks,PHI,WR71,10,4 out of 5,4 out of 5,4 out of 5 stars,86
-183,8,Emanuel Wilson,SEA,RB60,11,3 out of 5,4 out of 5,4 out of 5 stars,77
-184,8,Malik Washington,MIA,WR72,6,3 out of 5,4 out of 5,3 out of 5 stars,65
-185,8,James Conner,ARI,RB61,14,3 out of 5,4 out of 5,2 out of 5 stars,-6
-186,8,Terrance Ferguson,LAR,TE25,11,4 out of 5,4 out of 5,4 out of 5 stars,-2
-187,8,Gunnar Helm,TEN,TE26,9,3 out of 5,3 out of 5,3 out of 5 stars,25
-188,8,Calvin Ridley,TEN,WR73,9,2 out of 5,4 out of 5,3 out of 5 stars,35
-189,8,Pat Freiermuth,PIT,TE27,9,3 out of 5,4 out of 5,2 out of 5 stars,10
-190,8,MarShawn Lloyd,GB,RB62,11,4 out of 5,4 out of 5,4 out of 5 stars,60
-191,8,Denver Broncos,DEN,DST2,10,-,-,4 out of 5 stars,-62
-192,8,Cade Otton,TB,TE28,10,3 out of 5,4 out of 5,2 out of 5 stars,25
-193,8,Seattle Seahawks,SEA,DST3,11,-,-,2 out of 5 stars,-67
-194,8,Los Angeles Rams,LAR,DST4,11,-,-,2 out of 5 stars,-73
-195,8,Darnell Mooney,NYG,WR74,8,4 out of 5,4 out of 5,4 out of 5 stars,69
-196,8,Isaac TeSlaa,DET,WR75,6,4 out of 5,4 out of 5,4 out of 5 stars,-8
-197,8,Geno Smith,NYJ,QB28,13,2 out of 5,4 out of 5,4 out of 5 stars,54
-198,8,Rashod Bateman,BAL,WR76,13,3 out of 5,4 out of 5,4 out of 5 stars,101
-199,8,Philadelphia Eagles,PHI,DST5,10,-,-,0 out of 5 stars,-59
-200,8,Troy Franklin,DEN,WR77,10,1 out of 5,4 out of 5,2 out of 5 stars,72
-201,9,Pat Bryant,DEN,WR78,10,-,-,2 out of 5 stars,77
-202,9,Nicholas Singleton,TEN,RB63,9,3 out of 5,4 out of 5,3 out of 5 stars,-15
-203,9,Jacksonville Jaguars,JAC,DST6,7,-,-,3 out of 5 stars,-10
-204,9,Mike Washington Jr.,LV,RB64,13,3 out of 5,4 out of 5,2 out of 5 stars,-21
-205,9,Jaylin Noel,HOU,WR79,8,4 out of 5,3 out of 5,3 out of 5 stars,70
-206,9,New England Patriots,NE,DST7,11,-,-,3 out of 5 stars,-43
-207,9,Pittsburgh Steelers,PIT,DST8,9,-,-,5 out of 5 stars,-11
-208,9,Jaydon Blue,DAL,RB65,14,4 out of 5,3 out of 5,4 out of 5 stars,29
-209,9,Los Angeles Chargers,LAC,DST9,7,-,-,3 out of 5 stars,-6
-210,9,Minnesota Vikings,MIN,DST10,6,-,-,1 out of 5 stars,-25
-211,9,Kaytron Allen,WAS,RB66,7,3 out of 5,4 out of 5,4 out of 5 stars,22
-212,9,Aaron Rodgers,PIT,QB29,9,2 out of 5,4 out of 5,2 out of 5 stars,-22
-213,9,Tank Dell,HOU,WR80,8,4 out of 5,4 out of 5,3 out of 5 stars,14
-214,9,Baltimore Ravens,BAL,DST11,13,-,-,5 out of 5 stars,-23
-215,9,Brandon Aubrey,DAL,K1,14,5 out of 5,1 out of 5,2 out of 5 stars,-93
-216,9,Jaylen Wright,MIA,RB67,6,-,-,3 out of 5 stars,25
-217,9,Cooper Kupp,SEA,WR81,11,2 out of 5,4 out of 5,3 out of 5 stars,48
-218,9,Ka'imi Fairbairn,HOU,K2,8,5 out of 5,1 out of 5,2 out of 5 stars,-64
-219,9,Kansas City Chiefs,KC,DST12,5,-,-,3 out of 5 stars,7
-220,9,David Njoku,LAC,TE29,7,3 out of 5,4 out of 5,4 out of 5 stars,-54
-221,9,Green Bay Packers,GB,DST13,11,-,-,2 out of 5 stars,-11
-222,9,Cameron Dicker,LAC,K3,7,5 out of 5,1 out of 5,2 out of 5 stars,-71
-223,9,Antonio Williams,WAS,WR82,7,4 out of 5,3 out of 5,2 out of 5 stars,6
-224,9,Ollie Gordon II,MIA,RB68,6,3 out of 5,4 out of 5,3 out of 5 stars,104
-225,9,Colby Parkinson,LAR,TE30,11,-,-,4 out of 5 stars,29
-226,9,Cam Little,JAC,K4,7,-,-,4 out of 5 stars,-53
-227,9,Jason Myers,SEA,K5,11,-,-,4 out of 5 stars,-69
-228,9,Fernando Mendoza,LV,QB30,13,4 out of 5,3 out of 5,1 out of 5 stars,-58
-229,9,Oscar Delp,NO,TE31,8,4 out of 5,4 out of 5,2 out of 5 stars,-
-230,9,Detroit Lions,DET,DST14,6,-,-,5 out of 5 stars,-19
-231,9,Zachariah Branch,ATL,WR83,11,3 out of 5,4 out of 5,3 out of 5 stars,3
-232,9,Evan Engram,DEN,TE32,10,-,-,4 out of 5 stars,57
-233,9,Eddy Pineiro,SF,K6,8,4 out of 5,2 out of 5,5 out of 5 stars,-33
-234,9,Tyler Loop,BAL,K7,13,-,-,3 out of 5 stars,-37
-235,9,Tua Tagovailoa,ATL,QB31,11,2 out of 5,4 out of 5,4 out of 5 stars,12
-236,9,George Holani,SEA,RB69,11,3 out of 5,4 out of 5,4 out of 5 stars,23
-237,9,Buffalo Bills,BUF,DST15,7,-,-,3 out of 5 stars,-23
-238,9,Justice Hill,BAL,RB70,13,-,-,3 out of 5 stars,8
-239,9,Jake Bates,DET,K8,6,-,-,5 out of 5 stars,-45
-240,9,Keon Coleman,BUF,WR84,7,2 out of 5,4 out of 5,4 out of 5 stars,58
-241,9,Germie Bernard,PIT,WR85,9,2 out of 5,4 out of 5,3 out of 5 stars,30
-242,9,Jordan James,SF,RB71,8,4 out of 5,4 out of 5,2 out of 5 stars,25
-243,9,Cairo Santos,CHI,K9,10,-,-,0 out of 5 stars,-19
-244,9,Isaiah Davis,NYJ,RB72,13,2 out of 5,4 out of 5,3 out of 5 stars,97
-245,9,Elic Ayomanor,TEN,WR86,9,1 out of 5,5 out of 5,3 out of 5 stars,73
-246,9,Chimere Dike,TEN,WR87,9,2 out of 5,4 out of 5,3 out of 5 stars,44
-247,9,Andy Borregales,NE,K10,11,-,-,1 out of 5 stars,-52
-248,9,Evan McPherson,CIN,K11,6,-,-,2 out of 5 stars,-13
-249,9,Cleveland Browns,CLE,DST16,11,-,-,5 out of 5 stars,-6
-250,9,Jack Bech,LV,WR88,13,3 out of 5,4 out of 5,2 out of 5 stars,54
-251,9,Harrison Mevis,LAR,K12,11,-,-,2 out of 5 stars,-62
-252,9,Chase McLaughlin,TB,K13,10,-,-,3 out of 5 stars,-32
-253,9,Tory Horton,SEA,WR89,11,4 out of 5,4 out of 5,3 out of 5 stars,23
-254,9,Demond Claiborne,MIN,RB73,6,3 out of 5,4 out of 5,4 out of 5 stars,-15
-255,9,Harrison Butker,KC,K14,5,-,-,5 out of 5 stars,-54
-256,9,DJ Giddens,IND,RB74,13,2 out of 5,4 out of 5,4 out of 5 stars,80
-257,9,Chris Brooks,GB,RB75,11,2 out of 5,4 out of 5,4 out of 5 stars,80
-258,9,Eli Stowers,PHI,TE33,10,4 out of 5,4 out of 5,4 out of 5 stars,-20
-259,9,Chris Boswell,PIT,K15,9,-,-,4 out of 5 stars,-40
-260,9,Samaje Perine,CIN,RB76,6,2 out of 5,4 out of 5,2 out of 5 stars,41
-261,9,Tyquan Thornton,KC,WR90,5,-,-,2 out of 5 stars,-
-262,9,Greg Dulcich,MIA,TE34,6,4 out of 5,3 out of 5,5 out of 5 stars,-46
-263,9,Christian Kirk,SF,WR91,8,2 out of 5,4 out of 5,2 out of 5 stars,14
-264,9,Malachi Fields,NYG,WR92,8,4 out of 5,4 out of 5,4 out of 5 stars,-19
-265,10,LeQuint Allen Jr.,JAC,RB77,7,3 out of 5,4 out of 5,4 out of 5 stars,29
-266,10,Wil Lutz,DEN,K16,10,-,-,1 out of 5 stars,-48
-267,10,Michael Penix Jr.,ATL,QB32,11,1 out of 5,5 out of 5,4 out of 5 stars,-15
-268,10,Darius Slayton,NYG,WR93,8,2 out of 5,4 out of 5,4 out of 5 stars,-
-269,10,Elijah Sarratt,BAL,WR94,13,4 out of 5,4 out of 5,4 out of 5 stars,26
-270,10,Ty Johnson,BUF,RB78,7,-,-,2 out of 5 stars,-9
-271,10,Malik Davis,DAL,RB79,14,-,-,4 out of 5 stars,-
-272,10,Chris Bell,MIA,WR95,6,3 out of 5,4 out of 5,3 out of 5 stars,25
-273,10,Kirk Cousins,LV,QB33,13,2 out of 5,4 out of 5,1 out of 5 stars,-17
-274,10,Kaelon Black,SF,RB80,8,4 out of 5,4 out of 5,2 out of 5 stars,-11
-275,10,Shedeur Sanders,CLE,QB34,11,3 out of 5,4 out of 5,4 out of 5 stars,-22
-276,10,Deshaun Watson,CLE,QB35,11,1 out of 5,5 out of 5,4 out of 5 stars,-10
-277,10,Mason Taylor,NYJ,TE35,13,1 out of 5,4 out of 5,4 out of 5 stars,15
-278,10,Devaughn Vele,NO,WR96,8,-,-,3 out of 5 stars,24
-279,10,Trey Benson,ARI,RB81,14,2 out of 5,5 out of 5,2 out of 5 stars,-17
-280,10,Xavier Legette,CAR,WR97,5,2 out of 5,4 out of 5,2 out of 5 stars,33
-281,10,Marvin Mims Jr.,DEN,WR98,10,2 out of 5,4 out of 5,2 out of 5 stars,1
-282,10,Emari Demercado,KC,RB82,5,1 out of 5,5 out of 5,3 out of 5 stars,58
-283,10,Atlanta Falcons,ATL,DST17,11,-,-,4 out of 5 stars,-39
-284,10,Theo Johnson,NYG,TE36,8,2 out of 5,4 out of 5,3 out of 5 stars,-42
-285,10,Ted Hurst III,TB,WR99,10,4 out of 5,4 out of 5,4 out of 5 stars,-12
-286,10,Will Reichard,MIN,K17,6,-,-,2 out of 5 stars,-65
-287,10,Devin Neal,NO,RB83,8,2 out of 5,4 out of 5,3 out of 5 stars,40
-288,10,Kaleb Johnson,PIT,RB84,9,2 out of 5,5 out of 5,2 out of 5 stars,-19
-289,10,San Francisco 49ers,SF,DST18,8,-,-,3 out of 5 stars,-85
-290,10,Hollywood Brown,PHI,WR100,10,-,-,4 out of 5 stars,-4
-291,10,Devin Singletary,NYG,RB85,8,-,-,4 out of 5 stars,-7
-292,10,Kendre Miller,NO,RB86,8,2 out of 5,4 out of 5,3 out of 5 stars,-11
-293,10,Keenan Allen,LAC,WR101,7,1 out of 5,4 out of 5,2 out of 5 stars,-6
-294,10,Mack Hollins,NE,WR102,11,-,-,2 out of 5 stars,-
-295,10,Brashard Smith,KC,RB87,5,-,-,3 out of 5 stars,-12
-296,10,Jerome Ford,WAS,RB88,7,-,-,4 out of 5 stars,23
-297,10,Brandon Aiyuk,SF,WR103,8,2 out of 5,5 out of 5,2 out of 5 stars,-89
-298,10,Mike Gesicki,CIN,TE37,6,-,-,3 out of 5 stars,5
-299,10,Ja'Kobi Lane,BAL,WR104,13,3 out of 5,4 out of 5,4 out of 5 stars,-84
-300,10,Adam Randall,BAL,RB89,13,4 out of 5,4 out of 5,3 out of 5 stars,39
-301,10,Tahj Brooks,CIN,RB90,6,-,-,2 out of 5 stars,-
-302,10,Kyle Williams,NE,WR105,11,-,-,2 out of 5 stars,-17
-303,10,Trevor Etienne,CAR,RB91,5,-,-,1 out of 5 stars,-
-304,10,Najee Harris,LAC,RB92,7,1 out of 5,5 out of 5,3 out of 5 stars,16
-305,10,Seth McGowan,IND,RB93,13,-,-,4 out of 5 stars,37
-306,10,Isaiah Bond,CLE,WR106,11,-,-,3 out of 5 stars,-
-307,10,Jarquez Hunter,LAR,RB94,11,-,-,5 out of 5 stars,-7
-308,10,Isaac Guerendo,SF,RB95,8,-,-,2 out of 5 stars,-
-309,10,Tyreek Hill,FA,WR107,-,1 out of 5,5 out of 5,-,-117
-310,10,Indianapolis Colts,IND,DST19,13,-,-,5 out of 5 stars,-19
-311,10,Jaleel McLaughlin,DEN,RB96,10,-,-,2 out of 5 stars,-
-312,10,Charlie Smyth,NO,K18,8,-,-,5 out of 5 stars,14
-313,10,Skyler Bell,BUF,WR108,7,-,-,4 out of 5 stars,20
-314,10,New Orleans Saints,NO,DST20,8,-,-,5 out of 5 stars,0
-315,10,Jake Tonges,SF,TE38,8,-,-,3 out of 5 stars,-60
-316,10,Chicago Bears,CHI,DST21,10,-,-,2 out of 5 stars,-111
-317,10,Audric Estime,NO,RB97,8,-,-,3 out of 5 stars,-24
-318,11,Caleb Douglas,MIA,WR109,6,-,-,3 out of 5 stars,-2
-319,11,Will Shipley,PHI,RB98,10,-,-,4 out of 5 stars,-
-320,11,Darnell Washington,PIT,TE39,9,-,-,2 out of 5 stars,-8
-321,11,Andrei Iosivas,CIN,WR110,6,-,-,4 out of 5 stars,-15
-322,11,Kareem Hunt,FA,RB99,-,-,-,-,-26
-323,11,J.J. McCarthy,MIN,QB36,6,-,-,5 out of 5 stars,-65
-324,11,Chris Brazzell II,CAR,WR111,5,-,-,2 out of 5 stars,-
-325,11,Cyrus Allen,KC,WR112,5,-,-,2 out of 5 stars,-37
-326,11,Cedric Tillman,CLE,WR113,11,-,-,3 out of 5 stars,-
-327,11,Joe Mixon,FA,RB100,-,-,-,-,-12
-328,11,Calvin Austin III,NYG,WR114,8,-,-,4 out of 5 stars,-
-329,11,Jalen Tolbert,MIA,WR115,6,-,-,3 out of 5 stars,-59
-330,11,Luke McCaffrey,WAS,WR116,7,-,-,2 out of 5 stars,-
-331,11,Jahan Dotson,ATL,WR117,11,-,-,3 out of 5 stars,-2
-332,11,Konata Mumpfield,LAR,WR118,11,-,-,1 out of 5 stars,-
-333,11,Tez Johnson,TB,WR119,10,-,-,4 out of 5 stars,-
-334,11,Jalen Royals,KC,WR120,5,-,-,2 out of 5 stars,-
-335,11,Max Klare,LAR,TE40,11,-,-,4 out of 5 stars,-26
-336,11,DeMario Douglas,NE,WR121,11,-,-,2 out of 5 stars,-
-337,11,Carson Beck,ARI,QB37,14,-,-,2 out of 5 stars,-58
-338,11,Mac Jones,SF,QB38,8,-,-,1 out of 5 stars,-
-339,11,Elijah Arroyo,SEA,TE41,11,-,-,3 out of 5 stars,-
-340,11,Cole Kmet,CHI,TE42,10,-,-,2 out of 5 stars,-
-341,11,Noah Gray,KC,TE43,5,-,-,4 out of 5 stars,-
-342,11,Bam Knight,ARI,RB101,14,-,-,2 out of 5 stars,-
-343,11,Olamide Zaccheaus,ATL,WR122,11,-,-,3 out of 5 stars,-
-344,11,Michael Mayer,LV,TE44,13,-,-,3 out of 5 stars,-19
-345,11,Carolina Panthers,CAR,DST22,5,-,-,3 out of 5 stars,-38
-346,11,Ja'Tavion Sanders,CAR,TE45,5,-,-,2 out of 5 stars,-
-347,11,Erick All Jr.,CIN,TE46,6,-,-,3 out of 5 stars,-
-348,11,Dawson Knox,BUF,TE47,7,-,-,3 out of 5 stars,-
-349,11,Tyler Higbee,LAR,TE48,11,-,-,4 out of 5 stars,-
-350,11,Bryce Lance,NO,WR123,8,-,-,3 out of 5 stars,-
-351,11,Joshua Palmer,BUF,WR124,7,-,-,4 out of 5 stars,-
-352,11,Treylon Burks,WAS,WR125,7,-,-,2 out of 5 stars,-
-353,11,Ty Simpson,LAR,QB39,11,-,-,3 out of 5 stars,-36
-354,11,Justin Fields,KC,QB40,5,-,-,2 out of 5 stars,-80
-355,11,Kendrick Bourne,ARI,WR126,14,-,-,2 out of 5 stars,-
-356,11,Michael Carter,TEN,RB102,9,-,-,3 out of 5 stars,-
-357,11,Brenen Thompson,LAC,WR127,7,-,-,2 out of 5 stars,-22
-358,11,Dallas Cowboys,DAL,DST23,14,-,-,1 out of 5 stars,-160
-359,11,Eli Heidenreich,PIT,RB103,9,-,-,2 out of 5 stars,-
-360,11,Jaylin Lane,WAS,WR128,7,-,-,2 out of 5 stars,-
-361,11,Eli Raridon,NE,TE49,11,-,-,4 out of 5 stars,-23
-362,11,Raheim Sanders,CLE,RB104,11,-,-,3 out of 5 stars,-
-363,11,Jake Elliott,PHI,K19,10,-,-,5 out of 5 stars,-150
-364,11,Dont'e Thornton Jr.,LV,WR129,13,-,-,2 out of 5 stars,-
-365,11,Justin Joly,DEN,TE50,10,-,-,4 out of 5 stars,-
-366,11,Noah Fant,NO,TE51,8,-,-,2 out of 5 stars,-
-367,11,Jawhar Jordan,HOU,RB105,8,-,-,4 out of 5 stars,-
-368,11,Xavier Hutchinson,HOU,WR130,8,-,-,3 out of 5 stars,-
-369,11,Anthony Richardson Sr.,IND,QB41,13,-,-,4 out of 5 stars,-
-370,11,John Metchie III,CAR,WR131,5,-,-,2 out of 5 stars,-
-371,11,J'Mari Taylor,JAC,RB106,7,-,-,4 out of 5 stars,-
-372,11,Nick Chubb,FA,RB107,-,-,-,-,-
-373,11,Savion Williams,GB,WR132,11,-,-,5 out of 5 stars,-
-374,11,Luke Musgrave,GB,TE52,11,-,-,2 out of 5 stars,-
-375,12,KaVontae Turpin,DAL,WR133,14,-,-,2 out of 5 stars,-
-376,12,Tampa Bay Buccaneers,TB,DST24,10,-,-,4 out of 5 stars,-71
-377,12,Tyler Bass,BUF,K20,7,-,-,2 out of 5 stars,-129
-378,12,Nick Westbrook-Ikhine,IND,WR134,13,-,-,4 out of 5 stars,-
-379,12,Kevin Coleman Jr.,MIA,WR135,6,-,-,3 out of 5 stars,-
-380,12,New York Giants,NYG,DST25,8,-,-,1 out of 5 stars,-173
-381,12,Tutu Atwell,MIA,WR136,6,-,-,3 out of 5 stars,-73
-382,12,Deion Burks,IND,WR137,13,-,-,4 out of 5 stars,-
-383,12,Ben Sinnott,WAS,TE53,7,-,-,1 out of 5 stars,-
-384,12,Joe Flacco,CIN,QB42,6,-,-,3 out of 5 stars,-
-385,12,Mitchell Evans,CAR,TE54,5,-,-,2 out of 5 stars,-
-386,12,Kalif Raymond,CHI,WR138,10,-,-,3 out of 5 stars,-
-387,12,Devontez Walker,BAL,WR139,13,-,-,4 out of 5 stars,-
-388,12,Tommy Tremble,CAR,TE55,5,-,-,2 out of 5 stars,-
-389,12,Dameon Pierce,PHI,RB108,10,-,-,4 out of 5 stars,-
-390,12,Daniel Bellinger,TEN,TE56,9,-,-,3 out of 5 stars,-
-391,12,Jam Miller,NE,RB109,11,-,-,2 out of 5 stars,-
-392,12,Ashton Dulin,IND,WR140,13,-,-,4 out of 5 stars,-
-393,12,Rasheen Ali,BAL,RB110,13,-,-,3 out of 5 stars,-
-394,12,Zane Gonzalez,MIA,K21,6,-,-,2 out of 5 stars,-
-395,12,Roschon Johnson,CHI,RB111,10,-,-,2 out of 5 stars,-
-396,12,Phil Mafah,DAL,RB112,14,-,-,4 out of 5 stars,-
-397,12,Austin Ekeler,FA,RB113,-,-,-,-,-117
-398,12,Jordan Whittington,LAR,WR141,11,-,-,1 out of 5 stars,-
-399,12,Zavion Thomas,CHI,WR142,10,-,-,3 out of 5 stars,-
-400,12,CJ Daniels,LAR,WR143,11,-,-,1 out of 5 stars,-
-401,12,Cincinnati Bengals,CIN,DST26,6,-,-,4 out of 5 stars,-90
-402,12,Joe Milton III,DAL,QB43,14,-,-,2 out of 5 stars,-
-403,12,Austin Hooper,ATL,TE57,11,-,-,3 out of 5 stars,-
-404,12,Greg Dortch,DET,WR144,6,-,-,4 out of 5 stars,-
-405,12,Charlie Kolar,LAC,TE58,7,-,-,4 out of 5 stars,-
-406,12,Trey Smack,GB,K22,11,-,-,4 out of 5 stars,-
-407,12,Miami Dolphins,MIA,DST27,6,-,-,3 out of 5 stars,-73
-408,12,Kyle Juszczyk,SF,RB114,8,-,-,2 out of 5 stars,-
-409,12,Marcus Mariota,WAS,QB44,7,-,-,2 out of 5 stars,-
-410,12,Terrell Jennings,NE,RB115,11,-,-,2 out of 5 stars,-
-411,12,Sione Vaki,DET,RB116,6,-,-,5 out of 5 stars,-
-412,12,Tennessee Titans,TEN,DST28,9,-,-,2 out of 5 stars,-88
-413,12,Adam Trautman,DEN,TE59,10,-,-,4 out of 5 stars,-
-414,12,Damien Martinez,GB,RB117,11,-,-,4 out of 5 stars,-
-415,12,Zavier Scott,MIN,RB118,6,-,-,4 out of 5 stars,-
-416,12,Zach Ertz,FA,TE60,-,-,-,-,-
-417,12,Jonnu Smith,FA,TE61,-,-,-,-,-
-418,12,Dyami Brown,WAS,WR145,7,-,-,2 out of 5 stars,-
-419,12,Darren Waller,FA,TE62,-,-,-,-,-
-420,12,Roman Wilson,PIT,WR146,9,-,-,3 out of 5 stars,-
-421,12,Elijah Higgins,ARI,TE63,14,-,-,2 out of 5 stars,-
-422,12,John Bates,WAS,TE64,7,-,-,1 out of 5 stars,-
-423,12,Jeremy McNichols,WAS,RB119,7,-,-,4 out of 5 stars,-
-424,12,Jameis Winston,NYG,QB45,8,-,-,4 out of 5 stars,-
-425,12,Colbie Young,CIN,WR147,6,-,-,4 out of 5 stars,-
-426,12,Las Vegas Raiders,LV,DST29,13,-,-,4 out of 5 stars,-95
-427,12,Washington Commanders,WAS,DST30,7,-,-,2 out of 5 stars,-
-428,12,Tommy Myers,FA,TE65,-,-,-,-,-
-429,12,Jaret Patterson,LAC,RB120,7,-,-,3 out of 5 stars,-
-430,12,Mo Alie-Cox,IND,TE66,13,-,-,3 out of 5 stars,-
-431,12,Malik Benson,LV,WR148,13,-,-,2 out of 5 stars,-
-432,12,Dylan Laube,LV,RB121,13,-,-,2 out of 5 stars,-
-433,12,Josh Oliver,MIN,TE67,6,-,-,4 out of 5 stars,-
-434,12,Blake Grupe,IND,K23,13,-,-,4 out of 5 stars,-
-435,12,Nick Folk,ATL,K24,11,-,-,0 out of 5 stars,-195
-436,12,Mitch Tinsley,CIN,WR149,6,-,-,4 out of 5 stars,-
-437,12,Jahdae Walker,CHI,WR150,10,-,-,3 out of 5 stars,-
-438,12,Ronnie Rivers,LAR,RB122,11,-,-,5 out of 5 stars,-
-439,12,Demarcus Robinson,SF,WR151,8,-,-,2 out of 5 stars,-
-440,12,Robert Henry Jr.,WAS,RB123,7,-,-,4 out of 5 stars,-
-441,12,Jake Moody,WAS,K25,7,-,-,5 out of 5 stars,-
-442,12,Ben Sauls,NYG,K26,8,-,-,2 out of 5 stars,-
-443,12,Marquez Valdes-Scantling,DAL,WR152,14,-,-,2 out of 5 stars,-
-444,12,Will Kacmarek,MIA,TE68,6,-,-,5 out of 5 stars,-
-445,12,Riley Leonard,IND,QB46,13,-,-,4 out of 5 stars,-
-446,12,Roman Hemby,LV,RB124,13,-,-,2 out of 5 stars,-
-447,12,Marlin Klein,HOU,TE69,8,-,-,4 out of 5 stars,-
-448,12,New York Jets,NYJ,DST31,13,-,-,4 out of 5 stars,-116
-449,12,Tanner Koziol,JAC,TE70,7,-,-,3 out of 5 stars,-
-450,12,Ty Chandler,NO,RB125,8,-,-,3 out of 5 stars,-
-451,12,Nate Boerkircher,JAC,TE71,7,-,-,3 out of 5 stars,-
-452,12,Hunter Luepke,DAL,RB126,14,-,-,4 out of 5 stars,-
-453,12,Tyler Goodson,ATL,RB127,11,-,-,2 out of 5 stars,-
-454,12,Jake Bobo,SEA,WR153,11,-,-,3 out of 5 stars,-
-455,12,Drew Sample,CIN,TE72,6,-,-,3 out of 5 stars,-
-456,13,Jaydn Ott,KC,RB128,5,-,-,3 out of 5 stars,-
-457,13,Tai Felton,MIN,WR154,6,-,-,5 out of 5 stars,-
-458,13,Luke Schoonmaker,DAL,TE73,14,-,-,2 out of 5 stars,-
-459,13,Xavier Smith,LAR,WR155,11,-,-,1 out of 5 stars,-
-460,13,Jacob Saylors,DET,RB129,6,-,-,5 out of 5 stars,-
-461,13,Jackson Hawes,BUF,TE74,7,-,-,3 out of 5 stars,-
-462,13,Antonio Gibson,FA,RB130,-,-,-,-,-
-463,13,Cash Jones,ATL,RB131,11,-,-,2 out of 5 stars,-
-464,13,Myles Montgomery,NE,RB132,11,-,-,2 out of 5 stars,-
-465,13,Elijah Tau-Tolliver,BAL,RB133,13,-,-,3 out of 5 stars,-
-466,13,Frank Gore Jr.,BUF,RB134,7,-,-,2 out of 5 stars,-
-467,13,Khalil Herbert,SF,RB135,8,-,-,2 out of 5 stars,-
-468,13,Scotty Miller,CHI,WR156,10,-,-,3 out of 5 stars,-
-469,13,Tim Patrick,NYJ,WR157,13,-,-,4 out of 5 stars,-
-470,13,Daniel Carlson,LV,K27,13,-,-,1 out of 5 stars,-
-471,13,Brandon McManus,FA,K28,-,-,-,-,-
-472,13,Odell Beckham Jr.,NYG,WR158,8,-,-,4 out of 5 stars,-
-473,13,Joey Slye,TEN,K29,9,-,-,4 out of 5 stars,-
-474,13,Tyler Lockett,LV,WR159,13,-,-,2 out of 5 stars,-
-475,13,Spencer Shrader,IND,K30,13,-,-,4 out of 5 stars,-
-476,13,Cade Klubnik,NYJ,QB47,13,-,-,4 out of 5 stars,-
-477,13,Arizona Cardinals,ARI,DST32,14,-,-,2 out of 5 stars,-147
-478,13,Miles Sanders,FA,RB136,-,-,-,-,-
-479,13,AJ Dillon,CAR,RB137,5,-,-,1 out of 5 stars,-
-480,13,Brock Wright,DET,TE75,6,-,-,3 out of 5 stars,-
-481,13,Durham Smythe,BAL,TE76,13,-,-,4 out of 5 stars,-
-482,13,Donovan Edwards,MIA,RB138,6,-,-,3 out of 5 stars,-
-483,13,Tanner Hudson,CIN,TE77,6,-,-,3 out of 5 stars,-
-484,13,Raheem Mostert,LV,RB139,13,-,-,2 out of 5 stars,-
-485,13,KeAndre Lambert-Smith,LAC,WR160,7,-,-,2 out of 5 stars,-
-486,13,Pierre Strong Jr.,GB,RB140,11,-,-,4 out of 5 stars,-
-487,13,Jacardia Wright,SEA,RB141,11,-,-,4 out of 5 stars,-
-488,13,Reggie Virgil,ARI,WR161,14,-,-,2 out of 5 stars,-
-489,13,Noah Whittington,HOU,RB142,8,-,-,4 out of 5 stars,-
-490,13,Efton Chism III,NE,WR162,11,-,-,2 out of 5 stars,-
-491,13,Chad Ryland,ARI,K31,14,-,-,2 out of 5 stars,-
-492,13,Ryan Fitzgerald,CAR,K32,5,-,-,0 out of 5 stars,-
-493,13,Jakobie Keeney-James,PIT,WR163,9,-,-,3 out of 5 stars,-
-494,13,Dean Connors,LAR,RB143,11,-,-,5 out of 5 stars,-
-495,13,Kevin Austin Jr.,NO,WR164,8,-,-,3 out of 5 stars,-
-496,13,Lil'Jordan Humphrey,DEN,WR165,10,-,-,2 out of 5 stars,-
-497,13,Reggie Gilliam,NE,RB144,11,-,-,2 out of 5 stars,-
-498,13,Dontae McMillan,BAL,RB145,13,-,-,3 out of 5 stars,-
-499,13,Miles Davis,CAR,RB146,5,-,-,1 out of 5 stars,-
-500,13,Gardner Minshew II,ARI,QB48,14,-,-,2 out of 5 stars,-
-501,13,Anthony Gould,IND,WR166,13,-,-,4 out of 5 stars,-
-502,13,Kendric Pryor,CIN,WR167,6,-,-,4 out of 5 stars,-
-503,13,Xavier Restrepo,TEN,WR168,9,-,-,3 out of 5 stars,-
-504,13,Trey Lance,LAC,QB49,7,-,-,2 out of 5 stars,-
-505,13,Theo Wease Jr.,MIA,WR169,6,-,-,3 out of 5 stars,-
-506,13,Jeshaun Jones,MIN,WR170,6,-,-,5 out of 5 stars,-
-507,13,Jordan Watkins,SF,WR171,8,-,-,2 out of 5 stars,-
-508,13,DeAndre Hopkins,BAL,WR172,13,-,-,4 out of 5 stars,-
-509,13,JuJu Smith-Schuster,NYG,WR173,8,-,-,4 out of 5 stars,-
-510,13,Quinn Ewers,MIA,QB50,6,-,-,3 out of 5 stars,-
-511,13,Taysom Hill,FA,TE78,-,-,-,-,-
-512,13,Albert Okwuegbunam Jr.,LV,TE79,13,-,-,3 out of 5 stars,-
-513,13,Jack Endries,CIN,TE80,6,-,-,3 out of 5 stars,-
-514,13,Jeremy Ruckert,NYJ,TE81,13,-,-,4 out of 5 stars,-
-515,13,Seydou Traore,MIA,TE82,6,-,-,5 out of 5 stars,-
-516,13,Tyler Conklin,DET,TE83,6,-,-,3 out of 5 stars,-
-517,13,Elijah Mitchell,PHI,RB147,10,-,-,4 out of 5 stars,-
-518,13,Moliki Matavao,NO,TE84,8,-,-,2 out of 5 stars,-
-519,13,Jordan Waters,LAR,RB148,11,-,-,5 out of 5 stars,-
-520,13,Matt Hibner,BAL,TE85,13,-,-,4 out of 5 stars,-
-521,13,Nate Adkins,DEN,TE86,10,-,-,4 out of 5 stars,-
-522,13,Salvon Ahmed,CHI,RB149,10,-,-,2 out of 5 stars,-
-523,13,Sterling Shepard,FA,WR174,-,-,-,-,-
-524,13,Ameer Abdullah,JAC,RB150,7,-,-,4 out of 5 stars,-
-525,13,Will Mallory,IND,TE87,13,-,-,3 out of 5 stars,-
-526,13,Miles Kitselman,DET,TE88,6,-,-,3 out of 5 stars,-
-527,13,Foster Moreau,HOU,TE89,8,-,-,4 out of 5 stars,-
-528,13,Will Dissly,FA,TE90,-,-,-,-,-
-529,13,Brittain Brown,CHI,RB151,10,-,-,2 out of 5 stars,-
-530,13,Derius Davis,LAC,WR175,7,-,-,2 out of 5 stars,-
-531,13,Jordan Akins,FA,TE91,-,-,-,-,-
-532,13,Ian Thomas,LV,TE92,13,-,-,3 out of 5 stars,-
-533,13,Alexander Mattison,FA,RB152,-,-,-,-,-211
-534,13,Sincere McCormick,SF,RB153,8,-,-,2 out of 5 stars,-
-535,13,Khalil Dinkins,FA,TE93,-,-,-,-,-
-536,13,Kalel Mullings,TEN,RB154,9,-,-,3 out of 5 stars,-
-537,13,Zay Jones,FA,WR176,-,-,-,-,-
-538,13,Elijah Moore,PHI,WR177,10,-,-,4 out of 5 stars,-
-539,13,Chip Trayanum,NYJ,RB155,13,-,-,3 out of 5 stars,-
-540,13,Jimmy Horn Jr.,CAR,WR178,5,-,-,2 out of 5 stars,-
-541,13,Zamir White,LV,RB156,13,-,-,2 out of 5 stars,-
-542,13,Evan Hull,ARI,RB157,14,-,-,2 out of 5 stars,-
-543,13,Dohnte Meyers,CIN,WR179,6,-,-,4 out of 5 stars,-
-544,13,Brandin Cooks,FA,WR180,-,-,-,-,-
-545,13,Kendrick Law,DET,WR181,6,-,-,4 out of 5 stars,-
-546,13,Mecole Hardman Jr.,BUF,WR182,7,-,-,4 out of 5 stars,-
-547,13,Jacob Cowing,SF,WR183,8,-,-,2 out of 5 stars,-
-548,13,Josh Reynolds,FA,WR184,-,-,-,-,-
-549,13,Alec Ingold,LAC,RB158,7,-,-,3 out of 5 stars,-
-550,13,Michael Burton,CLE,RB159,11,-,-,3 out of 5 stars,-
-551,13,Travis Homer,PIT,RB160,9,-,-,2 out of 5 stars,-
-552,13,Ronnie Bell,NO,WR185,8,-,-,3 out of 5 stars,-
-553,13,Russell Gage Jr.,FA,WR186,-,-,-,-,-
-554,13,Davis Mills,HOU,QB51,8,-,-,4 out of 5 stars,-
-555,13,Quez Watkins,PHI,WR187,10,-,-,4 out of 5 stars,-
-556,13,Corey Kiner,ARI,RB161,14,-,-,2 out of 5 stars,-
-557,13,Desmond Reid,FA,RB162,-,-,-,-,-
-558,13,EJ Smith,KC,RB163,5,-,-,3 out of 5 stars,-
-559,13,Spencer Rattler,NO,QB52,8,-,-,3 out of 5 stars,-
-560,13,Kye Robichaux,DET,RB164,6,-,-,5 out of 5 stars,-
-561,13,Jermar Jefferson,FA,RB165,-,-,-,-,-
-562,13,Jalen Milroe,SEA,QB53,11,-,-,4 out of 5 stars,-
-563,13,Myles Price,MIN,WR188,6,-,-,5 out of 5 stars,-
-564,13,British Brooks,HOU,RB166,8,-,-,4 out of 5 stars,-
-565,13,Chase Edmonds,WAS,RB167,7,-,-,4 out of 5 stars,-
-566,13,Kenny McIntosh,FA,RB168,-,-,-,-,-
-567,13,Kyle Allen,BUF,QB54,7,-,-,3 out of 5 stars,-
-568,13,Tyler Huntley,BAL,QB55,13,-,-,3 out of 5 stars,-
-569,13,Adam Prentice,DEN,RB169,10,-,-,2 out of 5 stars,-
-570,13,Jarrett Stidham,DEN,QB56,10,-,-,3 out of 5 stars,-
-571,13,Patrick Ricard,NYG,RB170,8,-,-,4 out of 5 stars,-
-572,13,Diontae Johnson,FA,WR189,-,-,-,-,-
-573,13,Barion Brown,NO,WR190,8,-,-,3 out of 5 stars,-
-574,13,Teddy Bridgewater,FA,QB57,-,-,-,-,-
-575,13,Taylen Green,CLE,QB58,11,-,-,4 out of 5 stars,-
-576,13,Jake Browning,TB,QB59,10,-,-,2 out of 5 stars,-
-577,13,Montorie Foster Jr.,SEA,WR191,11,-,-,3 out of 5 stars,-
-578,13,Curtis Samuel,FA,WR192,-,-,-,-,-
-579,13,Davon Booth,CLE,RB171,11,-,-,3 out of 5 stars,-
-580,13,Tommy DeVito,NE,QB60,11,-,-,2 out of 5 stars,-
-581,14,Drew Allar,PIT,QB61,9,-,-,2 out of 5 stars,-
-582,14,J. Michael Sturdivant,GB,WR193,11,-,-,5 out of 5 stars,-
-583,14,Max Bredeson,MIN,RB172,6,-,-,4 out of 5 stars,-
-584,14,Montrell Johnson Jr.,FA,RB173,-,-,-,-,-
-585,14,Van Jefferson,WAS,WR194,7,-,-,2 out of 5 stars,-
-586,14,Devin Duvernay,ARI,WR195,14,-,-,2 out of 5 stars,-
-587,14,Tahj Washington,MIA,WR196,6,-,-,3 out of 5 stars,-
-588,14,Will Howard,PIT,QB62,9,-,-,2 out of 5 stars,-
-589,14,Coleman Owen,IND,WR197,13,-,-,4 out of 5 stars,-
-590,14,Joshua Cephus,FA,WR198,-,-,-,-,-
-591,14,Deontay Burnett,FA,WR199,-,-,-,-,-
-592,14,Ainias Smith,FA,WR200,-,-,-,-,-
-593,14,Noah Brown,FA,WR201,-,-,-,-,-
-594,14,Michael Woods II,DEN,WR202,10,-,-,2 out of 5 stars,-
-595,14,Bub Means,NO,WR203,8,-,-,3 out of 5 stars,-
-596,14,Gus Edwards,FA,RB174,-,-,-,-,-
-597,14,Isaiah Williams,FA,WR204,-,-,-,-,-
-598,14,Jared Wayne,HOU,WR205,8,-,-,3 out of 5 stars,-
-599,14,Maurice Alexander,CHI,WR206,10,-,-,3 out of 5 stars,-
-600,14,Terrace Marshall Jr.,MIA,WR207,6,-,-,3 out of 5 stars,-
-601,14,Tyler Scott,LAR,WR208,11,-,-,1 out of 5 stars,-
-602,14,Dominic Lovett,DET,WR209,6,-,-,4 out of 5 stars,-
-603,14,K.J. Osborn,TEN,WR210,9,-,-,3 out of 5 stars,-
-604,14,Jermaine Burton,FA,WR211,-,-,-,-,-
-605,14,Chris Blair,ATL,WR212,11,-,-,3 out of 5 stars,-
-606,14,Mason Rudolph,PIT,QB63,9,-,-,2 out of 5 stars,-
-607,14,Brandon Johnson,LV,WR213,13,-,-,2 out of 5 stars,-
-608,14,Will Levis,TEN,QB64,9,-,-,3 out of 5 stars,-
-609,14,Jabari Small,DET,RB175,6,-,-,5 out of 5 stars,-
-610,14,Nathan Carter,ATL,RB176,11,-,-,2 out of 5 stars,-
-611,14,Lew Nichols III,PIT,RB177,9,-,-,2 out of 5 stars,-
-612,14,Raheem Blackshear,DET,RB178,6,-,-,5 out of 5 stars,-
-613,14,Michael Trigg,DAL,TE94,14,-,-,2 out of 5 stars,-303
-614,14,Dylan Drummond,ATL,WR214,11,-,-,3 out of 5 stars,-
-615,14,David Sills V,TB,WR215,10,-,-,4 out of 5 stars,-
-616,14,Cedrick Wilson Jr.,DET,WR216,6,-,-,4 out of 5 stars,-
-617,14,Velus Jones Jr.,SEA,WR217,11,-,-,3 out of 5 stars,-
-618,14,Sam Roush,CHI,TE95,10,-,-,2 out of 5 stars,-
-619,14,Thomas Fidone II,NYG,TE96,8,-,-,3 out of 5 stars,-
-620,14,Bauer Sharp,TB,TE97,10,-,-,2 out of 5 stars,-
-621,14,Joe Royer,CLE,TE98,11,-,-,3 out of 5 stars,-
-622,14,Cade Stover,HOU,TE99,8,-,-,4 out of 5 stars,-
-623,14,Jared Wiley,KC,TE100,5,-,-,4 out of 5 stars,-
-624,14,Josh Whyle,GB,TE101,11,-,-,2 out of 5 stars,-
-625,14,Tip Reiman,ARI,TE102,14,-,-,2 out of 5 stars,-
-626,14,Jack Stoll,CLE,TE103,11,-,-,3 out of 5 stars,-
-627,14,Payne Durham,TB,TE104,10,-,-,2 out of 5 stars,-
-628,14,Eric Saubert,SEA,TE105,11,-,-,3 out of 5 stars,-
-629,14,Trey Sermon,FA,RB179,-,-,-,-,-
-630,14,Julian Hill,NE,TE106,11,-,-,4 out of 5 stars,-
-631,14,Kylen Granson,TEN,TE107,9,-,-,3 out of 5 stars,-
-632,14,Charlie Woerner,ATL,TE108,11,-,-,3 out of 5 stars,-
-633,14,Josh Cuevas,BAL,TE109,13,-,-,4 out of 5 stars,-
-634,14,Cam Akers,FA,RB180,-,-,-,-,-
-635,14,Davis Allen,LAR,TE110,11,-,-,4 out of 5 stars,-
-636,14,Brevyn Spann-Ford,DAL,TE111,14,-,-,2 out of 5 stars,-
-637,14,Luke Farrell,SF,TE112,8,-,-,3 out of 5 stars,-
-638,14,Ben Sims,MIA,TE113,6,-,-,5 out of 5 stars,-
-639,14,Grant Calcaterra,PHI,TE114,10,-,-,4 out of 5 stars,-
-640,14,Devin Culp,TB,TE115,10,-,-,2 out of 5 stars,-
-641,14,Ben Yurosek,MIN,TE116,6,-,-,4 out of 5 stars,-
-642,14,Ja'Quinden Jackson,PHI,RB181,10,-,-,4 out of 5 stars,-
-643,14,Tyler Badie,DEN,RB182,10,-,-,2 out of 5 stars,-
-644,14,Terion Stewart,KC,RB183,5,-,-,3 out of 5 stars,-
-645,14,Jamal Haynes,CIN,RB184,6,-,-,2 out of 5 stars,-
-646,14,Xavier Weaver,ARI,WR218,14,-,-,2 out of 5 stars,-
-647,14,Jelani Woods,NYJ,TE117,13,-,-,4 out of 5 stars,-
-648,14,DeeJay Dallas,JAC,RB185,7,-,-,4 out of 5 stars,-
-649,14,Royce Freeman,FA,RB186,-,-,-,-,-
-650,14,Josh Cameron,JAC,WR219,7,-,-,4 out of 5 stars,-
-651,14,Clyde Edwards-Helaire,FA,RB187,-,-,-,-,-
-652,14,Patrick Taylor Jr.,SF,RB188,8,-,-,2 out of 5 stars,-
-653,14,Skyy Moore,GB,WR220,11,-,-,5 out of 5 stars,-
-654,15,Myles Gaskin,FA,RB189,-,-,-,-,-
-655,15,Mason Tipton,NO,WR221,8,-,-,3 out of 5 stars,-
-656,15,Tyrion Davis-Price,FA,RB190,-,-,-,-,-
-657,15,Justin Watson,HOU,WR222,8,-,-,3 out of 5 stars,-
-658,15,CJ Donaldson,NO,RB191,8,-,-,3 out of 5 stars,-
-659,15,Trayveon Williams,FA,RB192,-,-,-,-,-
-660,15,Emmanuel Henderson Jr.,SEA,WR223,11,-,-,3 out of 5 stars,-
-661,15,Jeff Wilson Jr.,FA,RB193,-,-,-,-,-
-662,15,Kaden Wetjen,PIT,WR224,9,-,-,3 out of 5 stars,-
-663,15,Michael Bandy,DEN,WR225,10,-,-,2 out of 5 stars,-
-664,15,Dante Miller,NYG,RB194,8,-,-,4 out of 5 stars,-
-665,15,Julius Chestnut,TEN,RB195,9,-,-,3 out of 5 stars,-
-666,15,Carson Steele,PHI,RB196,10,-,-,4 out of 5 stars,-
-667,15,Amar Johnson,LAC,RB197,7,-,-,3 out of 5 stars,-
-668,15,Darrynton Evans,FA,RB198,-,-,-,-,-
-669,15,Ben Skowronek,PIT,WR226,9,-,-,3 out of 5 stars,-
-670,15,Josh Williams,TB,RB199,10,-,-,2 out of 5 stars,-
-671,15,Dare Ogunbowale,LV,RB200,13,-,-,2 out of 5 stars,-
-672,15,Eric Gray,NYG,RB201,8,-,-,4 out of 5 stars,-
-673,15,Michael Briscoe,MIN,WR227,6,-,-,5 out of 5 stars,-
-674,15,Michael Wortham,JAC,WR228,7,-,-,4 out of 5 stars,-
-675,15,Ulysses Bentley IV,IND,RB202,13,-,-,4 out of 5 stars,-
-676,15,Kendall Milton,CIN,RB203,6,-,-,2 out of 5 stars,-
-677,15,Arian Smith,NYJ,WR229,13,-,-,4 out of 5 stars,-
-678,15,Kene Nwangwu,NYJ,RB204,13,-,-,3 out of 5 stars,-
-679,15,Hassan Haskins,LAC,RB205,7,-,-,3 out of 5 stars,-
-680,15,D'Onta Foreman,FA,RB206,-,-,-,-,-
-681,15,Israel Abanikanda,DAL,RB207,14,-,-,4 out of 5 stars,-
-682,15,Avery Williams,FA,RB208,-,-,-,-,-
-683,15,Kentrel Bullock,CIN,RB209,6,-,-,2 out of 5 stars,-
-684,15,Lan Larison,NE,RB210,11,-,-,2 out of 5 stars,-
-685,15,Carlos Washington Jr.,MIA,RB211,6,-,-,3 out of 5 stars,-
-686,15,Coleman Bennett,CHI,RB212,10,-,-,2 out of 5 stars,-
-687,15,CJ Williams,JAC,WR230,7,-,-,4 out of 5 stars,-
-688,15,Kameron Johnson,TB,WR231,10,-,-,4 out of 5 stars,-
-689,15,Anthony Hankerson,MIA,RB213,6,-,-,3 out of 5 stars,-
-690,15,Dominic Richardson,FA,RB214,-,-,-,-,-
-691,15,Anthony Smith,DAL,WR232,14,-,-,2 out of 5 stars,-
-692,15,Jonathan Mingo,DAL,WR233,14,-,-,2 out of 5 stars,-
-693,15,Ricky White III,SEA,WR234,11,-,-,3 out of 5 stars,-
-694,15,JaMycal Hasty,FA,RB215,-,-,-,-,-
-695,15,Lewis Bond,HOU,WR235,8,-,-,3 out of 5 stars,-
-696,15,Lincoln Pare,FA,RB216,-,-,-,-,-
-697,15,Gary Brightwell,CIN,RB217,6,-,-,2 out of 5 stars,-
-698,15,Chris Collier,LV,RB218,13,-,-,2 out of 5 stars,-
-699,15,Bo Melton,GB,WR236,11,-,-,5 out of 5 stars,-
-700,15,David Moore,CAR,WR237,5,-,-,2 out of 5 stars,-
-701,15,Isaiah Hodgins,NYG,WR238,8,-,-,4 out of 5 stars,-
-702,15,Jamari Thrash,CLE,WR239,11,-,-,3 out of 5 stars,-
-703,15,Charlie Jones,CIN,WR240,6,-,-,4 out of 5 stars,-
-704,15,Damon Bankston,NYG,RB219,8,-,-,4 out of 5 stars,-
-705,15,Nikko Remigio,KC,WR241,5,-,-,2 out of 5 stars,-
-706,15,Gabe Davis,FA,WR242,-,-,-,-,-
-707,15,Darius Cooper,PHI,WR243,10,-,-,4 out of 5 stars,-
-708,15,Jalen Brooks,ARI,WR244,14,-,-,2 out of 5 stars,-
-709,15,Cody Schrader,DEN,RB220,10,-,-,2 out of 5 stars,-
-710,15,Tyler Johnson,DAL,WR245,14,-,-,2 out of 5 stars,-
-711,15,Quali Conley,FA,RB221,-,-,-,-,-
-712,15,Bryce Oliver,TEN,WR246,9,-,-,3 out of 5 stars,-
-713,15,LaJohntay Wester,BAL,WR247,13,-,-,4 out of 5 stars,-
-714,15,Tylan Wallace,CLE,WR248,11,-,-,3 out of 5 stars,-
-715,15,Nick Nash,WAS,WR249,7,-,-,2 out of 5 stars,-
-716,15,Tom Kennedy,DET,WR250,6,-,-,4 out of 5 stars,-
-717,15,Gage Larvadain,CLE,WR251,11,-,-,3 out of 5 stars,-
-718,15,Omari Kelly,CHI,WR252,10,-,-,3 out of 5 stars,-
-719,15,Eli Pancol,IND,WR253,13,-,-,4 out of 5 stars,-
-720,15,Jordan Moore,CIN,WR254,6,-,-,4 out of 5 stars,-
-721,15,Luke Grimm,LAC,WR255,7,-,-,2 out of 5 stars,-
-722,15,Jamaal Pritchett,NYJ,WR256,13,-,-,4 out of 5 stars,-
-723,15,Isaiah Neyor,GB,WR257,11,-,-,5 out of 5 stars,-
-724,15,Brennan Presley,LAR,WR258,11,-,-,1 out of 5 stars,-
-725,15,JP Richardson,CHI,WR259,10,-,-,3 out of 5 stars,-
-726,15,Vinny Anthony II,ATL,WR260,11,-,-,3 out of 5 stars,-
-727,15,Tru Edwards,LAR,WR261,11,-,-,1 out of 5 stars,-
-728,15,Andrew Armstrong,KC,WR262,5,-,-,2 out of 5 stars,-
-729,15,Shedrick Jackson,LV,WR263,13,-,-,2 out of 5 stars,-
-730,15,Jeremiah Webb,NE,WR264,11,-,-,2 out of 5 stars,-
-731,15,Josh Kelly,HOU,WR265,8,-,-,3 out of 5 stars,-
-732,15,Jackson Meeks,DET,WR266,6,-,-,4 out of 5 stars,-
-733,15,Jeff Caldwell,KC,WR267,5,-,-,2 out of 5 stars,-
-734,15,Le'Meke Brockington,ATL,WR268,11,-,-,3 out of 5 stars,-
-735,15,Jalin Hyatt,NYG,WR269,8,-,-,4 out of 5 stars,-
-736,15,Jason Brownlee,KC,WR270,5,-,-,2 out of 5 stars,-
-737,15,Traeshon Holden,DAL,WR271,14,-,-,2 out of 5 stars,-
-738,15,Donaven McCulley,MIA,WR272,6,-,-,3 out of 5 stars,-
-739,15,Jaden Bradley,WAS,WR273,7,-,-,2 out of 5 stars,-
-740,15,Dane Key,DEN,WR274,10,-,-,2 out of 5 stars,-
-741,15,Raylen Sharpe,IND,WR275,13,-,-,4 out of 5 stars,-
-742,15,Tyrell Shavers,BUF,WR276,7,-,-,4 out of 5 stars,-
-743,15,Stephen Gosnell,BUF,WR277,7,-,-,4 out of 5 stars,-
-744,15,Laquon Treadwell,IND,WR278,13,-,-,4 out of 5 stars,-
-745,15,Hakeem Butler,DEN,WR279,10,-,-,2 out of 5 stars,-
-746,15,Luke Floriea,CLE,WR280,11,-,-,3 out of 5 stars,-
-747,15,Jacob De Jesus,KC,WR281,5,-,-,2 out of 5 stars,-
-748,15,Johnny Wilson,PHI,WR282,10,-,-,4 out of 5 stars,-
-749,15,Nick DeGennaro,NE,WR283,11,-,-,2 out of 5 stars,-
-750,15,Cornelius Johnson,BAL,WR284,13,-,-,4 out of 5 stars,-
-751,15,Austin Trammell,JAC,WR285,7,-,-,4 out of 5 stars,-
-752,15,Britain Covey,PHI,WR286,10,-,-,4 out of 5 stars,-
-753,15,Camden Brown,DAL,WR287,14,-,-,2 out of 5 stars,-
-754,16,Tejhaun Palmer,NE,WR288,11,-,-,2 out of 5 stars,-
-755,16,Eric Rivers Jr.,TB,WR289,10,-,-,4 out of 5 stars,-
-756,16,Mason Kinsey,TEN,WR290,9,-,-,3 out of 5 stars,-
-757,16,Hank Beatty,TEN,WR291,9,-,-,3 out of 5 stars,-
-758,16,Cody White,SEA,WR292,11,-,-,3 out of 5 stars,-
-759,16,Cameron Dorner,NE,WR293,11,-,-,2 out of 5 stars,-
-760,16,Tim Jones,JAC,WR294,7,-,-,4 out of 5 stars,-
-761,16,Brycen Tremayne,CAR,WR295,5,-,-,2 out of 5 stars,-
-762,16,Keelan Marion,ATL,WR296,11,-,-,3 out of 5 stars,-
-763,16,Malachi Corley,CLE,WR297,11,-,-,3 out of 5 stars,-
-764,16,Jimmy Holiday,KC,WR298,5,-,-,2 out of 5 stars,-
-765,16,Kole Wilson,CLE,WR299,11,-,-,3 out of 5 stars,-
-766,16,Lance McCutcheon,TEN,WR300,9,-,-,3 out of 5 stars,-
-767,16,Simi Fehoko,ARI,WR301,14,-,-,2 out of 5 stars,-
-768,16,Dan Chisena,CAR,WR302,5,-,-,2 out of 5 stars,-
-769,16,Beaux Collins,NYG,WR303,8,-,-,4 out of 5 stars,-
-770,16,Xavier Guillory,BAL,WR304,13,-,-,4 out of 5 stars,-
-771,16,Kyle Dixon,NE,WR305,11,-,-,2 out of 5 stars,-
-772,16,Dennis Houston,TB,WR306,10,-,-,4 out of 5 stars,-
-773,16,Phillip Dorsett II,LV,WR307,13,-,-,2 out of 5 stars,-
-774,16,Junior Bergen,SF,WR308,8,-,-,2 out of 5 stars,-
-775,16,Irv Charles,SEA,WR309,11,-,-,3 out of 5 stars,-
-776,16,Mario Williams,LAR,WR310,11,-,-,1 out of 5 stars,-
-777,16,Sahmir Hagans,IND,WR311,13,-,-,4 out of 5 stars,-
-778,16,Malik Turner,SF,WR312,8,-,-,2 out of 5 stars,-
-779,16,Devonte Ross,LAC,WR313,7,-,-,2 out of 5 stars,-
-780,16,Noah Thomas,CIN,WR314,6,-,-,4 out of 5 stars,-
-781,16,Trent Sherfield Sr.,BUF,WR315,7,-,-,4 out of 5 stars,-
-782,16,Harrison Wallace III,ARI,WR316,14,-,-,2 out of 5 stars,-
-783,16,Caullin Lacy,NYJ,WR317,13,-,-,4 out of 5 stars,-
-784,16,Cortez Braham Jr.,BAL,WR318,13,-,-,4 out of 5 stars,-
-785,16,Kobe Prentice,NE,WR319,11,-,-,2 out of 5 stars,-
-786,16,Bryson Green,ARI,WR320,14,-,-,2 out of 5 stars,-
-787,16,Ihmir Smith-Marsette,ARI,WR321,14,-,-,2 out of 5 stars,-
-788,16,Omari Evans,KC,WR322,5,-,-,2 out of 5 stars,-
-789,16,Octavian Smith Jr.,BAL,WR323,13,-,-,4 out of 5 stars,-
-790,16,Danny Gray,PHI,WR324,10,-,-,4 out of 5 stars,-
-791,16,E.J. Williams Jr.,LV,WR325,13,-,-,2 out of 5 stars,-
-792,16,Jordan Hudson,DAL,WR326,14,-,-,2 out of 5 stars,-
-793,16,Jalen Walthall,FA,WR327,-,-,-,-,-
-794,16,Kyron Hudson,CHI,WR328,10,-,-,3 out of 5 stars,-
-795,16,E.J. Horton Jr.,IND,WR329,13,-,-,4 out of 5 stars,-
-796,16,Dean Patterson,TB,WR330,10,-,-,4 out of 5 stars,-
-797,16,Wesley Grimes,SF,WR331,8,-,-,2 out of 5 stars,-
-798,16,Malik McClain,NYJ,WR332,13,-,-,4 out of 5 stars,-
-799,16,DT Sheffield,NYJ,WR333,13,-,-,4 out of 5 stars,-
-800,16,Tyren Montgomery,TEN,WR334,9,-,-,3 out of 5 stars,-
-801,16,Trey Palmer,NO,WR335,8,-,-,3 out of 5 stars,-
-802,16,Dalen Cambre,NYG,WR336,8,-,-,4 out of 5 stars,-
-803,16,Xavier Gipson,NYG,WR337,8,-,-,4 out of 5 stars,-
-804,16,Sederrick Cunningham,FA,WR338,-,-,-,-,-
-805,16,Cameron Ross,DEN,WR339,10,-,-,2 out of 5 stars,-
-806,16,Kolbe Katsis,DEN,WR340,10,-,-,2 out of 5 stars,-
-807,16,Sincere Brown,LAC,WR341,7,-,-,2 out of 5 stars,-
-808,16,Jonathan Brady,FA,WR342,-,-,-,-,-
-809,16,Rashad Rochelle,SEA,WR343,11,-,-,3 out of 5 stars,-
-810,16,AJ Henning,MIA,WR344,6,-,-,3 out of 5 stars,-
-811,16,Jimmy Kibble,NE,WR345,11,-,-,2 out of 5 stars,-
-812,16,Ja'Mori Maclin,BUF,WR346,7,-,-,4 out of 5 stars,-
-813,16,Mante Morrow,FA,WR347,-,-,-,-,-
-814,16,Brenden Rice,FA,WR348,-,-,-,-,-
-815,16,Chris Hilton Jr.,GB,WR349,11,-,-,5 out of 5 stars,-
-816,16,Treyvhon Saunders,HOU,WR350,8,-,-,3 out of 5 stars,-
-817,16,Daniel Sobkowicz,HOU,WR351,8,-,-,3 out of 5 stars,-
-818,16,Colton Dowell,FA,WR352,-,-,-,-,-
-819,16,Max Tomczak,BUF,WR353,7,-,-,4 out of 5 stars,-
-820,16,Courtney Jackson,TEN,WR354,9,-,-,3 out of 5 stars,-
-821,16,Brock Rechsteiner,NO,WR355,8,-,-,3 out of 5 stars,-
-822,16,Xavier Loyd,KC,WR356,5,-,-,2 out of 5 stars,-
+"RK",TIERS,"PLAYER NAME",TEAM,"POS","BYE WEEK","UPSIDE ","BUST ","SOS SEASON","ECR VS. ADP"
+"1",1,"Jahmyr Gibbs",DET,"RB1","6","5 out of 5","1 out of 5","5 out of 5 stars","0"
+"2",1,"Bijan Robinson",ATL,"RB2","11","5 out of 5","1 out of 5","2 out of 5 stars","0"
+"3",1,"Ja'Marr Chase",CIN,"WR1","6","5 out of 5","1 out of 5","4 out of 5 stars","0"
+"4",1,"Puka Nacua",LAR,"WR2","11","5 out of 5","2 out of 5","1 out of 5 stars","0"
+"5",1,"Jaxon Smith-Njigba",SEA,"WR3","11","5 out of 5","2 out of 5","3 out of 5 stars","+1"
+"6",1,"Amon-Ra St. Brown",DET,"WR4","6","5 out of 5","1 out of 5","4 out of 5 stars","+2"
+"7",1,"Christian McCaffrey",SF,"RB3","8","4 out of 5","4 out of 5","2 out of 5 stars","-2"
+"8",1,"Jonathan Taylor",IND,"RB4","13","4 out of 5","3 out of 5","4 out of 5 stars","-1"
+"9",2,"CeeDee Lamb",DAL,"WR5","14","4 out of 5","2 out of 5","2 out of 5 stars","+1"
+"10",2,"James Cook III",BUF,"RB5","7","5 out of 5","2 out of 5","2 out of 5 stars","-1"
+"11",2,"Justin Jefferson",MIN,"WR6","6","4 out of 5","2 out of 5","5 out of 5 stars","+1"
+"12",2,"Drake London",ATL,"WR7","11","4 out of 5","3 out of 5","3 out of 5 stars","+8"
+"13",2,"Chase Brown",CIN,"RB6","6","5 out of 5","2 out of 5","2 out of 5 stars","+2"
+"14",2,"A.J. Brown",NE,"WR8","11","5 out of 5","2 out of 5","2 out of 5 stars","+7"
+"15",2,"Saquon Barkley",PHI,"RB7","10","4 out of 5","3 out of 5","4 out of 5 stars","-2"
+"16",2,"De'Von Achane",MIA,"RB8","6","4 out of 5","4 out of 5","3 out of 5 stars","-2"
+"17",2,"Nico Collins",HOU,"WR9","8","4 out of 5","2 out of 5","3 out of 5 stars","+7"
+"18",2,"Brock Bowers",LV,"TE1","13","5 out of 5","2 out of 5","3 out of 5 stars","+4"
+"19",2,"Omarion Hampton",LAC,"RB9","7","5 out of 5","2 out of 5","3 out of 5 stars","-3"
+"20",2,"Derrick Henry",BAL,"RB10","13","4 out of 5","2 out of 5","3 out of 5 stars","-2"
+"21",2,"Kenneth Walker III",KC,"RB11","5","5 out of 5","3 out of 5","3 out of 5 stars","-4"
+"22",3,"George Pickens",DAL,"WR10","14","4 out of 5","4 out of 5","2 out of 5 stars","+3"
+"23",3,"Chris Olave",NO,"WR11","8","4 out of 5","4 out of 5","3 out of 5 stars","+5"
+"24",3,"Ashton Jeanty",LV,"RB12","13","4 out of 5","4 out of 5","2 out of 5 stars","-13"
+"25",3,"Trey McBride",ARI,"TE2","14","4 out of 5","2 out of 5","2 out of 5 stars","-2"
+"26",3,"Josh Allen",BUF,"QB1","7","5 out of 5","1 out of 5","3 out of 5 stars","-7"
+"",3
+"27",3,"Malik Nabers",NYG,"WR12","8","4 out of 5","4 out of 5","4 out of 5 stars","+2"
+"28",3,"Rashee Rice",KC,"WR13","5","4 out of 5","4 out of 5","2 out of 5 stars","+4"
+"29",3,"DeVonta Smith",PHI,"WR14","10","4 out of 5","2 out of 5","4 out of 5 stars","+4"
+"30",3,"Zay Flowers",BAL,"WR15","13","4 out of 5","2 out of 5","4 out of 5 stars","+5"
+"31",3,"Kyren Williams",LAR,"RB13","11","4 out of 5","2 out of 5","5 out of 5 stars","-5"
+"32",3,"Tee Higgins",CIN,"WR16","6","5 out of 5","2 out of 5","4 out of 5 stars","+6"
+"33",3,"Javonte Williams",DAL,"RB14","14","4 out of 5","4 out of 5","4 out of 5 stars","-2"
+"34",3,"Breece Hall",NYJ,"RB15","13","4 out of 5","4 out of 5","3 out of 5 stars","0"
+"35",3,"Lamar Jackson",BAL,"QB2","13","4 out of 5","3 out of 5","3 out of 5 stars","+2"
+"36",3,"Tetairoa McMillan",CAR,"WR17","5","4 out of 5","3 out of 5","2 out of 5 stars","+3"
+"37",3,"Josh Jacobs",GB,"RB16","11","4 out of 5","3 out of 5","4 out of 5 stars","-7"
+"38",3,"Garrett Wilson",NYJ,"WR18","13","4 out of 5","3 out of 5","4 out of 5 stars","+6"
+"39",4,"Ladd McConkey",LAC,"WR19","7","4 out of 5","4 out of 5","2 out of 5 stars","+4"
+"40",4,"Jaylen Waddle",DEN,"WR20","10","4 out of 5","3 out of 5","2 out of 5 stars","+6"
+"41",4,"Emeka Egbuka",TB,"WR21","10","5 out of 5","3 out of 5","4 out of 5 stars","0"
+"42",4,"Colston Loveland",CHI,"TE3","10","5 out of 5","2 out of 5","2 out of 5 stars","0"
+"43",4,"Jeremiyah Love",ARI,"RB17","14","5 out of 5","3 out of 5","2 out of 5 stars","-16"
+"44",4,"Drake Maye",NE,"QB3","11","5 out of 5","2 out of 5","2 out of 5 stars","+8"
+"45",4,"Travis Etienne Jr.",NO,"RB18","8","4 out of 5","3 out of 5","3 out of 5 stars","-5"
+"46",4,"Terry McLaurin",WAS,"WR22","7","4 out of 5","2 out of 5","2 out of 5 stars","+10"
+"47",4,"Davante Adams",LAR,"WR23","11","3 out of 5","4 out of 5","1 out of 5 stars","+10"
+"48",4,"D'Andre Swift",CHI,"RB19","10","3 out of 5","3 out of 5","2 out of 5 stars","+1"
+"49",4,"Joe Burrow",CIN,"QB4","6","4 out of 5","3 out of 5","3 out of 5 stars","+4"
+"50",4,"Luther Burden III",CHI,"WR24","10","4 out of 5","4 out of 5","3 out of 5 stars","+4"
+"51",4,"Cam Skattebo",NYG,"RB20","8","4 out of 5","4 out of 5","4 out of 5 stars","-15"
+"52",4,"Jameson Williams",DET,"WR25","6","4 out of 5","3 out of 5","4 out of 5 stars","+8"
+"53",4,"Tyler Warren",IND,"TE4","13","5 out of 5","2 out of 5","3 out of 5 stars","-2"
+"54",4,"Bucky Irving",TB,"RB21","10","3 out of 5","4 out of 5","2 out of 5 stars","-7"
+"55",4,"Quinshon Judkins",CLE,"RB22","11","4 out of 5","4 out of 5","3 out of 5 stars","-10"
+"56",4,"David Montgomery",HOU,"RB23","8","4 out of 5","2 out of 5","4 out of 5 stars","-8"
+"57",4,"DJ Moore",BUF,"WR26","7","4 out of 5","2 out of 5","4 out of 5 stars","-7"
+"58",4,"Jayden Daniels",WAS,"QB5","7","4 out of 5","4 out of 5","2 out of 5 stars","+3"
+"59",4,"Christian Watson",GB,"WR27","11","4 out of 5","4 out of 5","5 out of 5 stars","+7"
+"60",4,"Mike Evans",SF,"WR28","8","4 out of 5","3 out of 5","2 out of 5 stars","+4"
+"61",4,"Rome Odunze",CHI,"WR29","10","4 out of 5","3 out of 5","3 out of 5 stars","+2"
+"62",4,"Jalen Hurts",PHI,"QB6","10","4 out of 5","3 out of 5","5 out of 5 stars","0"
+"63",5,"Bhayshul Tuten",JAC,"RB24","7","4 out of 5","3 out of 5","4 out of 5 stars","-5"
+"64",5,"TreVeyon Henderson",NE,"RB25","11","4 out of 5","4 out of 5","2 out of 5 stars","-9"
+"65",5,"Jadarian Price",SEA,"RB26","11","4 out of 5","4 out of 5","4 out of 5 stars","-6"
+"66",5,"Parker Washington",JAC,"WR30","7","4 out of 5","3 out of 5","4 out of 5 stars","+3"
+"67",5,"Caleb Williams",CHI,"QB7","10","5 out of 5","2 out of 5","3 out of 5 stars","+4"
+"68",5,"Tucker Kraft",GB,"TE5","11","5 out of 5","2 out of 5","2 out of 5 stars","-3"
+"69",5,"Justin Herbert",LAC,"QB8","7","4 out of 5","2 out of 5","2 out of 5 stars","+10"
+"70",5,"Marvin Harrison Jr.",ARI,"WR31","14","4 out of 5","4 out of 5","2 out of 5 stars","+6"
+"71",5,"Rhamondre Stevenson",NE,"RB27","11","4 out of 5","3 out of 5","2 out of 5 stars","+1"
+"72",5,"Carnell Tate",TEN,"WR32","9","4 out of 5","3 out of 5","3 out of 5 stars","+1"
+"73",5,"Jaylen Warren",PIT,"RB28","9","4 out of 5","4 out of 5","2 out of 5 stars","-5"
+"74",5,"Dak Prescott",DAL,"QB9","14","4 out of 5","2 out of 5","2 out of 5 stars","+3"
+"75",5,"Brian Thomas Jr.",JAC,"WR33","7","3 out of 5","4 out of 5","4 out of 5 stars","0"
+"76",5,"Trevor Lawrence",JAC,"QB10","7","5 out of 5","2 out of 5","4 out of 5 stars","+9"
+"77",5,"DK Metcalf",PIT,"WR34","9","4 out of 5","3 out of 5","3 out of 5 stars","+5"
+"78",5,"Tony Pollard",TEN,"RB29","9","4 out of 5","2 out of 5","3 out of 5 stars","+2"
+"79",5,"Harold Fannin Jr.",CLE,"TE6","11","4 out of 5","3 out of 5","3 out of 5 stars","-12"
+"80",5,"Sam LaPorta",DET,"TE7","6","4 out of 5","4 out of 5","3 out of 5 stars","-10"
+"81",5,"Chris Godwin Jr.",TB,"WR35","10","4 out of 5","3 out of 5","4 out of 5 stars","+8"
+"82",5,"Rico Dowdle",PIT,"RB30","9","4 out of 5","4 out of 5","2 out of 5 stars","-4"
+"83",5,"Kyle Pitts Sr.",ATL,"TE8","11","4 out of 5","4 out of 5","3 out of 5 stars","-9"
+"84",5,"Jonathon Brooks",CAR,"RB31","5","4 out of 5","3 out of 5","1 out of 5 stars","-1"
+"85",5,"Courtland Sutton",DEN,"WR36","10","2 out of 5","4 out of 5","2 out of 5 stars","+1"
+"86",5,"J.K. Dobbins",DEN,"RB32","10","4 out of 5","4 out of 5","2 out of 5 stars","+2"
+"87",6,"Michael Pittman Jr.",PIT,"WR37","9","3 out of 5","3 out of 5","3 out of 5 stars","+23"
+"88",6,"Michael Wilson",ARI,"WR38","14","-","-","2 out of 5 stars","-1"
+"89",6,"Quentin Johnston",LAC,"WR39","7","4 out of 5","4 out of 5","2 out of 5 stars","+17"
+"90",6,"Brock Purdy",SF,"QB11","8","4 out of 5","2 out of 5","1 out of 5 stars","+17"
+"",6
+"91",6,"Chuba Hubbard",CAR,"RB33","5","2 out of 5","4 out of 5","1 out of 5 stars","-10"
+"92",6,"Blake Corum",LAR,"RB34","11","4 out of 5","4 out of 5","5 out of 5 stars","-1"
+"93",6,"Alec Pierce",IND,"WR40","13","4 out of 5","4 out of 5","4 out of 5 stars","+2"
+"94",6,"Josh Downs",IND,"WR41","13","3 out of 5","4 out of 5","4 out of 5 stars","+11"
+"95",6,"George Kittle",SF,"TE9","8","4 out of 5","4 out of 5","3 out of 5 stars","-5"
+"96",6,"Jaxson Dart",NYG,"QB12","8","4 out of 5","4 out of 5","4 out of 5 stars","-4"
+"97",6,"Jacory Croskey-Merritt",WAS,"RB35","7","4 out of 5","4 out of 5","4 out of 5 stars","0"
+"98",6,"RJ Harvey",DEN,"RB36","10","2 out of 5","4 out of 5","2 out of 5 stars","-14"
+"99",6,"Patrick Mahomes II",KC,"QB13","5","2 out of 5","4 out of 5","2 out of 5 stars","+5"
+"100",6,"Wan'Dale Robinson",TEN,"WR42","9","3 out of 5","3 out of 5","3 out of 5 stars","+23"
+"101",6,"Stefon Diggs",WAS,"WR43","7","4 out of 5","2 out of 5","2 out of 5 stars","+10"
+"102",6,"Bo Nix",DEN,"QB14","10","4 out of 5","2 out of 5","3 out of 5 stars","-1"
+"103",6,"Travis Kelce",KC,"TE10","5","3 out of 5","3 out of 5","4 out of 5 stars","-10"
+"104",6,"Jordan Addison",MIN,"WR44","6","4 out of 5","4 out of 5","5 out of 5 stars","+4"
+"105",6,"Jayden Reed",GB,"WR45","11","4 out of 5","4 out of 5","5 out of 5 stars","+7"
+"106",6,"Jordan Mason",MIN,"RB37","6","4 out of 5","3 out of 5","4 out of 5 stars","-10"
+"107",6,"Matthew Stafford",LAR,"QB15","11","4 out of 5","2 out of 5","3 out of 5 stars","-7"
+"108",6,"Kenny Gainwell",TB,"RB38","10","4 out of 5","3 out of 5","2 out of 5 stars","+1"
+"109",6,"Kyle Monangai",CHI,"RB39","10","4 out of 5","4 out of 5","2 out of 5 stars","-15"
+"110",6,"Jakobi Meyers",JAC,"WR46","7","3 out of 5","3 out of 5","4 out of 5 stars","+18"
+"111",6,"Jared Goff",DET,"QB16","6","3 out of 5","2 out of 5","5 out of 5 stars","+8"
+"112",6,"Rachaad White",WAS,"RB40","7","4 out of 5","3 out of 5","4 out of 5 stars","+2"
+"113",6,"Dalton Kincaid",BUF,"TE11","7","3 out of 5","4 out of 5","3 out of 5 stars","-14"
+"114",6,"Makai Lemon",PHI,"WR47","10","4 out of 5","3 out of 5","4 out of 5 stars","-12"
+"115",6,"Aaron Jones Sr.",MIN,"RB41","6","1 out of 5","4 out of 5","4 out of 5 stars","+5"
+"116",6,"Dallas Goedert",PHI,"TE12","10","4 out of 5","3 out of 5","4 out of 5 stars","+6"
+"117",6,"Isaiah Likely",NYG,"TE13","8","4 out of 5","4 out of 5","3 out of 5 stars","-14"
+"118",6,"Baker Mayfield",TB,"QB17","10","3 out of 5","4 out of 5","2 out of 5 stars","+12"
+"119",6,"Kyler Murray",MIN,"QB18","6","4 out of 5","3 out of 5","5 out of 5 stars","+5"
+"120",6,"KC Concepcion",CLE,"WR48","11","4 out of 5","3 out of 5","3 out of 5 stars","+7"
+"121",6,"Jordan Love",GB,"QB19","11","4 out of 5","3 out of 5","4 out of 5 stars","+16"
+"122",6,"Xavier Worthy",KC,"WR49","5","4 out of 5","4 out of 5","2 out of 5 stars","+10"
+"123",6,"Mark Andrews",BAL,"TE14","13","4 out of 5","4 out of 5","4 out of 5 stars","-5"
+"124",6,"Chris Rodriguez Jr.",JAC,"RB42","7","2 out of 5","4 out of 5","4 out of 5 stars","+22"
+"125",6,"Tyler Shough",NO,"QB20","8","4 out of 5","2 out of 5","3 out of 5 stars","+32"
+"126",6,"Jalen Coker",CAR,"WR50","5","4 out of 5","3 out of 5","2 out of 5 stars","+32"
+"127",6,"Matthew Golden",GB,"WR51","11","3 out of 5","4 out of 5","5 out of 5 stars","+2"
+"128",7,"Woody Marks",HOU,"RB43","8","3 out of 5","4 out of 5","4 out of 5 stars","+15"
+"129",7,"Tyler Allgeier",ARI,"RB44","14","3 out of 5","4 out of 5","2 out of 5 stars","+7"
+"130",7,"Khalil Shakir",BUF,"WR52","7","2 out of 5","4 out of 5","4 out of 5 stars","+25"
+"131",7,"Jake Ferguson",DAL,"TE15","14","2 out of 5","4 out of 5","2 out of 5 stars","-18"
+"132",7,"Jordyn Tyson",NO,"WR53","8","3 out of 5","4 out of 5","3 out of 5 stars","-34"
+"133",7,"Romeo Doubs",NE,"WR54","11","4 out of 5","3 out of 5","2 out of 5 stars","+14"
+"134",7,"Tyjae Spears",TEN,"RB45","9","3 out of 5","4 out of 5","3 out of 5 stars","+25"
+"135",7,"Malik Willis",MIA,"QB21","6","4 out of 5","4 out of 5","3 out of 5 stars","+19"
+"136",7,"Juwan Johnson",NO,"TE16","8","4 out of 5","2 out of 5","2 out of 5 stars","+17"
+"137",7,"Deebo Samuel Sr.",SF,"WR55","8","4 out of 5","3 out of 5","2 out of 5 stars","-6"
+"138",7,"Keaton Mitchell",LAC,"RB46","7","4 out of 5","3 out of 5","3 out of 5 stars","+22"
+"139",7,"Tank Bigsby",PHI,"RB47","10","4 out of 5","3 out of 5","4 out of 5 stars","+22"
+"140",7,"De'Zhaun Stribling",SF,"WR56","8","3 out of 5","4 out of 5","2 out of 5 stars","-24"
+"141",7,"Sam Darnold",SEA,"QB22","11","2 out of 5","4 out of 5","4 out of 5 stars","+4"
+"142",7,"Hunter Henry",NE,"TE17","11","2 out of 5","4 out of 5","4 out of 5 stars","+9"
+"143",7,"Jonah Coleman",DEN,"RB48","10","4 out of 5","4 out of 5","2 out of 5 stars","+6"
+"144",7,"Zach Charbonnet",SEA,"RB49","11","3 out of 5","4 out of 5","4 out of 5 stars","-10"
+"145",7,"C.J. Stroud",HOU,"QB23","8","3 out of 5","4 out of 5","4 out of 5 stars","+25"
+"146",7,"Tyrone Tracy Jr.",NYG,"RB50","8","2 out of 5","4 out of 5","4 out of 5 stars","-2"
+"147",7,"Brenton Strange",JAC,"TE18","7","4 out of 5","3 out of 5","3 out of 5 stars","+9"
+"148",7,"Chig Okonkwo",WAS,"TE19","7","4 out of 5","4 out of 5","1 out of 5 stars","+16"
+"149",7,"Dylan Sampson",CLE,"RB51","11","4 out of 5","2 out of 5","3 out of 5 stars","+56"
+"150",7,"Alvin Kamara",NO,"RB52","8","2 out of 5","4 out of 5","3 out of 5 stars","-10"
+"151",7,"Rashid Shaheed",SEA,"WR57","11","3 out of 5","4 out of 5","3 out of 5 stars","-13"
+"152",7,"Isiah Pacheco",DET,"RB53","6","3 out of 5","4 out of 5","5 out of 5 stars","-2"
+"153",7,"Daniel Jones",IND,"QB24","13","4 out of 5","4 out of 5","4 out of 5 stars","+22"
+"154",7,"Cam Ward",TEN,"QB25","9","4 out of 5","4 out of 5","3 out of 5 stars","+18"
+"155",7,"Brian Robinson Jr.",ATL,"RB54","11","2 out of 5","4 out of 5","2 out of 5 stars","-13"
+"156",7,"Dalton Schultz",HOU,"TE20","8","4 out of 5","2 out of 5","4 out of 5 stars","+26"
+"157",7,"Adonai Mitchell",NYJ,"WR58","13","4 out of 5","4 out of 5","4 out of 5 stars","+76"
+"158",7,"Denzel Boston",CLE,"WR59","11","4 out of 5","4 out of 5","3 out of 5 stars","+10"
+"159",7,"Tre Tucker",LV,"WR60","13","4 out of 5","2 out of 5","2 out of 5 stars","+60"
+"160",7,"Braelon Allen",NYJ,"RB55","13","2 out of 5","4 out of 5","3 out of 5 stars","+46"
+"161",7,"MarShawn Lloyd",GB,"RB56","11","4 out of 5","4 out of 5","4 out of 5 stars","+8"
+"162",7,"Jauan Jennings",MIN,"WR61","6","2 out of 5","4 out of 5","5 out of 5 stars","+14"
+"163",7,"Jalen McMillan",TB,"WR62","10","4 out of 5","3 out of 5","4 out of 5 stars","+20"
+"164",7,"Jerry Jeudy",CLE,"WR63","11","2 out of 5","4 out of 5","3 out of 5 stars","+53"
+"165",8,"Mike Washington Jr.",LV,"RB57","13","3 out of 5","4 out of 5","2 out of 5 stars","-32"
+"166",8,"AJ Barner",SEA,"TE21","11","4 out of 5","2 out of 5","3 out of 5 stars","+22"
+"167",8,"Bryce Young",CAR,"QB26","5","2 out of 5","4 out of 5","2 out of 5 stars","+7"
+"168",8,"Ray Davis",BUF,"RB58","7","4 out of 5","4 out of 5","2 out of 5 stars","+62"
+"169",8,"T.J. Hockenson",MIN,"TE22","6","3 out of 5","4 out of 5","4 out of 5 stars","+2"
+"170",8,"Dontayvion Wicks",PHI,"WR64","10","4 out of 5","4 out of 5","4 out of 5 stars","+52"
+"171",8,"Tre' Harris",LAC,"WR65","7","4 out of 5","2 out of 5","2 out of 5 stars","+52"
+"172",8,"Terrance Ferguson",LAR,"TE23","11","4 out of 5","4 out of 5","4 out of 5 stars","+17"
+"173",8,"Emmett Johnson",KC,"RB59","5","4 out of 5","4 out of 5","3 out of 5 stars","+48"
+"174",8,"Oronde Gadsden II",LAC,"TE24","7","3 out of 5","4 out of 5","4 out of 5 stars","-8"
+"175",8,"Jalen Nailor",LV,"WR66","13","-","-","2 out of 5 stars","-13"
+"176",8,"Kayshon Boutte",HOU,"WR67","8","3 out of 5","4 out of 5","3 out of 5 stars","+49"
+"177",8,"Pat Bryant",DEN,"WR68","10","4 out of 5","4 out of 5","2 out of 5 stars","+63"
+"178",8,"Jacoby Brissett",ARI,"QB27","14","2 out of 5","4 out of 5","2 out of 5 stars","+56"
+"179",8,"Omar Cooper Jr.",NYJ,"WR69","13","4 out of 5","4 out of 5","4 out of 5 stars","+5"
+"180",8,"Ryan Flournoy",DAL,"WR70","14","4 out of 5","2 out of 5","2 out of 5 stars","+74"
+"181",8,"Sean Tucker",TB,"RB60","10","4 out of 5","4 out of 5","2 out of 5 stars","+60"
+"182",8,"Malik Washington",MIA,"WR71","6","3 out of 5","4 out of 5","3 out of 5 stars","+29"
+"183",8,"Kenyon Sadiq",NYJ,"TE25","13","3 out of 5","4 out of 5","4 out of 5 stars","-10"
+"184",8,"Kimani Vidal",LAC,"RB61","7","1 out of 5","4 out of 5","3 out of 5 stars","+61"
+"185",8,"Keenan Allen",IND,"WR72","13","3 out of 5","3 out of 5","4 out of 5 stars","-6"
+"186",8,"Tank Dell",HOU,"WR73","8","4 out of 5","4 out of 5","3 out of 5 stars","+24"
+"187",8,"Calvin Ridley",TEN,"WR74","9","2 out of 5","4 out of 5","3 out of 5 stars","+37"
+"188",8,"Nicholas Singleton",TEN,"RB62","9","3 out of 5","4 out of 5","3 out of 5 stars","+41"
+"189",8,"Gunnar Helm",TEN,"TE26","9","3 out of 5","3 out of 5","3 out of 5 stars","+57"
+"190",8,"Travis Hunter",JAC,"WR75","7","3 out of 5","4 out of 5","4 out of 5 stars","-9"
+"191",8,"Jaylin Noel",HOU,"WR76","8","4 out of 5","4 out of 5","3 out of 5 stars","+106"
+"192",8,"Houston Texans",HOU,"DST1","8","-","-","2 out of 5 stars","-75"
+"193",8,"Geno Smith",NYJ,"QB28","13","2 out of 5","4 out of 5","4 out of 5 stars","+46"
+"194",8,"Cade Otton",TB,"TE27","10","2 out of 5","4 out of 5","2 out of 5 stars","+50"
+"195",8,"Jaydon Blue",DAL,"RB63","14","4 out of 5","4 out of 5","4 out of 5 stars","+31"
+"196",8,"Denver Broncos",DEN,"DST2","10","-","-","4 out of 5 stars","-71"
+"197",8,"Seattle Seahawks",SEA,"DST3","11","-","-","2 out of 5 stars","-71"
+"198",8,"Los Angeles Rams",LAR,"DST4","11","-","-","2 out of 5 stars","-83"
+"199",8,"Pat Freiermuth",PIT,"TE28","9","3 out of 5","4 out of 5","2 out of 5 stars","-6"
+"200",8,"Aaron Rodgers",PIT,"QB29","9","1 out of 5","4 out of 5","2 out of 5 stars","-22"
+"201",8,"Rashod Bateman",BAL,"WR77","13","3 out of 5","4 out of 5","4 out of 5 stars","+156"
+"202",8,"Isaac TeSlaa",DET,"WR78","6","3 out of 5","4 out of 5","4 out of 5 stars","-6"
+"203",8,"Philadelphia Eagles",PHI,"DST5","10","-","-","0 out of 5 stars","-62"
+"204",8,"Jacksonville Jaguars",JAC,"DST6","7","-","-","3 out of 5 stars","-17"
+"205",8,"Kaytron Allen",WAS,"RB64","7","3 out of 5","4 out of 5","4 out of 5 stars","+37"
+"206",8,"Emanuel Wilson",SEA,"RB65","11","3 out of 5","4 out of 5","4 out of 5 stars","+66"
+"207",8,"New England Patriots",NE,"DST7","11","-","-","3 out of 5 stars","-40"
+"208",8,"Pittsburgh Steelers",PIT,"DST8","9","-","-","5 out of 5 stars","-18"
+"209",8,"Brandon Aubrey",DAL,"K1","14","5 out of 5","1 out of 5","2 out of 5 stars","-88"
+"210",8,"Los Angeles Chargers",LAC,"DST9","7","-","-","3 out of 5 stars","-18"
+"211",8,"Minnesota Vikings",MIN,"DST10","6","-","-","1 out of 5 stars","-31"
+"212",8,"Cameron Dicker",LAC,"K2","7","5 out of 5","1 out of 5","2 out of 5 stars","-73"
+"213",8,"Ka'imi Fairbairn",HOU,"K3","8","5 out of 5","1 out of 5","2 out of 5 stars","-78"
+"214",8,"James Conner",ARI,"RB66","14","3 out of 5","4 out of 5","2 out of 5 stars","-20"
+"215",8,"Darnell Mooney",NYG,"WR79","8","3 out of 5","4 out of 5","4 out of 5 stars","+79"
+"216",9,"Cam Little",JAC,"K4","7","-","-","4 out of 5 stars","-53"
+"217",9,"Cooper Kupp",SEA,"WR80","11","3 out of 5","4 out of 5","3 out of 5 stars","-22"
+"218",9,"George Holani",SEA,"RB67","11","3 out of 5","4 out of 5","4 out of 5 stars","+44"
+"219",9,"Kansas City Chiefs",KC,"DST11","5","-","-","3 out of 5 stars","+9"
+"220",9,"Baltimore Ravens",BAL,"DST12","13","-","-","5 out of 5 stars","-29"
+"221",9,"Jason Myers",SEA,"K5","11","4 out of 5","1 out of 5","4 out of 5 stars","-73"
+"222",9,"Troy Franklin",DEN,"WR81","10","1 out of 5","4 out of 5","2 out of 5 stars","+86"
+"223",9,"Tyler Loop",BAL,"K6","13","-","-","3 out of 5 stars","-26"
+"224",9,"Jaylen Wright",MIA,"RB68","6","-","-","3 out of 5 stars","+25"
+"225",9,"Eddy Pineiro",SF,"K7","8","4 out of 5","1 out of 5","5 out of 5 stars","-27"
+"226",9,"Jake Bates",DET,"K8","6","4 out of 5","2 out of 5","5 out of 5 stars","-41"
+"227",9,"Fernando Mendoza",LV,"QB30","13","4 out of 5","3 out of 5","1 out of 5 stars","-62"
+"228",9,"David Njoku",LAC,"TE29","7","4 out of 5","4 out of 5","4 out of 5 stars","-51"
+"229",9,"Green Bay Packers",GB,"DST13","11","-","-","2 out of 5 stars","-27"
+"230",9,"Evan Engram",DEN,"TE30","10","-","-","4 out of 5 stars","+50"
+"231",9,"Germie Bernard",PIT,"WR82","9","2 out of 5","4 out of 5","3 out of 5 stars","+27"
+"232",9,"Harrison Mevis",LAR,"K9","11","4 out of 5","2 out of 5","2 out of 5 stars","-46"
+"233",9,"Ollie Gordon II",MIA,"RB69","6","3 out of 5","4 out of 5","3 out of 5 stars","+128"
+"234",9,"Colby Parkinson",LAR,"TE31","11","-","-","4 out of 5 stars","+41"
+"235",9,"Devaughn Vele",NO,"WR83","8","-","-","3 out of 5 stars","+39"
+"236",9,"Buffalo Bills",BUF,"DST14","7","-","-","3 out of 5 stars","+1"
+"237",9,"Cairo Santos",CHI,"K10","10","3 out of 5","3 out of 5","0 out of 5 stars","+19"
+"238",9,"Detroit Lions",DET,"DST15","6","-","-","5 out of 5 stars","-29"
+"239",9,"Zachariah Branch",ATL,"WR84","11","3 out of 5","4 out of 5","3 out of 5 stars","-4"
+"240",9,"Malachi Fields",NYG,"WR85","8","4 out of 5","4 out of 5","4 out of 5 stars","-8"
+"241",9,"Antonio Williams",WAS,"WR86","7","4 out of 5","2 out of 5","2 out of 5 stars","+28"
+"242",9,"Chase McLaughlin",TB,"K11","10","4 out of 5","2 out of 5","3 out of 5 stars","-22"
+"243",9,"Kaelon Black",SF,"RB70","8","3 out of 5","4 out of 5","2 out of 5 stars","-29"
+"244",9,"Isaiah Davis",NYJ,"RB71","13","2 out of 5","4 out of 5","3 out of 5 stars","+135"
+"245",9,"Demond Claiborne",MIN,"RB72","6","3 out of 5","4 out of 5","4 out of 5 stars","-2"
+"246",9,"Andy Borregales",NE,"K12","11","-","-","1 out of 5 stars","-38"
+"247",9,"Tua Tagovailoa",ATL,"QB31","11","2 out of 5","4 out of 5","4 out of 5 stars","+1"
+"248",9,"Justice Hill",BAL,"RB73","13","-","-","3 out of 5 stars","-17"
+"249",9,"Jack Bech",LV,"WR87","13","3 out of 5","4 out of 5","2 out of 5 stars","+91"
+"250",9,"Evan McPherson",CIN,"K13","6","4 out of 5","2 out of 5","2 out of 5 stars","-43"
+"251",9,"Keon Coleman",BUF,"WR88","7","2 out of 5","4 out of 5","4 out of 5 stars","+13"
+"252",9,"Tory Horton",SEA,"WR89","11","4 out of 5","4 out of 5","3 out of 5 stars","+48"
+"253",9,"Ja'Kobi Lane",BAL,"WR90","13","4 out of 5","4 out of 5","4 out of 5 stars","-101"
+"254",9,"Chris Brooks",GB,"RB74","11","2 out of 5","4 out of 5","4 out of 5 stars","+109"
+"255",9,"Elic Ayomanor",TEN,"WR91","9","1 out of 5","5 out of 5","3 out of 5 stars","-"
+"256",9,"Najee Harris",NYG,"RB75","8","2 out of 5","4 out of 5","4 out of 5 stars","+15"
+"257",9,"Harrison Butker",KC,"K14","5","-","-","5 out of 5 stars","-58"
+"258",9,"Jordan James",SF,"RB76","8","2 out of 5","4 out of 5","2 out of 5 stars","-11"
+"259",9,"Samaje Perine",CIN,"RB77","6","1 out of 5","4 out of 5","2 out of 5 stars","+19"
+"260",9,"Cleveland Browns",CLE,"DST16","11","-","-","5 out of 5 stars","-9"
+"261",9,"Ted Hurst III",TB,"WR92","10","4 out of 5","4 out of 5","4 out of 5 stars","+9"
+"262",9,"Ty Johnson",BUF,"RB78","7","-","-","2 out of 5 stars","+11"
+"263",9,"Michael Penix Jr.",ATL,"QB32","11","2 out of 5","5 out of 5","4 out of 5 stars","-2"
+"264",9,"Chris Boswell",PIT,"K15","9","4 out of 5","1 out of 5","4 out of 5 stars","-51"
+"265",9,"Chimere Dike",TEN,"WR93","9","1 out of 5","5 out of 5","3 out of 5 stars","-"
+"266",9,"LeQuint Allen Jr.",JAC,"RB79","7","2 out of 5","4 out of 5","4 out of 5 stars","+104"
+"267",9,"Chris Bell",MIA,"WR94","6","4 out of 5","4 out of 5","3 out of 5 stars","-8"
+"268",9,"Wil Lutz",DEN,"K16","10","-","-","1 out of 5 stars","-15"
+"269",9,"Tyquan Thornton",KC,"WR95","5","2 out of 5","5 out of 5","2 out of 5 stars","+67"
+"270",9,"Kirk Cousins",LV,"QB33","13","3 out of 5","4 out of 5","1 out of 5 stars","-10"
+"271",9,"Greg Dulcich",MIA,"TE32","6","4 out of 5","4 out of 5","5 out of 5 stars","-67"
+"272",9,"DJ Giddens",IND,"RB80","13","2 out of 5","4 out of 5","4 out of 5 stars","+94"
+"273",9,"Darius Slayton",NYG,"WR96","8","2 out of 5","4 out of 5","4 out of 5 stars","-"
+"274",9,"Christian Kirk",SF,"WR97","8","2 out of 5","4 out of 5","2 out of 5 stars","+41"
+"275",9,"Malik Davis",DAL,"RB81","14","-","-","4 out of 5 stars","+90"
+"276",9,"Xavier Legette",CAR,"WR98","5","2 out of 5","4 out of 5","2 out of 5 stars","+95"
+"277",9,"Shedeur Sanders",CLE,"QB34","11","3 out of 5","4 out of 5","4 out of 5 stars","-12"
+"278",9,"Mason Taylor",NYJ,"TE33","13","1 out of 5","4 out of 5","4 out of 5 stars","+68"
+"279",9,"Deshaun Watson",CLE,"QB35","11","1 out of 5","5 out of 5","4 out of 5 stars","-16"
+"280",9,"Elijah Sarratt",BAL,"WR99","13","3 out of 5","4 out of 5","4 out of 5 stars","+88"
+"281",9,"Will Reichard",MIN,"K17","6","-","-","2 out of 5 stars","-81"
+"282",9,"Theo Johnson",NYG,"TE34","8","1 out of 5","5 out of 5","3 out of 5 stars","+23"
+"283",9,"Caleb Douglas",MIA,"WR100","6","2 out of 5","4 out of 5","3 out of 5 stars","-56"
+"284",9,"Seth McGowan",IND,"RB82","13","4 out of 5","4 out of 5","4 out of 5 stars","+88"
+"285",9,"Marvin Mims Jr.",DEN,"WR101","10","3 out of 5","4 out of 5","2 out of 5 stars","-"
+"286",9,"Devin Neal",NO,"RB83","8","2 out of 5","4 out of 5","3 out of 5 stars","+42"
+"287",9,"Adam Randall",BAL,"RB84","13","3 out of 5","4 out of 5","3 out of 5 stars","+63"
+"288",9,"Kendre Miller",NO,"RB85","8","2 out of 5","4 out of 5","3 out of 5 stars","-"
+"289",9,"Brashard Smith",KC,"RB86","5","-","-","3 out of 5 stars","+59"
+"290",9,"Eli Stowers",PHI,"TE35","10","4 out of 5","4 out of 5","4 out of 5 stars","-24"
+"291",9,"Trey Benson",FA,"RB87","-","2 out of 5","4 out of 5","-","+16"
+"292",9,"San Francisco 49ers",SF,"DST17","8","-","-","3 out of 5 stars","-74"
+"293",9,"Atlanta Falcons",ATL,"DST18","11","-","-","4 out of 5 stars","-38"
+"294",10,"Emari Demercado",KC,"RB88","5","1 out of 5","5 out of 5","3 out of 5 stars","+83"
+"295",10,"Devin Singletary",NYG,"RB89","8","-","-","4 out of 5 stars","-27"
+"296",10,"Hollywood Brown",PHI,"WR102","10","-","-","4 out of 5 stars","+31"
+"297",10,"Trevor Etienne",CAR,"RB90","5","-","-","1 out of 5 stars","-"
+"298",10,"Cyrus Allen",KC,"WR103","5","4 out of 5","4 out of 5","2 out of 5 stars","-83"
+"299",10,"Tahj Brooks",CIN,"RB91","6","-","-","2 out of 5 stars","-"
+"300",10,"New Orleans Saints",NO,"DST19","8","-","-","5 out of 5 stars","+1"
+"301",10,"Mack Hollins",NE,"WR104","11","-","-","2 out of 5 stars","-"
+"302",10,"Kyle Williams",NE,"WR105","11","-","-","2 out of 5 stars","-"
+"303",10,"Mike Gesicki",CIN,"TE36","6","-","-","3 out of 5 stars","0"
+"304",10,"Kaleb Johnson",PIT,"RB92","9","2 out of 5","5 out of 5","2 out of 5 stars","+14"
+"305",10,"Isaac Guerendo",SF,"RB93","8","-","-","2 out of 5 stars","-"
+"306",10,"Isaiah Bond",CLE,"WR106","11","-","-","3 out of 5 stars","-"
+"307",10,"Jerome Ford",WAS,"RB94","7","2 out of 5","4 out of 5","4 out of 5 stars","+22"
+"308",10,"Jarquez Hunter",LAR,"RB95","11","-","-","5 out of 5 stars","-"
+"309",10,"Audric Estime",NO,"RB96","8","-","-","3 out of 5 stars","-"
+"310",10,"Skyler Bell",BUF,"WR107","7","-","-","4 out of 5 stars","+71"
+"311",10,"Jaleel McLaughlin",DEN,"RB97","10","-","-","2 out of 5 stars","-"
+"312",10,"Charlie Smyth",NO,"K18","8","-","-","5 out of 5 stars","-20"
+"313",10,"Indianapolis Colts",IND,"DST20","13","-","-","5 out of 5 stars","+67"
+"314",10,"Brandon Aiyuk",SF,"WR108","8","2 out of 5","5 out of 5","2 out of 5 stars","-19"
+"315",10,"Will Shipley",PHI,"RB98","10","-","-","4 out of 5 stars","-"
+"316",10,"Chicago Bears",CHI,"DST21","10","-","-","2 out of 5 stars","-100"
+"317",10,"Andrei Iosivas",CIN,"WR109","6","-","-","4 out of 5 stars","+56"
+"318",10,"Tyreek Hill",FA,"WR110","-","1 out of 5","5 out of 5","-","-115"
+"319",10,"Jake Tonges",SF,"TE37","8","-","-","3 out of 5 stars","-62"
+"320",10,"Darnell Washington",PIT,"TE38","9","-","-","2 out of 5 stars","+36"
+"321",10,"Darren Waller",CAR,"TE39","5","-","-","2 out of 5 stars","+4"
+"322",10,"Oscar Delp",NO,"TE40","8","4 out of 5","4 out of 5","2 out of 5 stars","-"
+"323",10,"Michael Mayer",LV,"TE41","13","-","-","3 out of 5 stars","+11"
+"324",10,"Jahan Dotson",ATL,"WR111","11","-","-","3 out of 5 stars","+38"
+"325",10,"DeMario Douglas",NE,"WR112","11","-","-","2 out of 5 stars","+44"
+"326",11,"Kareem Hunt",FA,"RB99","-","-","-","-","-41"
+"327",11,"Jalen Tolbert",MIA,"WR113","6","-","-","3 out of 5 stars","-44"
+"328",11,"Carson Beck",ARI,"QB36","14","-","-","2 out of 5 stars","-51"
+"329",11,"Elijah Arroyo",SEA,"TE42","11","-","-","3 out of 5 stars","+35"
+"330",11,"Bryce Lance",NO,"WR114","8","-","-","3 out of 5 stars","+24"
+"331",11,"J.J. McCarthy",MIN,"QB37","6","-","-","5 out of 5 stars","-50"
+"332",11,"Joe Mixon",FA,"RB100","-","-","-","-","-"
+"333",11,"Charlie Kolar",LAC,"TE43","7","-","-","4 out of 5 stars","-57"
+"334",11,"Erick All Jr.",CIN,"TE44","6","-","-","3 out of 5 stars","-"
+"335",11,"Xavier Hutchinson",HOU,"WR115","8","-","-","3 out of 5 stars","+24"
+"336",11,"Konata Mumpfield",LAR,"WR116","11","-","-","1 out of 5 stars","-"
+"337",11,"Dallas Cowboys",DAL,"DST22","14","-","-","1 out of 5 stars","-136"
+"338",11,"Eli Raridon",NE,"TE45","11","-","-","4 out of 5 stars","-"
+"339",11,"Cedric Tillman",CLE,"WR117","11","-","-","3 out of 5 stars","-"
+"340",11,"Cole Kmet",CHI,"TE46","10","-","-","2 out of 5 stars","-"
+"341",11,"Tyler Higbee",LAR,"TE47","11","-","-","4 out of 5 stars","-"
+"342",11,"Tez Johnson",TB,"WR118","10","-","-","4 out of 5 stars","-"
+"343",11,"Dawson Knox",BUF,"TE48","7","-","-","3 out of 5 stars","-21"
+"344",11,"Calvin Austin III",NYG,"WR119","8","-","-","4 out of 5 stars","-"
+"345",11,"Luke McCaffrey",WAS,"WR120","7","-","-","2 out of 5 stars","-"
+"346",11,"Mac Jones",SF,"QB38","8","-","-","1 out of 5 stars","-"
+"347",11,"Brenen Thompson",LAC,"WR121","7","-","-","2 out of 5 stars","+28"
+"348",11,"Noah Gray",KC,"TE49","5","-","-","4 out of 5 stars","-"
+"349",11,"Jalen Royals",KC,"WR122","5","-","-","2 out of 5 stars","-"
+"350",11,"Chris Brazzell II",CAR,"WR123","5","-","-","2 out of 5 stars","-"
+"351",11,"Max Klare",LAR,"TE50","11","-","-","4 out of 5 stars","-"
+"352",11,"Olamide Zaccheaus",ATL,"WR124","11","-","-","3 out of 5 stars","-"
+"353",11,"Bam Knight",ARI,"RB101","14","-","-","2 out of 5 stars","-14"
+"354",11,"Kendrick Bourne",ARI,"WR125","14","-","-","2 out of 5 stars","-"
+"355",11,"Joshua Palmer",BUF,"WR126","7","-","-","4 out of 5 stars","+23"
+"356",11,"Ja'Tavion Sanders",CAR,"TE51","5","-","-","2 out of 5 stars","-"
+"357",11,"Justin Fields",KC,"QB39","5","-","-","2 out of 5 stars","-73"
+"358",11,"Treylon Burks",WAS,"WR127","7","-","-","2 out of 5 stars","-"
+"359",11,"Jake Elliott",PHI,"K19","10","-","-","5 out of 5 stars","-121"
+"360",11,"Ty Simpson",LAR,"QB40","11","-","-","3 out of 5 stars","-69"
+"361",11,"Eli Heidenreich",PIT,"RB102","9","-","-","2 out of 5 stars","-"
+"362",11,"Michael Carter",TEN,"RB103","9","-","-","3 out of 5 stars","-"
+"363",11,"Justin Joly",DEN,"TE52","10","-","-","4 out of 5 stars","-"
+"364",11,"Carolina Panthers",CAR,"DST23","5","-","-","3 out of 5 stars","-"
+"365",11,"Jawhar Jordan",HOU,"RB104","8","-","-","4 out of 5 stars","-"
+"366",11,"Tyler Bass",BUF,"K20","7","-","-","2 out of 5 stars","-114"
+"367",11,"Savion Williams",GB,"WR128","11","-","-","5 out of 5 stars","-"
+"368",11,"Kalif Raymond",CHI,"WR129","10","-","-","3 out of 5 stars","-"
+"369",11,"Malik Benson",LV,"WR130","13","-","-","2 out of 5 stars","-70"
+"370",11,"Dont'e Thornton Jr.",LV,"WR131","13","-","-","2 out of 5 stars","-"
+"371",11,"Kevin Coleman Jr.",MIA,"WR132","6","-","-","3 out of 5 stars","-"
+"372",11,"Anthony Richardson Sr.",IND,"QB41","13","-","-","4 out of 5 stars","-"
+"373",11,"KaVontae Turpin",DAL,"WR133","14","-","-","2 out of 5 stars","-"
+"374",11,"John Metchie III",CAR,"WR134","5","-","-","2 out of 5 stars","-"
+"375",11,"Raheim Sanders",CLE,"RB105","11","-","-","3 out of 5 stars","-"
+"376",11,"Joe Flacco",CIN,"QB42","6","-","-","3 out of 5 stars","-57"
+"377",11,"Noah Fant",NO,"TE53","8","-","-","2 out of 5 stars","-"
+"378",11,"Jaylin Lane",WAS,"WR135","7","-","-","2 out of 5 stars","-"
+"379",11,"Roman Wilson",PIT,"WR136","9","-","-","3 out of 5 stars","-"
+"380",11,"New York Giants",NYG,"DST24","8","-","-","1 out of 5 stars","-144"
+"381",11,"Tampa Bay Buccaneers",TB,"DST25","10","-","-","4 out of 5 stars","-93"
+"382",11,"Roschon Johnson",CHI,"RB106","10","-","-","2 out of 5 stars","-"
+"383",11,"Phil Mafah",DAL,"RB107","14","-","-","4 out of 5 stars","-"
+"384",11,"Tommy Tremble",CAR,"TE54","5","-","-","2 out of 5 stars","-"
+"385",11,"Zavion Thomas",CHI,"WR137","10","-","-","3 out of 5 stars","-"
+"386",11,"Colbie Young",CIN,"WR138","6","-","-","4 out of 5 stars","-"
+"387",11,"CJ Daniels",LAR,"WR139","11","-","-","1 out of 5 stars","-"
+"388",11,"Trey Smack",GB,"K21","11","-","-","4 out of 5 stars","-176"
+"389",11,"Cincinnati Bengals",CIN,"DST26","6","-","-","4 out of 5 stars","-"
+"390",11,"Zane Gonzalez",FA,"K22","-","-","-","-","-"
+"391",11,"Joe Milton III",DAL,"QB43","14","-","-","2 out of 5 stars","-"
+"392",11,"Luke Musgrave",GB,"TE55","11","-","-","2 out of 5 stars","-"
+"393",11,"Tennessee Titans",TEN,"DST27","9","-","-","2 out of 5 stars","-52"
+"394",11,"J'Mari Taylor",JAC,"RB108","7","-","-","4 out of 5 stars","-"
+"395",11,"Jordan Whittington",LAR,"WR140","11","-","-","1 out of 5 stars","-"
+"396",11,"Jam Miller",NE,"RB109","11","-","-","2 out of 5 stars","-"
+"397",11,"Ben Sinnott",WAS,"TE56","7","-","-","1 out of 5 stars","-"
+"398",11,"Austin Hooper",ATL,"TE57","11","-","-","3 out of 5 stars","-"
+"399",11,"Nick Westbrook-Ikhine",IND,"WR141","13","-","-","4 out of 5 stars","-"
+"400",11,"Mitchell Evans",CAR,"TE58","5","-","-","2 out of 5 stars","-"
+"401",11,"Devontez Walker",BAL,"WR142","13","-","-","4 out of 5 stars","-"
+"402",11,"Rasheen Ali",BAL,"RB110","13","-","-","3 out of 5 stars","-"
+"403",12,"Miami Dolphins",MIA,"DST28","6","-","-","3 out of 5 stars","-"
+"404",12,"Demarcus Robinson",SF,"WR143","8","-","-","2 out of 5 stars","-"
+"405",12,"Daniel Bellinger",TEN,"TE59","9","-","-","3 out of 5 stars","-"
+"406",12,"Cade Klubnik",NYJ,"QB44","13","-","-","4 out of 5 stars","-"
+"407",12,"Barion Brown",NO,"WR144","8","-","-","3 out of 5 stars","-"
+"408",12,"John Bates",WAS,"TE60","7","-","-","1 out of 5 stars","-"
+"409",12,"Jameis Winston",NYG,"QB45","8","-","-","4 out of 5 stars","-"
+"410",12,"Kyle Juszczyk",SF,"RB111","8","-","-","2 out of 5 stars","-"
+"411",12,"Marcus Mariota",WAS,"QB46","7","-","-","2 out of 5 stars","-"
+"412",12,"Nick Folk",ATL,"K23","11","-","-","0 out of 5 stars","-162"
+"413",12,"Ashton Dulin",IND,"WR145","13","-","-","4 out of 5 stars","-"
+"414",12,"Austin Ekeler",FA,"RB112","-","-","-","-","-147"
+"415",12,"Sione Vaki",DET,"RB113","6","-","-","5 out of 5 stars","-"
+"416",12,"Damien Martinez",GB,"RB114","11","-","-","4 out of 5 stars","-"
+"417",12,"Tutu Atwell",MIA,"WR146","6","-","-","3 out of 5 stars","-57"
+"418",12,"Deion Burks",IND,"WR147","13","-","-","4 out of 5 stars","-"
+"419",12,"Greg Dortch",DET,"WR148","6","-","-","4 out of 5 stars","-"
+"420",12,"Elijah Higgins",ARI,"TE61","14","-","-","2 out of 5 stars","-"
+"421",12,"Dameon Pierce",PHI,"RB115","10","-","-","4 out of 5 stars","-"
+"422",12,"Blake Grupe",IND,"K24","13","-","-","4 out of 5 stars","-109"
+"423",12,"Terrell Jennings",FA,"RB116","-","-","-","-","-"
+"424",12,"Dyami Brown",WAS,"WR149","7","-","-","2 out of 5 stars","-"
+"425",12,"Tim Patrick",NYJ,"WR150","13","-","-","4 out of 5 stars","-"
+"426",12,"Tommy Myers",FA,"TE62","-","-","-","-","-"
+"427",12,"Joey Slye",TEN,"K25","9","-","-","4 out of 5 stars","-95"
+"428",12,"Tyler Goodson",ATL,"RB117","11","-","-","2 out of 5 stars","-"
+"429",12,"Robert Henry Jr.",WAS,"RB118","7","-","-","4 out of 5 stars","-55"
+"430",12,"Will Kacmarek",MIA,"TE63","6","-","-","5 out of 5 stars","-"
+"431",12,"Ben Sauls",NYG,"K26","8","-","-","2 out of 5 stars","-"
+"432",12,"Josh Oliver",MIN,"TE64","6","-","-","4 out of 5 stars","-128"
+"433",12,"Marlin Klein",HOU,"TE65","8","-","-","4 out of 5 stars","-"
+"434",12,"Brandon McManus",FA,"K27","-","-","-","-","-"
+"435",12,"Daniel Carlson",NO,"K28","8","-","-","5 out of 5 stars","-"
+"436",12,"Washington Commanders",WAS,"DST29","7","-","-","2 out of 5 stars","-"
+"437",12,"Zavier Scott",MIN,"RB119","6","-","-","4 out of 5 stars","-"
+"438",12,"Tai Felton",MIN,"WR151","6","-","-","5 out of 5 stars","-"
+"439",12,"Jake Moody",FA,"K29","-","-","-","-","-"
+"440",12,"New York Jets",NYJ,"DST30","13","-","-","4 out of 5 stars","-73"
+"441",12,"Las Vegas Raiders",LV,"DST31","13","-","-","4 out of 5 stars","-115"
+"442",12,"Odell Beckham Jr.",NYG,"WR152","8","-","-","4 out of 5 stars","-"
+"443",12,"Khalil Herbert",SF,"RB120","8","-","-","2 out of 5 stars","-"
+"444",12,"Zach Ertz",FA,"TE66","-","-","-","-","-"
+"445",12,"Matt Hibner",BAL,"TE67","13","-","-","4 out of 5 stars","-"
+"446",12,"Riley Leonard",IND,"QB47","13","-","-","4 out of 5 stars","-"
+"447",12,"Jonnu Smith",FA,"TE68","-","-","-","-","-"
+"448",12,"Quinn Ewers",MIA,"QB48","6","-","-","3 out of 5 stars","-"
+"449",12,"Jeremy McNichols",WAS,"RB121","7","-","-","4 out of 5 stars","-"
+"450",12,"Ronnie Rivers",LAR,"RB122","11","-","-","5 out of 5 stars","-"
+"451",12,"Foster Moreau",HOU,"TE69","8","-","-","4 out of 5 stars","-128"
+"452",12,"Tanner Koziol",JAC,"TE70","7","-","-","3 out of 5 stars","-"
+"453",12,"Dylan Laube",LV,"RB123","13","-","-","2 out of 5 stars","-"
+"454",12,"Mitch Tinsley",CIN,"WR153","6","-","-","4 out of 5 stars","-164"
+"455",12,"Hunter Luepke",DAL,"RB124","14","-","-","4 out of 5 stars","-"
+"456",12,"Jackson Hawes",BUF,"TE71","7","-","-","3 out of 5 stars","-"
+"457",12,"Luke Schoonmaker",DAL,"TE72","14","-","-","2 out of 5 stars","-"
+"458",12,"Chad Ryland",ARI,"K30","14","-","-","2 out of 5 stars","-"
+"459",12,"Durham Smythe",BAL,"TE73","13","-","-","4 out of 5 stars","-"
+"460",12,"Van Jefferson",WAS,"WR154","7","-","-","2 out of 5 stars","-"
+"461",12,"Adam Trautman",DEN,"TE74","10","-","-","4 out of 5 stars","-119"
+"462",12,"Ryan Fitzgerald",CAR,"K31","5","-","-","0 out of 5 stars","-"
+"463",12,"Reggie Gilliam",NE,"RB125","11","-","-","2 out of 5 stars","-108"
+"464",12,"Tanner Hudson",CIN,"TE75","6","-","-","3 out of 5 stars","-"
+"465",12,"Spencer Shrader",IND,"K32","13","-","-","4 out of 5 stars","-"
+"466",12,"Jahdae Walker",CHI,"WR155","10","-","-","3 out of 5 stars","-"
+"467",12,"Jacob Cowing",SF,"WR156","8","-","-","2 out of 5 stars","-"
+"468",12,"KeAndre Lambert-Smith",LAC,"WR157","7","-","-","2 out of 5 stars","-"
+"469",12,"Jimmy Horn Jr.",CAR,"WR158","5","-","-","2 out of 5 stars","-"
+"470",12,"Isaiah Williams",FA,"WR159","-","-","-","-","-"
+"471",12,"Arizona Cardinals",ARI,"DST32","14","-","-","2 out of 5 stars","-"
+"472",12,"Lil'Jordan Humphrey",DEN,"WR160","10","-","-","2 out of 5 stars","-"
+"473",12,"Marquez Valdes-Scantling",DAL,"WR161","14","-","-","2 out of 5 stars","-"
+"474",12,"Justin Watson",HOU,"WR162","8","-","-","3 out of 5 stars","-"
+"475",12,"Xavier Restrepo",TEN,"WR163","9","-","-","3 out of 5 stars","-"
+"476",12,"Tyrod Taylor",GB,"QB49","11","-","-","4 out of 5 stars","-"
+"477",12,"Gardner Minshew II",ARI,"QB50","14","-","-","2 out of 5 stars","-"
+"478",12,"Roman Hemby",LV,"RB126","13","-","-","2 out of 5 stars","-"
+"479",12,"Sam Roush",CHI,"TE76","10","-","-","2 out of 5 stars","-"
+"480",12,"Ty Chandler",NO,"RB127","8","-","-","3 out of 5 stars","-"
+"481",12,"Jacob Saylors",DET,"RB128","6","-","-","5 out of 5 stars","-"
+"482",12,"Tyler Conklin",DET,"TE77","6","-","-","3 out of 5 stars","-"
+"483",12,"Mo Alie-Cox",IND,"TE78","13","-","-","3 out of 5 stars","-"
+"484",12,"Antonio Gibson",FA,"RB129","-","-","-","-","-108"
+"485",12,"Jelani Woods",NYJ,"TE79","13","-","-","4 out of 5 stars","-"
+"486",12,"Alec Ingold",LAC,"RB130","7","-","-","3 out of 5 stars","-"
+"487",12,"Cade Stover",HOU,"TE80","8","-","-","4 out of 5 stars","-"
+"488",12,"Jeremy Ruckert",NYJ,"TE81","13","-","-","4 out of 5 stars","-"
+"489",12,"Nate Boerkircher",JAC,"TE82","7","-","-","3 out of 5 stars","-"
+"490",12,"Travis Homer",PIT,"RB131","9","-","-","2 out of 5 stars","-"
+"491",12,"Josh Cuevas",BAL,"TE83","13","-","-","4 out of 5 stars","-"
+"492",12,"Nate Adkins",DEN,"TE84","10","-","-","4 out of 5 stars","-"
+"493",12,"Max Bredeson",MIN,"RB132","6","-","-","4 out of 5 stars","-"
+"494",12,"Drew Sample",CIN,"TE85","6","-","-","3 out of 5 stars","-"
+"495",12,"Patrick Ricard",NYG,"RB133","8","-","-","4 out of 5 stars","-"
+"496",12,"Adam Prentice",DEN,"RB134","10","-","-","2 out of 5 stars","-"
+"497",12,"Frank Gore Jr.",BUF,"RB135","7","-","-","2 out of 5 stars","-"
+"498",12,"Xavier Smith",LAR,"WR164","11","-","-","1 out of 5 stars","-"
+"499",12,"Jaret Patterson",LAC,"RB136","7","-","-","3 out of 5 stars","-"
+"500",12,"Kalel Mullings",TEN,"RB137","9","-","-","3 out of 5 stars","-"
+"501",12,"Michael Burton",CLE,"RB138","11","-","-","3 out of 5 stars","-189"
+"502",12,"Cedrick Wilson Jr.",DET,"WR165","6","-","-","4 out of 5 stars","-"
+"503",12,"British Brooks",HOU,"RB139","8","-","-","4 out of 5 stars","-"
+"504",12,"Brock Wright",DET,"TE86","6","-","-","3 out of 5 stars","-"
+"505",12,"Reggie Virgil",ARI,"WR166","14","-","-","2 out of 5 stars","-"
+"506",13,"Jason Sanders",NYJ,"K33","13","-","-","2 out of 5 stars","-"
+"507",13,"Jake Browning",TB,"QB51","10","-","-","2 out of 5 stars","-"
+"508",13,"Drew Stevens",WAS,"K34","7","-","-","5 out of 5 stars","-"
+"509",13,"Noah Brown",FA,"WR167","-","-","-","-","-"
+"510",13,"Myles Price",MIN,"WR168","6","-","-","5 out of 5 stars","-"
+"511",13,"Lan Larison",NE,"RB140","11","-","-","2 out of 5 stars","-"
+"512",13,"Efton Chism III",NE,"WR169","11","-","-","2 out of 5 stars","-"
+"513",13,"Brycen Tremayne",CAR,"WR170","5","-","-","2 out of 5 stars","-"
+"514",13,"Jalen Brooks",ARI,"WR171","14","-","-","2 out of 5 stars","-"
+"515",13,"Theo Wease Jr.",MIA,"WR172","6","-","-","3 out of 5 stars","-"
+"516",13,"Jalen Reagor",MIA,"WR173","6","-","-","3 out of 5 stars","-"
+"517",13,"Michael Woods II",DEN,"WR174","10","-","-","2 out of 5 stars","-"
+"518",13,"Chris Blair",ATL,"WR175","11","-","-","3 out of 5 stars","-"
+"519",13,"DeAndre Hopkins",BAL,"WR176","13","-","-","4 out of 5 stars","-"
+"520",13,"David Sills V",TB,"WR177","10","-","-","4 out of 5 stars","-"
+"521",13,"Tyler Lockett",LV,"WR178","13","-","-","2 out of 5 stars","-"
+"522",13,"Jalen Milroe",SEA,"QB52","11","-","-","4 out of 5 stars","-"
+"523",13,"Davis Mills",HOU,"QB53","8","-","-","4 out of 5 stars","-"
+"524",13,"Jeshaun Jones",MIN,"WR179","6","-","-","5 out of 5 stars","-194"
+"525",13,"Tyson Bagent",CHI,"QB54","10","-","-","3 out of 5 stars","-"
+"526",13,"Trey Lance",LAC,"QB55","7","-","-","2 out of 5 stars","-"
+"527",13,"Kene Nwangwu",NYJ,"RB141","13","-","-","3 out of 5 stars","-"
+"528",13,"Isaiah Williams",NYJ,"WR180","13","-","-","4 out of 5 stars","-"
+"529",13,"Will Levis",TEN,"QB56","9","-","-","3 out of 5 stars","-"
+"530",13,"Miles Sanders",FA,"RB142","-","-","-","-","-"
+"531",13,"Michael Trigg",DAL,"TE87","14","-","-","2 out of 5 stars","-"
+"532",13,"Moliki Matavao",NO,"TE88","8","-","-","2 out of 5 stars","-"
+"533",13,"Noah Whittington",HOU,"RB143","8","-","-","4 out of 5 stars","-"
+"534",13,"Jack Endries",CIN,"TE89","6","-","-","3 out of 5 stars","-"
+"535",13,"Miles Kitselman",FA,"TE90","-","-","-","-","-"
+"536",13,"Donovan Edwards",MIA,"RB144","6","-","-","3 out of 5 stars","-"
+"537",13,"Will Dissly",FA,"TE91","-","-","-","-","-"
+"538",13,"Jaydn Ott",KC,"RB145","5","-","-","3 out of 5 stars","-"
+"539",13,"Khalil Dinkins",SF,"TE92","8","-","-","3 out of 5 stars","-"
+"540",13,"Myles Montgomery",FA,"RB146","-","-","-","-","-"
+"541",13,"Alexander Mattison",FA,"RB147","-","-","-","-","-189"
+"542",13,"Tyler Badie",DEN,"RB148","10","-","-","2 out of 5 stars","-"
+"543",13,"Raheem Mostert",LV,"RB149","13","-","-","2 out of 5 stars","-"
+"544",13,"Lew Nichols III",PIT,"RB150","9","-","-","2 out of 5 stars","-"
+"545",13,"Elijah Moore",PHI,"WR181","10","-","-","4 out of 5 stars","-"
+"546",13,"Ulysses Bentley IV",IND,"RB151","13","-","-","4 out of 5 stars","-"
+"547",13,"Scotty Miller",CHI,"WR182","10","-","-","3 out of 5 stars","-"
+"548",13,"Davis Allen",LAR,"TE93","11","-","-","4 out of 5 stars","-"
+"549",13,"Miles Davis",CAR,"RB152","5","-","-","1 out of 5 stars","-"
+"550",13,"Payne Durham",TB,"TE94","10","-","-","2 out of 5 stars","-"
+"551",13,"Ben Sims",MIA,"TE95","6","-","-","5 out of 5 stars","-"
+"552",13,"Ahmani Marshall",CLE,"RB153","11","-","-","3 out of 5 stars","-"
+"553",13,"Jake Bobo",SEA,"WR183","11","-","-","3 out of 5 stars","-"
+"554",13,"Brevyn Spann-Ford",DAL,"TE96","14","-","-","2 out of 5 stars","-"
+"555",13,"Luke Farrell",SF,"TE97","8","-","-","3 out of 5 stars","-"
+"556",13,"Nathan Carter",ATL,"RB154","11","-","-","2 out of 5 stars","-"
+"557",13,"Blake Whiteheart",CLE,"TE98","11","-","-","3 out of 5 stars","-"
+"558",13,"Elijah Mitchell",FA,"RB155","-","-","-","-","-"
+"559",13,"Dohnte Meyers",CIN,"WR184","6","-","-","4 out of 5 stars","-"
+"560",13,"Cash Jones",ATL,"RB156","11","-","-","2 out of 5 stars","-"
+"561",13,"Derius Davis",LAC,"WR185","7","-","-","2 out of 5 stars","-"
+"562",13,"Cam Akers",FA,"RB157","-","-","-","-","-"
+"563",13,"Anderson Castle",IND,"RB158","13","-","-","4 out of 5 stars","-"
+"564",13,"Brandin Cooks",FA,"WR186","-","-","-","-","-"
+"565",13,"Sincere McCormick",SF,"RB159","8","-","-","2 out of 5 stars","-183"
+"566",13,"Eric Gray",NYG,"RB160","8","-","-","4 out of 5 stars","-"
+"567",13,"Craig Reynolds",WAS,"RB161","7","-","-","4 out of 5 stars","-"
+"568",13,"Dominic Zvada",NYG,"K35","8","-","-","2 out of 5 stars","-"
+"569",13,"Kenny McIntosh",FA,"RB162","-","-","-","-","-"
+"570",13,"JaMycal Hasty",NE,"RB163","11","-","-","2 out of 5 stars","-"
+"571",13,"Jermar Jefferson",MIN,"RB164","6","-","-","4 out of 5 stars","-"
+"572",13,"Julian Hill",NE,"TE99","11","-","-","4 out of 5 stars","-"
+"573",13,"Raheem Blackshear",DET,"RB165","6","-","-","5 out of 5 stars","-"
+"574",13,"Salvon Ahmed",CHI,"RB166","10","-","-","2 out of 5 stars","-"
+"575",13,"Anthony Hankerson",FA,"RB167","-","-","-","-","-"
+"576",13,"Spencer Rattler",NO,"QB57","8","-","-","3 out of 5 stars","-"
+"577",13,"Diontae Johnson",FA,"WR187","-","-","-","-","-"
+"578",13,"Mecole Hardman Jr.",BUF,"WR188","7","-","-","4 out of 5 stars","-"
+"579",13,"Curtis Samuel",FA,"WR189","-","-","-","-","-"
+"580",13,"Vinny Anthony II",ATL,"WR190","11","-","-","3 out of 5 stars","-"
+"581",13,"Coleman Owen",IND,"WR191","13","-","-","4 out of 5 stars","-"
+"582",13,"Drew Allar",PIT,"QB58","9","-","-","2 out of 5 stars","-"
+"583",13,"Tahj Washington",MIA,"WR192","6","-","-","3 out of 5 stars","-"
+"584",13,"Jared Wayne",HOU,"WR193","8","-","-","3 out of 5 stars","-"
+"585",13,"JuJu Smith-Schuster",FA,"WR194","-","-","-","-","-"
+"586",13,"J. Michael Sturdivant",GB,"WR195","11","-","-","5 out of 5 stars","-"
+"587",13,"DeeJay Dallas",JAC,"RB168","7","-","-","4 out of 5 stars","-"
+"588",13,"Velus Jones Jr.",SEA,"WR196","11","-","-","3 out of 5 stars","-"
+"589",13,"Montorie Foster Jr.",SEA,"WR197","11","-","-","3 out of 5 stars","-"
+"590",13,"Casey Washington",CAR,"WR198","5","-","-","2 out of 5 stars","-"
+"591",13,"Maurice Alexander",CHI,"WR199","10","-","-","3 out of 5 stars","-"
+"592",13,"Owen Wright",HOU,"RB169","8","-","-","4 out of 5 stars","-"
+"593",13,"Mason Tipton",NO,"WR200","8","-","-","3 out of 5 stars","-"
+"594",13,"Pierre Strong Jr.",GB,"RB170","11","-","-","4 out of 5 stars","-"
+"595",13,"Quentin Skinner",BUF,"WR201","7","-","-","4 out of 5 stars","-"
+"596",13,"Josh Cameron",JAC,"WR202","7","-","-","4 out of 5 stars","-"
+"597",13,"Drake Dabney",GB,"TE100","11","-","-","2 out of 5 stars","-"
+"598",13,"Bub Means",NO,"WR203","8","-","-","3 out of 5 stars","-"
+"599",13,"Isaiah Hodgins",NYG,"WR204","8","-","-","4 out of 5 stars","-"
+"600",13,"Kevin Austin Jr.",NO,"WR205","8","-","-","3 out of 5 stars","-"
+"601",13,"Jaheim Bell",PIT,"TE101","9","-","-","2 out of 5 stars","-"
+"602",13,"Anthony Gould",IND,"WR206","13","-","-","4 out of 5 stars","-"
+"603",13,"Kendric Pryor",CIN,"WR207","6","-","-","4 out of 5 stars","-"
+"604",13,"Michael Briscoe",MIN,"WR208","6","-","-","5 out of 5 stars","-"
+"605",13,"Jordan Watkins",SF,"WR209","8","-","-","2 out of 5 stars","-"
+"606",13,"Taylen Green",CLE,"QB59","11","-","-","4 out of 5 stars","-"
+"607",13,"K.J. Osborn",TEN,"WR210","9","-","-","3 out of 5 stars","-"
+"608",13,"Jonathan Mingo",DAL,"WR211","14","-","-","2 out of 5 stars","-"
+"609",13,"Joshua Cephus",FA,"WR212","-","-","-","-","-"
+"610",13,"Cooper Rush",ATL,"QB60","11","-","-","4 out of 5 stars","-"
+"611",13,"Dominic Lovett",DET,"WR213","6","-","-","4 out of 5 stars","-"
+"612",13,"Deontay Burnett",FA,"WR214","-","-","-","-","-"
+"613",13,"Michael Bandy",DEN,"WR215","10","-","-","2 out of 5 stars","-"
+"614",13,"Ricky White III",SEA,"WR216","11","-","-","3 out of 5 stars","-"
+"615",13,"Arian Smith",NYJ,"WR217","13","-","-","4 out of 5 stars","-"
+"616",13,"Jermaine Burton",FA,"WR218","-","-","-","-","-"
+"617",13,"Terrace Marshall Jr.",MIA,"WR219","6","-","-","3 out of 5 stars","-"
+"618",13,"Josh Williams",TB,"RB171","10","-","-","2 out of 5 stars","-"
+"619",13,"Kameron Johnson",TB,"WR220","10","-","-","4 out of 5 stars","-"
+"620",13,"Darius Cooper",PHI,"WR221","10","-","-","4 out of 5 stars","-"
+"621",13,"Mason Rudolph",PIT,"QB61","9","-","-","2 out of 5 stars","-"
+"622",13,"Tyler Scott",LAR,"WR222","11","-","-","1 out of 5 stars","-"
+"623",13,"Skyy Moore",GB,"WR223","11","-","-","5 out of 5 stars","-"
+"624",13,"Tyler Huntley",BAL,"QB62","13","-","-","3 out of 5 stars","-"
+"625",13,"Tyrell Shavers",BUF,"WR224","7","-","-","4 out of 5 stars","-"
+"626",13,"Tanner McKee",PHI,"QB63","10","-","-","5 out of 5 stars","-"
+"627",13,"Nikko Remigio",KC,"WR225","5","-","-","2 out of 5 stars","-"
+"628",13,"Ben Skowronek",PIT,"WR226","9","-","-","3 out of 5 stars","-"
+"629",13,"David Moore",CAR,"WR227","5","-","-","2 out of 5 stars","-"
+"630",13,"Andy Dalton",PHI,"QB64","10","-","-","5 out of 5 stars","-"
+"631",14,"Kaden Wetjen",PIT,"WR228","9","-","-","3 out of 5 stars","-"
+"632",14,"Bo Melton",GB,"WR229","11","-","-","5 out of 5 stars","-"
+"633",14,"Malachi Corley",CLE,"WR230","11","-","-","3 out of 5 stars","-"
+"634",14,"Gage Larvadain",CLE,"WR231","11","-","-","3 out of 5 stars","-"
+"635",14,"Devin Duvernay",ARI,"WR232","14","-","-","2 out of 5 stars","-"
+"636",14,"Dareke Young",LV,"WR233","13","-","-","2 out of 5 stars","-"
+"637",14,"Ke'Shawn Williams",CIN,"WR234","6","-","-","4 out of 5 stars","-"
+"638",14,"Charlie Jones",CIN,"WR235","6","-","-","4 out of 5 stars","-"
+"639",14,"Taysom Hill",FA,"TE102","-","-","-","-","-"
+"640",14,"Britain Covey",PHI,"WR236","10","-","-","4 out of 5 stars","-"
+"641",14,"Bauer Sharp",TB,"TE103","10","-","-","2 out of 5 stars","-"
+"642",14,"LaJohntay Wester",BAL,"WR237","13","-","-","4 out of 5 stars","-"
+"643",14,"Joe Royer",CLE,"TE104","11","-","-","3 out of 5 stars","-"
+"644",14,"Seydou Traore",MIA,"TE105","6","-","-","5 out of 5 stars","-"
+"645",14,"Thomas Fidone II",NYG,"TE106","8","-","-","3 out of 5 stars","-"
+"646",14,"Mason Kinsey",TEN,"WR238","9","-","-","3 out of 5 stars","-"
+"647",14,"Jared Wiley",KC,"TE107","5","-","-","4 out of 5 stars","-"
+"648",14,"Josh Whyle",GB,"TE108","11","-","-","2 out of 5 stars","-"
+"649",14,"Ian Thomas",LV,"TE109","13","-","-","3 out of 5 stars","-"
+"650",14,"Jack Stoll",CLE,"TE110","11","-","-","3 out of 5 stars","-"
+"651",14,"Eric Saubert",SEA,"TE111","11","-","-","3 out of 5 stars","-"
+"652",14,"Drew Ogletree",IND,"TE112","13","-","-","3 out of 5 stars","-"
+"653",14,"Stone Smartt",PHI,"TE113","10","-","-","4 out of 5 stars","-"
+"654",14,"Tip Reiman",ARI,"TE114","14","-","-","2 out of 5 stars","-"
+"655",14,"Kylen Granson",TEN,"TE115","9","-","-","3 out of 5 stars","-"
+"656",14,"Elijah Tau-Tolliver",BAL,"RB172","13","-","-","3 out of 5 stars","-"
+"657",14,"Teagan Quitoriano",ARI,"TE116","14","-","-","2 out of 5 stars","-337"
+"658",14,"Grant Calcaterra",PHI,"TE117","10","-","-","4 out of 5 stars","-"
+"659",14,"Jake Briningstool",KC,"TE118","5","-","-","4 out of 5 stars","-"
+"660",14,"Lucas Krull",DEN,"TE119","10","-","-","4 out of 5 stars","-"
+"661",14,"Ben Yurosek",MIN,"TE120","6","-","-","4 out of 5 stars","-"
+"662",14,"Tanner Conner",NYG,"TE121","8","-","-","3 out of 5 stars","-"
+"663",14,"Albert Okwuegbunam Jr.",LV,"TE122","13","-","-","3 out of 5 stars","-"
+"664",14,"Will Mallory",IND,"TE123","13","-","-","3 out of 5 stars","-"
+"665",14,"Johnny Mundt",PHI,"TE124","10","-","-","4 out of 5 stars","-"
+"666",14,"Charlie Woerner",ATL,"TE125","11","-","-","3 out of 5 stars","-"
+"667",14,"David Martin-Robinson",TEN,"TE126","9","-","-","3 out of 5 stars","-"
+"668",14,"CJ Dippre",NE,"TE127","11","-","-","4 out of 5 stars","-"
+"669",14,"Brayden Willis",SF,"TE128","8","-","-","3 out of 5 stars","-"
+"670",14,"Brevin Jordan",HOU,"TE129","8","-","-","4 out of 5 stars","-"
+"671",14,"Colson Yankoff",WAS,"TE130","7","-","-","1 out of 5 stars","-"
+"672",14,"Cameron Latu",PHI,"TE131","10","-","-","4 out of 5 stars","-"
+"673",14,"Hayden Rucci",SF,"TE132","8","-","-","3 out of 5 stars","-"
+"674",14,"Gavin Bartholomew",MIN,"TE133","6","-","-","4 out of 5 stars","-"
+"675",14,"Devin Culp",TB,"TE134","10","-","-","2 out of 5 stars","-"
+"676",14,"Hunter Long",JAC,"TE135","7","-","-","3 out of 5 stars","-"
+"677",14,"Chris Manhertz",NYG,"TE136","8","-","-","3 out of 5 stars","-"
+"678",14,"Ko Kieft",TB,"TE137","10","-","-","2 out of 5 stars","-"
+"679",14,"Ty Pezza",BAL,"TE138","13","-","-","4 out of 5 stars","-"
+"680",14,"Cole Turner",MIA,"TE139","6","-","-","5 out of 5 stars","-"
+"681",14,"Mario Williams",FA,"WR239","-","-","-","-","-"
+"682",14,"Joel Wilson",TEN,"TE140","9","-","-","3 out of 5 stars","-"
+"683",14,"Juice Wells Jr.",ATL,"WR240","11","-","-","3 out of 5 stars","-"
+"684",14,"Zach Horton",DET,"TE141","6","-","-","3 out of 5 stars","-"
+"685",14,"Carsen Ryan",CLE,"TE142","11","-","-","3 out of 5 stars","-"
+"686",14,"Brenden Bates",CLE,"TE143","11","-","-","3 out of 5 stars","-"
+"687",14,"Josiah Deguara",FA,"TE144","-","-","-","-","-"
+"688",14,"Quintin Morris",JAC,"TE145","7","-","-","3 out of 5 stars","-"
+"689",14,"Bryson Nesbit",MIN,"TE146","6","-","-","4 out of 5 stars","-"
+"690",14,"E.J. Jenkins",PHI,"TE147","10","-","-","4 out of 5 stars","-"
+"691",14,"Joshua Simon",ATL,"TE148","11","-","-","3 out of 5 stars","-"
+"692",14,"Cam Grandy",CIN,"TE149","6","-","-","3 out of 5 stars","-"
+"693",14,"Andrew Beck",NYJ,"TE150","13","-","-","4 out of 5 stars","-"
+"694",14,"Rivaldo Fairweather",ARI,"TE151","14","-","-","2 out of 5 stars","-"
+"695",14,"Jack Velling",ATL,"TE152","11","-","-","3 out of 5 stars","-"
+"696",14,"Princeton Fant",DAL,"TE153","14","-","-","2 out of 5 stars","-"
+"697",14,"Lance Mason",PIT,"TE154","9","-","-","2 out of 5 stars","-"
+"698",14,"Shane Zylstra",BUF,"TE155","7","-","-","3 out of 5 stars","-"
+"699",14,"Jamal Haynes",CIN,"RB173","6","-","-","2 out of 5 stars","-"
+"700",14,"DJ Rogers",DAL,"TE156","14","-","-","2 out of 5 stars","-"
+"701",14,"Tanner Arkin",NE,"TE157","11","-","-","4 out of 5 stars","-"
+"702",14,"Lake McRee",PIT,"TE158","9","-","-","2 out of 5 stars","-"
+"703",14,"Nick Kallerup",SEA,"TE159","11","-","-","3 out of 5 stars","-"
+"704",14,"Jack Westover",NE,"TE160","11","-","-","4 out of 5 stars","-"
+"705",14,"Pharaoh Brown",IND,"TE161","13","-","-","3 out of 5 stars","-"
+"706",14,"Kenny Fletcher Jr.",TB,"TE162","10","-","-","2 out of 5 stars","-"
+"707",14,"James Mitchell",CAR,"TE163","5","-","-","2 out of 5 stars","-"
+"708",14,"Zaire Mitchell-Paden",NO,"TE164","8","-","-","2 out of 5 stars","-"
+"709",14,"Dean Connors",LAR,"RB174","11","-","-","5 out of 5 stars","-"
+"710",14,"Quentin Moore",WAS,"TE165","7","-","-","1 out of 5 stars","-"
+"711",14,"AJ Dillon",CAR,"RB175","5","-","-","1 out of 5 stars","-"
+"712",14,"Dontae McMillan",BAL,"RB176","13","-","-","3 out of 5 stars","-"
+"713",14,"Patrick Herbert",JAC,"TE166","7","-","-","3 out of 5 stars","-"
+"714",14,"Messiah Swinson",GB,"TE167","11","-","-","2 out of 5 stars","-"
+"715",14,"Chris Myarick",LV,"TE168","13","-","-","3 out of 5 stars","-"
+"716",14,"CJ Donaldson",NO,"RB177","8","-","-","3 out of 5 stars","-"
+"717",14,"Chase Curtis",NYJ,"TE169","13","-","-","4 out of 5 stars","-"
+"718",14,"Chip Trayanum",NYJ,"RB178","13","-","-","3 out of 5 stars","-"
+"719",14,"Keleki Latu",BUF,"TE170","7","-","-","3 out of 5 stars","-"
+"720",14,"Connor Heyward",LV,"TE171","13","-","-","3 out of 5 stars","-"
+"721",14,"Ameer Abdullah",JAC,"RB179","7","-","-","4 out of 5 stars","-"
+"722",14,"Dae'Quan Wright",FA,"TE172","-","-","-","-","-"
+"723",14,"Carter Runyon",LV,"TE173","13","-","-","3 out of 5 stars","-"
+"724",15,"Stephen Carlson",CHI,"TE174","10","-","-","2 out of 5 stars","-"
+"725",15,"Treyton Welch",NO,"TE175","8","-","-","2 out of 5 stars","-"
+"726",15,"Ja'Quinden Jackson",FA,"RB180","-","-","-","-","-"
+"727",15,"Kendrick Law",DET,"WR241","6","-","-","4 out of 5 stars","-"
+"728",15,"Evan Svoboda",LAC,"TE176","7","-","-","4 out of 5 stars","-"
+"729",15,"Dallen Bentley",DEN,"TE177","10","-","-","4 out of 5 stars","-"
+"730",15,"Brittain Brown",CHI,"RB181","10","-","-","2 out of 5 stars","-"
+"731",15,"Cody Hardy",NO,"TE178","8","-","-","2 out of 5 stars","-"
+"732",15,"Kentrel Bullock",CIN,"RB182","6","-","-","2 out of 5 stars","-"
+"733",15,"Patrick Gurd",LV,"TE179","13","-","-","3 out of 5 stars","-"
+"734",15,"Michael Wortham",JAC,"WR242","7","-","-","4 out of 5 stars","-"
+"735",15,"Mark Redman",LAR,"TE180","11","-","-","4 out of 5 stars","-"
+"736",15,"Tyler Johnson",DAL,"WR243","14","-","-","2 out of 5 stars","-"
+"737",15,"Dan Villari",LAR,"TE181","11","-","-","4 out of 5 stars","-"
+"738",15,"Terion Stewart",KC,"RB183","5","-","-","3 out of 5 stars","-"
+"739",15,"Johnny Pascuzzi",LAC,"TE182","7","-","-","4 out of 5 stars","-"
+"740",15,"Hassan Haskins",NE,"RB184","11","-","-","2 out of 5 stars","-"
+"741",15,"Gary Brightwell",CIN,"RB185","6","-","-","2 out of 5 stars","-"
+"742",15,"Hayden Large",CHI,"TE183","10","-","-","2 out of 5 stars","-"
+"743",15,"Rohan Jones",LAR,"TE184","11","-","-","4 out of 5 stars","-"
+"744",15,"Desmond Reid",FA,"RB186","-","-","-","-","-"
+"745",15,"Gus Edwards",FA,"RB187","-","-","-","-","-412"
+"746",15,"Dylan Drummond",ATL,"WR244","11","-","-","3 out of 5 stars","-"
+"747",15,"Ray-Ray McCloud III",CHI,"WR245","10","-","-","3 out of 5 stars","-"
+"748",15,"Josh Kattus",CIN,"TE185","6","-","-","3 out of 5 stars","-"
+"749",15,"Amar Johnson",LAC,"RB188","7","-","-","3 out of 5 stars","-"
+"750",15,"Davon Booth",CLE,"RB189","11","-","-","3 out of 5 stars","-"
+"751",15,"Zack Moss",FA,"RB190","-","-","-","-","-"
+"752",15,"Jeff Caldwell",FA,"WR246","-","-","-","-","-"
+"753",15,"EJ Smith",KC,"RB191","5","-","-","3 out of 5 stars","-"
+"754",15,"Ronnie Bell",NO,"WR247","8","-","-","3 out of 5 stars","-"
+"755",15,"Trey Sermon",ATL,"RB192","11","-","-","2 out of 5 stars","-"
+"756",15,"Shedrick Jackson",LV,"WR248","13","-","-","2 out of 5 stars","-"
+"757",15,"Cody White",SEA,"WR249","11","-","-","3 out of 5 stars","-"
+"758",15,"Jeff Wilson Jr.",FA,"RB193","-","-","-","-","-"
+"759",15,"Deven Thompkins",LV,"WR250","13","-","-","2 out of 5 stars","-"
+"760",15,"Dante Pettis",BUF,"WR251","7","-","-","4 out of 5 stars","-"
+"761",15,"Royce Freeman",FA,"RB194","-","-","-","-","-"
+"762",15,"Nick Vannett",SEA,"TE186","11","-","-","3 out of 5 stars","-"
+"763",15,"Julius Chestnut",TEN,"RB195","9","-","-","3 out of 5 stars","-"
+"764",15,"Simi Fehoko",ARI,"WR252","14","-","-","2 out of 5 stars","-"
+"765",15,"Tylan Wallace",CLE,"WR253","11","-","-","3 out of 5 stars","-"
+"766",15,"Cody Schrader",DEN,"RB196","10","-","-","2 out of 5 stars","-"
+"767",15,"Trayveon Williams",DET,"RB197","6","-","-","5 out of 5 stars","-"
+"768",15,"Tom Kennedy",DET,"WR254","6","-","-","4 out of 5 stars","-"
+"769",15,"Jaden Nixon",GB,"RB198","11","-","-","4 out of 5 stars","-"
+"770",15,"D'Onta Foreman",FA,"RB199","-","-","-","-","-"
+"771",15,"Xavier Weaver",ARI,"WR255","14","-","-","2 out of 5 stars","-"
+"772",15,"Carson Steele",PHI,"RB200","10","-","-","4 out of 5 stars","-"
+"773",15,"Carlos Washington Jr.",MIA,"RB201","6","-","-","3 out of 5 stars","-"
+"774",15,"Jalin Hyatt",NYG,"WR256","8","-","-","4 out of 5 stars","-"
+"775",15,"Dare Ogunbowale",LV,"RB202","13","-","-","2 out of 5 stars","-"
+"776",15,"Zamir White",NO,"RB203","8","-","-","3 out of 5 stars","-"
+"777",15,"Tay Martin",DET,"WR257","6","-","-","4 out of 5 stars","-"
+"778",15,"Chris Moore",BAL,"WR258","13","-","-","4 out of 5 stars","-"
+"779",15,"Laquon Treadwell",IND,"WR259","13","-","-","4 out of 5 stars","-497"
+"780",15,"Gregory Desrosiers",LAC,"RB204","7","-","-","3 out of 5 stars","-"
+"781",15,"Evan Hull",ARI,"RB205","14","-","-","2 out of 5 stars","-"
+"782",15,"Clyde Edwards-Helaire",FA,"RB206","-","-","-","-","-"
+"783",15,"Bryce Oliver",TEN,"WR260","9","-","-","3 out of 5 stars","-"
+"784",15,"Jason Brownlee",KC,"WR261","5","-","-","2 out of 5 stars","-"
+"785",15,"Myles Gaskin",FA,"RB207","-","-","-","-","-"
+"786",15,"Sam Scott",NYJ,"RB208","13","-","-","3 out of 5 stars","-"
+"787",15,"Darrynton Evans",FA,"RB209","-","-","-","-","-"
+"788",15,"KhaDarel Hodge",SF,"WR262","8","-","-","2 out of 5 stars","-"
+"789",15,"Tyrion Davis-Price",FA,"RB210","-","-","-","-","-"
+"790",15,"Camden Brown",DAL,"WR263","14","-","-","2 out of 5 stars","-"
+"791",15,"Jashaun Corbin",DAL,"RB211","14","-","-","4 out of 5 stars","-"
+"792",15,"Alex Bachman",LAR,"WR264","11","-","-","1 out of 5 stars","-"
+"793",15,"Gabe Davis",FA,"WR265","-","-","-","-","-"
+"794",15,"Braxton Berrios",NYG,"WR266","8","-","-","4 out of 5 stars","-"
+"795",15,"Jimmy Holiday",KC,"WR267","5","-","-","2 out of 5 stars","-"
+"796",15,"D'Ernest Johnson",TEN,"RB212","9","-","-","3 out of 5 stars","-"
+"797",15,"Samori Toure",PHI,"WR268","10","-","-","4 out of 5 stars","-"
+"798",15,"Trent Sherfield Sr.",BUF,"WR269","7","-","-","4 out of 5 stars","-"
+"799",15,"Eli Pancol",IND,"WR270","13","-","-","4 out of 5 stars","-"
+"800",15,"Zay Jones",HOU,"WR271","8","-","-","3 out of 5 stars","-449"
+"801",15,"Emmanuel Henderson Jr.",SEA,"WR272","11","-","-","3 out of 5 stars","-"
+"802",15,"Tejhaun Palmer",NE,"WR273","11","-","-","2 out of 5 stars","-"
+"803",15,"Xavier Gipson",NYG,"WR274","8","-","-","4 out of 5 stars","-"
+"804",15,"Isaiah Neyor",GB,"WR275","11","-","-","5 out of 5 stars","-"
+"805",15,"Andrew Armstrong",KC,"WR276","5","-","-","2 out of 5 stars","-"
+"806",15,"Raylen Sharpe",IND,"WR277","13","-","-","4 out of 5 stars","-"
+"807",15,"Sederrick Cunningham",FA,"WR278","-","-","-","-","-"
+"808",15,"Jacob De Jesus",KC,"WR279","5","-","-","2 out of 5 stars","-"
+"809",15,"Sahmir Hagans",IND,"WR280","13","-","-","4 out of 5 stars","-"
+"810",15,"Omari Kelly",CHI,"WR281","10","-","-","3 out of 5 stars","-"
+"811",15,"Malik Turner",SF,"WR282","8","-","-","2 out of 5 stars","-"
+"812",15,"Anthony Smith",DAL,"WR283","14","-","-","2 out of 5 stars","-"
+"813",15,"Brennan Presley",LAR,"WR284","11","-","-","1 out of 5 stars","-"
+"814",15,"Kaden Prather",GB,"WR285","11","-","-","5 out of 5 stars","-"
+"815",15,"Omari Evans",KC,"WR286","5","-","-","2 out of 5 stars","-"
+"816",15,"Tru Edwards",LAR,"WR287","11","-","-","1 out of 5 stars","-"
+"817",15,"JP Richardson",CHI,"WR288","10","-","-","3 out of 5 stars","-"
+"818",15,"Xavier Loyd",KC,"WR289","5","-","-","2 out of 5 stars","-"
+"819",15,"Lewis Bond",HOU,"WR290","8","-","-","3 out of 5 stars","-"
+"820",15,"Dalen Cambre",NYG,"WR291","8","-","-","4 out of 5 stars","-"
+"821",15,"Devonte Ross",LAC,"WR292","7","-","-","2 out of 5 stars","-"
+"822",15,"Nick Nash",WAS,"WR293","7","-","-","2 out of 5 stars","-"
+"823",15,"Jordan Moore",CIN,"WR294","6","-","-","4 out of 5 stars","-"
+"824",15,"Chris Hilton Jr.",GB,"WR295","11","-","-","5 out of 5 stars","-"
+"825",15,"Brandon Smith",PIT,"WR296","9","-","-","3 out of 5 stars","-"
+"826",15,"Sincere Brown",LAC,"WR297","7","-","-","2 out of 5 stars","-"
+"827",16,"Jamaal Pritchett",NYJ,"WR298","13","-","-","4 out of 5 stars","-"
+"828",16,"Jaden Bradley",WAS,"WR299","7","-","-","2 out of 5 stars","-"
+"829",16,"Noah Thomas",CIN,"WR300","6","-","-","4 out of 5 stars","-"
+"830",16,"Tyren Montgomery",TEN,"WR301","9","-","-","3 out of 5 stars","-"
+"831",16,"Rashad Rochelle",SEA,"WR302","11","-","-","3 out of 5 stars","-"
+"832",16,"Brandon Johnson",LV,"WR303","13","-","-","2 out of 5 stars","-"
+"833",16,"Josh Kelly",HOU,"WR304","8","-","-","3 out of 5 stars","-"
+"834",16,"E.J. Williams Jr.",LV,"WR305","13","-","-","2 out of 5 stars","-"
+"835",16,"Beaux Collins",ATL,"WR306","11","-","-","3 out of 5 stars","-"
+"836",16,"Donaven McCulley",MIA,"WR307","6","-","-","3 out of 5 stars","-"
+"837",16,"Junior Bergen",NYJ,"WR308","13","-","-","4 out of 5 stars","-"
+"838",16,"Caullin Lacy",NYJ,"WR309","13","-","-","4 out of 5 stars","-"
+"839",16,"Dontae Fleming",MIN,"WR310","6","-","-","5 out of 5 stars","-"
+"840",16,"Eric Rivers Jr.",TB,"WR311","10","-","-","4 out of 5 stars","-"
+"841",16,"Malik McClain",NYJ,"WR312","13","-","-","4 out of 5 stars","-"
+"842",16,"Hakeem Butler",DEN,"WR313","10","-","-","2 out of 5 stars","-"
+"843",16,"Dillon Bell",MIN,"WR314","6","-","-","5 out of 5 stars","-"
+"844",16,"Dane Key",DEN,"WR315","10","-","-","2 out of 5 stars","-"
+"845",16,"AJ Henning",MIA,"WR316","6","-","-","3 out of 5 stars","-"
+"846",16,"Jordan Hudson",DAL,"WR317","14","-","-","2 out of 5 stars","-"
+"847",16,"Quez Watkins",PHI,"WR318","10","-","-","4 out of 5 stars","-"
+"848",16,"Danny Gray",PHI,"WR319","10","-","-","4 out of 5 stars","-"
+"849",16,"Stephen Gosnell",BUF,"WR320","7","-","-","4 out of 5 stars","-"
+"850",16,"Treyvhon Saunders",HOU,"WR321","8","-","-","3 out of 5 stars","-"
+"851",16,"Trey Palmer",NO,"WR322","8","-","-","3 out of 5 stars","-"
+"852",16,"Daniel Sobkowicz",HOU,"WR323","8","-","-","3 out of 5 stars","-"
+"853",16,"Dennis Houston",TB,"WR324","10","-","-","4 out of 5 stars","-"
+"854",16,"Wesley Grimes",SF,"WR325","8","-","-","2 out of 5 stars","-"
+"855",16,"Kolbe Katsis",DEN,"WR326","10","-","-","2 out of 5 stars","-"
+"856",16,"Nick DeGennaro",NE,"WR327","11","-","-","2 out of 5 stars","-"
+"857",16,"Dean Patterson IV",TB,"WR328","10","-","-","4 out of 5 stars","-"
+"858",16,"Cameron Dorner",NE,"WR329","11","-","-","2 out of 5 stars","-"
+"859",16,"Cameron Ross",DEN,"WR330","10","-","-","2 out of 5 stars","-"
+"860",16,"Kobe Prentice",FA,"WR331","-","-","-","-","-"
+"861",16,"Keelan Marion",ATL,"WR332","11","-","-","3 out of 5 stars","-"
+"862",16,"Max Tomczak",BUF,"WR333","7","-","-","4 out of 5 stars","-"
+"863",16,"Johnny Wilson",PHI,"WR334","10","-","-","4 out of 5 stars","-"
+"864",16,"Hank Beatty",TEN,"WR335","9","-","-","3 out of 5 stars","-"
+"865",16,"Kyle Dixon",NE,"WR336","11","-","-","2 out of 5 stars","-"
+"866",16,"Ja'Mori Maclin",BUF,"WR337","7","-","-","4 out of 5 stars","-"
+"867",16,"Jackson Meeks",DET,"WR338","6","-","-","4 out of 5 stars","-"
+"868",16,"Lance McCutcheon",TEN,"WR339","9","-","-","3 out of 5 stars","-"
+"869",16,"Courtney Jackson",TEN,"WR340","9","-","-","3 out of 5 stars","-"
+"870",16,"Luke Floriea",CLE,"WR341","11","-","-","3 out of 5 stars","-"
+"871",16,"Brock Rechsteiner",NO,"WR342","8","-","-","3 out of 5 stars","-"
+"872",16,"Kole Wilson",CLE,"WR343","11","-","-","3 out of 5 stars","-"
+"873",16,"Bryson Green",FA,"WR344","-","-","-","-","-"
+"874",16,"Cornelius Johnson",BAL,"WR345","13","-","-","4 out of 5 stars","-"
+"875",16,"Xavier Guillory",BAL,"WR346","13","-","-","4 out of 5 stars","-"
+"876",16,"Cortez Braham Jr.",BAL,"WR347","13","-","-","4 out of 5 stars","-"
+"877",16,"Harrison Wallace III",ARI,"WR348","14","-","-","2 out of 5 stars","-"
+"878",16,"Octavian Smith Jr.",BAL,"WR349","13","-","-","4 out of 5 stars","-"
+"879",16,"Irv Charles",SEA,"WR350","11","-","-","3 out of 5 stars","-"
+"880",16,"Phillip Dorsett II",LV,"WR351","13","-","-","2 out of 5 stars","-"
+"881",16,"Trenton Irwin",SF,"WR352","8","-","-","2 out of 5 stars","-"
+"882",16,"Ihmir Smith-Marsette",ARI,"WR353","14","-","-","2 out of 5 stars","-"

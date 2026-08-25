@@ -14,8 +14,8 @@ from app.automation import (
 )
 from app.draft import set_draft_live
 from app.mfl import MFLResponse
-from app.models import DataSource, DraftPick
-from app.sources import initialize_sources
+from app.models import DataSource, DraftPick, LeagueType
+from app.sources import LOCAL_RANKING_SPECS, initialize_sources
 from app.users import save_draft_mode
 
 
@@ -58,6 +58,33 @@ def test_source_initialization_applies_source_defaults(db: Session) -> None:
     response = update_source("sleeper", SourceUpdate(enabled=False, weight=Decimal("0.5")), db)
     assert response["enabled"] is False
     assert Decimal(response["weight"]) == Decimal("0.5")
+
+
+def test_shared_ranking_files_are_mapped_to_the_intended_league_types() -> None:
+    expected = {
+        "espn_ppr_csv": ("NFL26_CS_PPR(new).csv", {LeagueType.AUCTION}),
+        "espn_dynasty_csv": ("NFL26_CS_Dyn(new).csv", {LeagueType.KEEPER}),
+        "fantasypros_redraft_csv": (
+            "FantasyPros_2026_Draft_ALL_Rankings.csv",
+            {LeagueType.AUCTION},
+        ),
+        "fantasypros_dynasty_csv": (
+            "FantasyPros_2026_Dynasty_ALL_Rankings.csv",
+            {LeagueType.KEEPER},
+        ),
+        "fantasysharks_dynasty_csv": (
+            "fantasysharks_2026_rankings_dyn.csv",
+            {LeagueType.KEEPER},
+        ),
+        "pff_rankings_csv": (
+            "PFF_2026_Fantasy_Rankings.csv",
+            {LeagueType.AUCTION, LeagueType.KEEPER},
+        ),
+    }
+
+    for source_id, (filename, league_types) in expected.items():
+        assert LOCAL_RANKING_SPECS[source_id]["path"].name == filename
+        assert LOCAL_RANKING_SPECS[source_id]["league_types"] == league_types
 
 
 def test_live_draft_sync_imports_mfl_picks_and_is_idempotent(seeded: Session) -> None:

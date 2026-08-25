@@ -225,7 +225,7 @@ from app.users import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260821.4"
+templates.env.globals["asset_version"] = "20260825.1"
 SESSION_SIGNING_SECRET = ""
 
 

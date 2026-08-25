@@ -46,11 +46,11 @@ LEGACY_SOURCE_IDS = {
 }
 LOCAL_RANKING_SPECS: dict[str, dict[str, Any]] = {
     "espn_ppr_csv": {
-        "path": PROJECT_ROOT / "CSV" / "NFL26_CS_PPR300.csv",
+        "path": PROJECT_ROOT / "CSV" / "NFL26_CS_PPR(new).csv",
         "league_types": {LeagueType.AUCTION},
     },
     "espn_dynasty_csv": {
-        "path": PROJECT_ROOT / "CSV" / "espnDynastyNFL26_CS_Dyn.csv",
+        "path": PROJECT_ROOT / "CSV" / "NFL26_CS_Dyn(new).csv",
         "league_types": {LeagueType.KEEPER},
     },
     "fantasypros_redraft_csv": {
@@ -142,13 +142,13 @@ DEFAULT_SOURCES: list[dict[str, Any]] = [
     },
     {
         "id": "espn_ppr_csv",
-        "name": "ESPN PPR Top 300 (local CSV)",
+        "name": "ESPN 2026 PPR Cheat Sheet (TMFL)",
         "kind": "ranking",
         "enabled": True,
         "weight": Decimal("1"),
         "terms_url": None,
         "license": "Site owner-provided file; shared in this DraftDesk instance",
-        "attribution": "ESPN 2026 PPR Top 300 — NFL26_CS_PPR300.csv",
+        "attribution": "ESPN 2026 PPR Cheat Sheet — NFL26_CS_PPR(new).csv",
         "cache_ttl_seconds": 0,
     },
     {
@@ -159,12 +159,12 @@ DEFAULT_SOURCES: list[dict[str, Any]] = [
         "weight": Decimal("1"),
         "terms_url": None,
         "license": "Site owner-provided file; shared in this DraftDesk instance",
-        "attribution": "ESPN 2026 Dynasty Top 240 — espnDynastyNFL26_CS_Dyn.csv",
+        "attribution": "ESPN 2026 Dynasty Top 240 — NFL26_CS_Dyn(new).csv",
         "cache_ttl_seconds": 0,
     },
     {
         "id": "fantasypros_redraft_csv",
-        "name": "FantasyPros 2026 Redraft Rankings",
+        "name": "FantasyPros 2026 Redraft Rankings (TMFL)",
         "kind": "ranking",
         "enabled": True,
         "weight": Decimal("1"),
@@ -175,7 +175,7 @@ DEFAULT_SOURCES: list[dict[str, Any]] = [
     },
     {
         "id": "fantasypros_dynasty_csv",
-        "name": "FantasyPros 2026 Dynasty Rankings",
+        "name": "FantasyPros 2026 Dynasty Rankings (ADFL)",
         "kind": "ranking",
         "enabled": True,
         "weight": Decimal("1"),
@@ -186,7 +186,7 @@ DEFAULT_SOURCES: list[dict[str, Any]] = [
     },
     {
         "id": "fantasysharks_dynasty_csv",
-        "name": "FantasySharks 2026 Dynasty Rankings",
+        "name": "FantasySharks 2026 Dynasty Rankings (ADFL)",
         "kind": "ranking",
         "enabled": True,
         "weight": Decimal("1"),
@@ -197,7 +197,7 @@ DEFAULT_SOURCES: list[dict[str, Any]] = [
     },
     {
         "id": "pff_rankings_csv",
-        "name": "PFF 2026 Fantasy Rankings",
+        "name": "PFF 2026 Fantasy Rankings (ADFL + TMFL)",
         "kind": "ranking",
         "enabled": True,
         "weight": Decimal("1"),

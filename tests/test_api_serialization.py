@@ -407,7 +407,7 @@ def test_local_csv_received_data_is_visible_without_unapproved_fields(seeded):
         fantasypros = next(
             item for item in source_list.json() if item["id"] == "fantasypros_redraft_csv"
         )
-        assert fantasypros["name"] == "FantasyPros 2026 Redraft Rankings"
+        assert fantasypros["name"] == "FantasyPros 2026 Redraft Rankings (TMFL)"
         assert fantasypros["visibility"] == "shared"
         assert "FantasyPros_2026_Draft_ALL_Rankings.csv" in fantasypros["attribution"]
         assert (

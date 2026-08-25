@@ -82,7 +82,7 @@ async function togglePreference(playerId,key,value){const payload=preferencePayl
 async function showPlayer(playerId){location.href=`/player/${encodeURIComponent(playerId)}?league_id=${encodeURIComponent(activeLeagueId())}`}
 function returnToPlayerOrigin(){try{const previous=new URL(document.referrer);if(previous.origin===location.origin&&!previous.pathname.startsWith('/player/')){history.back();return}}catch{}const league=window.SELECTED_LEAGUE_ID?`?league_id=${encodeURIComponent(window.SELECTED_LEAGUE_ID)}`:'';location.href=`/players${league}`}
 
-function sourceLabel(id){return ({league_model:'Weekly league model',mfl_rank:'MFL player rank',mfl_adp:'MFL ADP',espn_ppr_csv:'ESPN PPR Top 300',espn_dynasty_csv:'ESPN Dynasty Top 240',fantasypros_redraft_csv:'FantasyPros Redraft',fantasypros_dynasty_csv:'FantasyPros Dynasty',fantasysharks_dynasty_csv:'FantasySharks Dynasty',pff_rankings_csv:'PFF Fantasy Rankings',gng:'The GNG'})[id]||id.replaceAll('_',' ')}
+function sourceLabel(id){return ({league_model:'Weekly league model',mfl_rank:'MFL player rank',mfl_adp:'MFL ADP',espn_ppr_csv:'ESPN PPR (TMFL)',espn_dynasty_csv:'ESPN Dynasty (ADFL)',fantasypros_redraft_csv:'FantasyPros Redraft (TMFL)',fantasypros_dynasty_csv:'FantasyPros Dynasty (ADFL)',fantasysharks_dynasty_csv:'FantasySharks (ADFL)',pff_rankings_csv:'PFF (Both leagues)',gng:'The GNG'})[id]||id.replaceAll('_',' ')}
 function isNonZeroMetric(value){if(value==null||String(value).trim()==='')return false;const number=Number(String(value).replaceAll(',',''));return Number.isNaN(number)||number!==0}
 function metricDisplay(value){const number=Number(value);return Number.isFinite(number)?number.toFixed(1):escapeHtml(value)}
 async function initPlayerProfile(){return initPlayerProfileV2()}

@@ -24,18 +24,10 @@ not need a key. Optional league API keys are saved in Windows Credential Manager
 returned to the browser after saving. Environment variables in `.env` remain supported and take
 precedence.
 
-### Convert the ranking PDFs again
+### Shared ranking CSV files
 
-The repository includes a reusable converter for the two PDFs under `PDF/`. It validates that the
-PPR sheet contains ranks 1-300 and the dynasty sheet contains ranks 1-240 before replacing either
-CSV. From PowerShell:
-
-```powershell
-.\.venv\Scripts\python.exe scripts\convert_ranking_pdfs.py
-```
-
-The generated files are `CSV/NFL26_CS_PPR300.csv` and
-`CSV/espnDynastyNFL26_CS_Dyn.csv`. Those two files plus the FantasyPros redraft, FantasyPros dynasty,
+The current shared ESPN files are `CSV/NFL26_CS_PPR(new).csv` and
+`CSV/NFL26_CS_Dyn(new).csv`. Those two files plus the FantasyPros redraft, FantasyPros dynasty,
 FantasySharks dynasty, and PFF fantasy ranking CSVs are loaded automatically at startup, after an
 MFL synchronization, and during the 1:00 AM daily refresh. Repository CSVs are shared with every
 signed-in account. A CSV
@@ -127,9 +119,11 @@ VOR board. MFL ADP and AAV are market references; a weekly MFL projection is nev
 season projection. Missing values are ignored rather than treated as zero. “Consensus” means the
 configured local blend and never implies FantasyPros Expert Consensus Rank.
 
-The GNG rankings need no key and are attributed under CC BY 4.0. ADFL receives the shared ESPN,
-FantasyPros, and FantasySharks dynasty CSVs; TMFL receives the shared ESPN PPR Top 300 and
-FantasyPros redraft CSV. Both leagues receive the shared PFF 2026 fantasy ranking CSV.
+The GNG rankings need no key and are attributed under CC BY 4.0. ADFL receives the shared ESPN
+dynasty, FantasyPros dynasty, and FantasySharks dynasty CSVs. TMFL receives the shared ESPN PPR
+and FantasyPros redraft CSVs. Both leagues receive the shared PFF 2026 fantasy ranking CSV. The
+source names shown in the website include their league scope so it is clear which sheet affects
+which board.
 The limited live FantasyPros API and API-key controls remain removed; FantasyPros data now comes
 from the complete uploaded files and is attributed with its filename. Sleeper trends and nflverse
 schedule difficulty use small ranking weights, while their metadata also enriches player profiles.
