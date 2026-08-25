@@ -33,6 +33,13 @@ MFL synchronization, and during the 1:00 AM daily refresh. Repository CSVs are s
 signed-in account. A CSV
 imported through the Cheat Sheet belongs only to the account that uploaded it.
 
+TMFL also uses `CSV/ESPN_2026_PPR_Projections.csv` as a full-season projection source. Regenerate
+that shared file from an owner-provided ESPN JSON export with:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\convert_espn_projection_json.py C:\path\to\espn_2026_ppr_raw.json
+```
+
 ## Website guide
 
 - **Home:** both leagues, sync freshness, warning counts, and room shortcuts.
@@ -229,7 +236,8 @@ imported source contains a real full-season projection, the model uses it. Other
 the latest nflverse regular-season stat line with the selected league's imported linear MFL scoring
 rules, then regresses that result toward the player's current role. The UI reports median, ceiling,
 floor, workload, injury risk, confidence, source names, and the exact basis. Weekly MFL projections
-and rank-derived fallbacks are never relabeled as vendor season projections. Flat weekly threshold
+and rank-derived fallbacks are never relabeled as vendor season projections. TMFL's projection
+blend includes the shared ESPN 2026 PPR full-season projection file. Flat weekly threshold
 bonuses are excluded from season-total recalculation because aggregate stats cannot reveal how many
 individual weeks crossed the threshold.
 

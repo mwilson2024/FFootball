@@ -181,11 +181,13 @@ from app.settings_store import (
     setup_status,
 )
 from app.sources import (
+    LOCAL_FILE_SOURCE_SPECS,
+    LOCAL_PROJECTION_SOURCE_IDS,
     LOCAL_RANKING_SOURCE_IDS,
-    LOCAL_RANKING_SPECS,
     initialize_sources,
     source_json,
     sync_gng,
+    sync_local_projection_source,
     sync_local_ranking_source,
     sync_nflverse,
     sync_sleeper,
@@ -225,7 +227,7 @@ from app.users import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260825.1"
+templates.env.globals["asset_version"] = "20260825.2"
 SESSION_SIGNING_SECRET = ""
 
 
@@ -245,6 +247,12 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
                 sync_local_ranking_source(db, source_id)
             except (OSError, UnicodeError, ValueError):
                 # The source card retains the exact error while the site remains usable.
+                pass
+        for source_id in LOCAL_PROJECTION_SOURCE_IDS:
+            try:
+                sync_local_projection_source(db, source_id)
+            except (OSError, UnicodeError, ValueError):
+                # Projection imports are optional and report their error on the source card.
                 pass
         for username in settings.admin_username_set or {"wilsonmw"}:
             bootstrap_user(db, username, admin_usernames=settings.admin_username_set)
@@ -1334,6 +1342,8 @@ SOURCE_RAW_COLUMN_PRIORITY = (
     "overall_rank",
     "position_rank",
     "tier",
+    "season_projection",
+    "projected_average",
     "projection",
     "projected_points",
     "adp",
@@ -1446,7 +1456,7 @@ def source_received_data(
 
 @app.get("/api/sources/{source_id}/download.csv")
 def download_source_csv(source_id: str, db: Db) -> Response:
-    spec = LOCAL_RANKING_SPECS.get(source_id)
+    spec = LOCAL_FILE_SOURCE_SPECS.get(source_id)
     source = db.get(DataSource, source_id)
     if source is None or not source_visible_to_user(source_id, active_username()):
         raise HTTPException(404, detail={"code": "source_not_found", "message": "Source not found"})
@@ -1557,6 +1567,8 @@ async def sync_source(db: Db, source_id: str = Query(...)) -> dict[str, Any]:
             return {"source_id": source_id, **await sync_nflverse(db)}
         if source_id in LOCAL_RANKING_SOURCE_IDS:
             return {"source_id": source_id, **sync_local_ranking_source(db, source_id)}
+        if source_id in LOCAL_PROJECTION_SOURCE_IDS:
+            return {"source_id": source_id, **sync_local_projection_source(db, source_id)}
         if source_id == "gng":
             leagues_to_sync = list(
                 db.scalars(select(League).order_by(League.league_type, League.id))

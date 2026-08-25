@@ -29,6 +29,11 @@ from app.power_cache import (
 )
 from app.projections import build_projection_board, lineup_projection, score_historical_stats
 from app.realtime import LeagueEventBroker
+from app.sources import (
+    LOCAL_PROJECTION_SPECS,
+    initialize_sources,
+    sync_local_projection_source,
+)
 
 
 def _ranking(db: Session, player_id: str, rank: int, points: str = "10") -> None:
@@ -112,6 +117,32 @@ def test_projection_board_exposes_season_distribution_and_provenance(seeded: Ses
     assert projection["workload"] > 50
     assert projection["mapped_scoring_rules"] == 2
     assert "Imported MFL scoring rules" in projection["sources"]
+
+
+def test_espn_ppr_projection_csv_feeds_tmfl_season_outcomes(
+    seeded: Session, tmp_path, monkeypatch
+) -> None:
+    initialize_sources(seeded)
+    projection_file = tmp_path / "espn-projections.csv"
+    projection_file.write_text(
+        "player_name,team,position,season_projection,projected_average,espn_player_id\n"
+        "Leading Zero,BUF,RB,312.5,18.38,12345\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setitem(LOCAL_PROJECTION_SPECS["espn_ppr_projection_csv"], "path", projection_file)
+    result = sync_local_projection_source(seeded, "espn_ppr_projection_csv")
+    _ranking(seeded, "0001234", 1, "20")
+    seeded.commit()
+
+    league = seeded.get_one(League, ("00999", 2026))
+    board = draftable_consensus(seeded, "00999")
+    projection = build_projection_board(seeded, league, board)["0001234"]
+
+    assert result["matched"] == 1
+    assert result["leagues"] == [{"league_id": "00999", "matched": 1, "unresolved": 0}]
+    assert projection["median"] == 312.5
+    assert "ESPN 2026 PPR Season Projections (TMFL)" in projection["sources"]
+    assert projection["basis"] == "Imported full-season projection"
 
 
 def test_scenario_lab_and_post_draft_analysis_use_real_order(seeded: Session, monkeypatch) -> None:

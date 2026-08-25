@@ -15,7 +15,7 @@ from app.automation import (
 from app.draft import set_draft_live
 from app.mfl import MFLResponse
 from app.models import DataSource, DraftPick, LeagueType
-from app.sources import LOCAL_RANKING_SPECS, initialize_sources
+from app.sources import LOCAL_PROJECTION_SPECS, LOCAL_RANKING_SPECS, initialize_sources
 from app.users import save_draft_mode
 
 
@@ -48,6 +48,7 @@ def test_source_initialization_applies_source_defaults(db: Session) -> None:
     assert all(source.enabled for source in sources if source.id != "league_model")
     assert all(Decimal(source.weight) > 0 for source in sources)
     assert db.get(DataSource, "espn_dynasty_csv") is not None
+    assert db.get(DataSource, "espn_ppr_projection_csv") is not None
     assert db.get(DataSource, "fantasypros_redraft_csv") is not None
     assert db.get(DataSource, "fantasypros_dynasty_csv") is not None
     assert db.get(DataSource, "fantasysharks_dynasty_csv") is not None
@@ -85,6 +86,10 @@ def test_shared_ranking_files_are_mapped_to_the_intended_league_types() -> None:
     for source_id, (filename, league_types) in expected.items():
         assert LOCAL_RANKING_SPECS[source_id]["path"].name == filename
         assert LOCAL_RANKING_SPECS[source_id]["league_types"] == league_types
+
+    projection = LOCAL_PROJECTION_SPECS["espn_ppr_projection_csv"]
+    assert projection["path"].name == "ESPN_2026_PPR_Projections.csv"
+    assert projection["league_types"] == {LeagueType.AUCTION}
 
 
 def test_live_draft_sync_imports_mfl_picks_and_is_idempotent(seeded: Session) -> None:

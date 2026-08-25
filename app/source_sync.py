@@ -10,9 +10,11 @@ from sqlalchemy.orm import Session
 from app.config import Settings
 from app.models import DataSource, League
 from app.sources import (
+    LOCAL_PROJECTION_SOURCE_IDS,
     LOCAL_RANKING_SOURCE_IDS,
     initialize_sources,
     sync_gng,
+    sync_local_projection_source,
     sync_local_ranking_source,
     sync_nflverse,
     sync_sleeper,
@@ -68,6 +70,19 @@ async def sync_enabled_sources(db: Session, settings: Settings) -> dict[str, Any
             continue
         try:
             results.append({"source_id": source_id, **sync_local_ranking_source(db, source_id)})
+        except Exception as exc:
+            source = db.get(DataSource, source_id)
+            if source is not None:
+                source.last_attempt_at = datetime.now(UTC)
+                source.last_error = f"{type(exc).__name__}: {exc}"
+                db.commit()
+            results.append({"source_id": source_id, "error": f"{type(exc).__name__}: {exc}"})
+
+    for source_id in LOCAL_PROJECTION_SOURCE_IDS:
+        if source_id not in enabled:
+            continue
+        try:
+            results.append({"source_id": source_id, **sync_local_projection_source(db, source_id)})
         except Exception as exc:
             source = db.get(DataSource, source_id)
             if source is not None:

@@ -72,6 +72,14 @@ LOCAL_RANKING_SPECS: dict[str, dict[str, Any]] = {
     },
 }
 LOCAL_RANKING_SOURCE_IDS = tuple(LOCAL_RANKING_SPECS)
+LOCAL_PROJECTION_SPECS: dict[str, dict[str, Any]] = {
+    "espn_ppr_projection_csv": {
+        "path": PROJECT_ROOT / "CSV" / "ESPN_2026_PPR_Projections.csv",
+        "league_types": {LeagueType.AUCTION},
+    },
+}
+LOCAL_PROJECTION_SOURCE_IDS = tuple(LOCAL_PROJECTION_SPECS)
+LOCAL_FILE_SOURCE_SPECS = {**LOCAL_RANKING_SPECS, **LOCAL_PROJECTION_SPECS}
 
 DEFAULT_SOURCES: list[dict[str, Any]] = [
     {
@@ -149,6 +157,17 @@ DEFAULT_SOURCES: list[dict[str, Any]] = [
         "terms_url": None,
         "license": "Site owner-provided file; shared in this DraftDesk instance",
         "attribution": "ESPN 2026 PPR Cheat Sheet — NFL26_CS_PPR(new).csv",
+        "cache_ttl_seconds": 0,
+    },
+    {
+        "id": "espn_ppr_projection_csv",
+        "name": "ESPN 2026 PPR Season Projections (TMFL)",
+        "kind": "projection",
+        "enabled": True,
+        "weight": Decimal("1"),
+        "terms_url": None,
+        "license": "Site owner-provided file; shared in this DraftDesk instance",
+        "attribution": "ESPN 2026 PPR projections — ESPN_2026_PPR_Projections.csv",
         "cache_ttl_seconds": 0,
     },
     {
@@ -699,11 +718,154 @@ def sync_local_ranking_source(db: Session, source_id: str) -> dict[str, Any]:
         raise
 
 
+def sync_local_projection_source(db: Session, source_id: str) -> dict[str, Any]:
+    spec = LOCAL_PROJECTION_SPECS.get(source_id)
+    if spec is None:
+        raise ValueError(f"Unknown local projection source: {source_id}")
+    source = db.get(DataSource, source_id)
+    if source is None:
+        initialize_sources(db)
+        source = db.get(DataSource, source_id)
+    assert source is not None
+    attempted_at = datetime.now(UTC)
+    source.last_attempt_at = attempted_at
+    path = Path(spec["path"])
+    try:
+        content = path.read_bytes()
+        text = content.decode("utf-8-sig")
+        rows = [
+            dict(row)
+            for row in csv.DictReader(io.StringIO(text))
+            if any((value or "").strip() for value in row.values())
+        ]
+        if not rows:
+            raise ValueError(f"Local projection CSV is empty: {path.name}")
+        checksum = hashlib.sha256(content).hexdigest()
+        updated_at = datetime.fromtimestamp(path.stat().st_mtime, UTC)
+        players = list(db.scalars(select(Player)))
+        exact, fallback = _player_indexes(players)
+        defenses_by_team = {
+            normalize_team(player.nfl_team): player
+            for player in players
+            if normalize_position(player.position) == "DEF" and player.nfl_team
+        }
+        allowed_types = {str(item) for item in spec["league_types"]}
+        leagues = [
+            league
+            for league in db.scalars(select(League).order_by(League.league_type, League.id))
+            if str(league.league_type) in allowed_types
+        ]
+        league_results: list[dict[str, Any]] = []
+        total_matched = 0
+        for league in leagues:
+            matched: dict[str, tuple[Player, dict[str, Any], Decimal]] = {}
+            unresolved = 0
+            for raw_row in rows:
+                projection = _safe_decimal(
+                    _csv_value(
+                        raw_row,
+                        "season_projection",
+                        "projected_points",
+                        "projection",
+                    )
+                )
+                if projection is None or projection <= 0:
+                    unresolved += 1
+                    continue
+                name = _csv_value(raw_row, "player_name", "player")
+                team = _csv_value(raw_row, "team")
+                position = normalize_position(_csv_value(raw_row, "position", "pos"))
+                player: Player | None
+                if position == "DEF" and normalize_team(team) in defenses_by_team:
+                    player = defenses_by_team[normalize_team(team)]
+                    method = "exact_team_defense"
+                    confidence = Decimal("0.98")
+                else:
+                    player, method, confidence = _match_player(
+                        exact,
+                        fallback,
+                        name=name,
+                        team=team,
+                        position=position,
+                    )
+                    if player is None:
+                        player, method, confidence = _match_abbreviated_player(
+                            players,
+                            name=name,
+                            team=team,
+                            position=position,
+                        )
+                if player is None:
+                    unresolved += 1
+                    continue
+                standardized = {
+                    **raw_row,
+                    "player_name": name,
+                    "team": team,
+                    "position": position,
+                    "season_projection": str(projection),
+                    "source_file": path.name,
+                    "source_label": source.name,
+                    "match_method": method,
+                    "match_confidence": str(confidence),
+                }
+                matched[player.id] = (player, standardized, projection)
+            db.execute(
+                delete(SourcePlayerValue).where(
+                    SourcePlayerValue.source_id == source_id,
+                    SourcePlayerValue.league_id == league.id,
+                    SourcePlayerValue.value_type == "season_projection",
+                )
+            )
+            for player, raw_row, projection in matched.values():
+                db.add(
+                    SourcePlayerValue(
+                        source_id=source_id,
+                        league_id=league.id,
+                        player_id=player.id,
+                        value_type="season_projection",
+                        raw_value_json=raw_row,
+                        normalized_value=projection,
+                        source_updated_at=updated_at,
+                        fetched_at=attempted_at,
+                        snapshot_id=checksum,
+                    )
+                )
+            total_matched += len(matched)
+            league_results.append(
+                {
+                    "league_id": league.id,
+                    "matched": len(matched),
+                    "unresolved": unresolved,
+                }
+            )
+        source.last_success_at = attempted_at
+        source.last_error = None
+        db.commit()
+        return {
+            "file": path.name,
+            "file_rows": len(rows),
+            "matched": total_matched,
+            "unresolved": sum(item["unresolved"] for item in league_results),
+            "leagues": league_results,
+            "snapshot_id": checksum,
+        }
+    except Exception as exc:
+        source.last_error = f"{type(exc).__name__}: {exc}"
+        db.commit()
+        raise
+
+
 def sync_local_ranking_sources(db: Session) -> list[dict[str, Any]]:
-    return [
+    rankings = [
         {"source_id": source_id, **sync_local_ranking_source(db, source_id)}
         for source_id in LOCAL_RANKING_SOURCE_IDS
     ]
+    projections = [
+        {"source_id": source_id, **sync_local_projection_source(db, source_id)}
+        for source_id in LOCAL_PROJECTION_SOURCE_IDS
+    ]
+    return [*rankings, *projections]
 
 
 def scoring_profile(scoring_rules: dict[str, Any]) -> tuple[str, str]:
