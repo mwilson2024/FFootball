@@ -669,8 +669,8 @@ async def test_local_dynasty_rankings_are_scoped_to_adfl(
     )
     espn_projection_file = tmp_path / "espn-projections.csv"
     espn_projection_file.write_text(
-        "player_name,team,position,season_projection,projected_average,espn_player_id\n"
-        "Leading Zero,BUF,RB,312.5,18.38,12345\n",
+        "player_name,team,position,season_projection,projected_average,espn_player_id,season_outlook\n"
+        'Leading Zero,BUF,RB,312.5,18.38,12345,"ESPN expects a featured role."\n',
         encoding="utf-8",
     )
     monkeypatch.setitem(LOCAL_RANKING_SPECS["espn_dynasty_csv"], "path", ranking_file)
@@ -701,6 +701,9 @@ async def test_local_dynasty_rankings_are_scoped_to_adfl(
     detail = player_detail(seeded, "adfl", "0001234")
     assert detail is not None
     assert detail["profile"]["espn_projection"]["season_total"] == 312.5
+    assert detail["profile"]["espn_projection"]["season_outlook"] == (
+        "ESPN expects a featured role."
+    )
     assert detail["profile"]["espn_projection"]["included_in_outcomes"] is False
     assert "comparison only" in detail["profile"]["espn_projection"]["reason"]
     assert detail["profile"]["fantasysharks"]["player_id"] == "14777"

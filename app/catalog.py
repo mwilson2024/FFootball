@@ -843,6 +843,7 @@ def player_detail(db: Session, league_id: str, player_id: str) -> dict[str, Any]
                 if espn_projection_average is not None
                 else None,
                 "injury_status": espn_projection_raw.get("injury_status") or None,
+                "season_outlook": espn_projection_raw.get("season_outlook") or None,
                 "espn_player_id": espn_projection_raw.get("espn_player_id") or None,
                 "season": espn_projection_raw.get("season") or None,
                 "scoring_format": "PPR",
