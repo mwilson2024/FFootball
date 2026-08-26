@@ -4,6 +4,30 @@
   color: #8e261c;
 }
 
+.sources-page-actions {
+  flex: none;
+  flex-wrap: nowrap;
+  max-width: 100%;
+  overflow-x: auto;
+  padding-bottom: .2rem;
+  white-space: nowrap;
+}
+
+.sources-page-actions > * {
+  flex: none;
+}
+
+@media (max-width: 1050px) {
+  .sources-page-title {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .sources-page-actions {
+    align-self: stretch;
+  }
+}
+
 .avoid-teams-dialog {
   width: min(900px, calc(100vw - 2rem));
   max-width: none;
