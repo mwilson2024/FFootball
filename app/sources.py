@@ -77,6 +77,10 @@ LOCAL_PROJECTION_SPECS: dict[str, dict[str, Any]] = {
         "path": PROJECT_ROOT / "CSV" / "ESPN_2026_PPR_Projections.csv",
         "league_types": {LeagueType.AUCTION},
     },
+    "pff_ppr_projection_csv": {
+        "path": PROJECT_ROOT / "CSV" / "PFF_2026_PPR_Projections.csv",
+        "league_types": {LeagueType.AUCTION},
+    },
 }
 LOCAL_PROJECTION_SOURCE_IDS = tuple(LOCAL_PROJECTION_SPECS)
 LOCAL_FILE_SOURCE_SPECS = {**LOCAL_RANKING_SPECS, **LOCAL_PROJECTION_SPECS}
@@ -168,6 +172,17 @@ DEFAULT_SOURCES: list[dict[str, Any]] = [
         "terms_url": None,
         "license": "Site owner-provided file; shared in this DraftDesk instance",
         "attribution": "ESPN 2026 PPR projections — ESPN_2026_PPR_Projections.csv",
+        "cache_ttl_seconds": 0,
+    },
+    {
+        "id": "pff_ppr_projection_csv",
+        "name": "PFF 2026 PPR Season Projections (TMFL)",
+        "kind": "projection",
+        "enabled": True,
+        "weight": Decimal("1"),
+        "terms_url": None,
+        "license": "Site owner-provided file; shared in this DraftDesk instance",
+        "attribution": "PFF 2026 PPR projections — PFF_2026_PPR_Projections.csv",
         "cache_ttl_seconds": 0,
     },
     {

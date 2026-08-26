@@ -9,6 +9,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.models import DataSource, League, Player, SourcePlayerValue
+from app.users import effective_source_settings
 
 STAT_KEYS = {
     "#P": ("passing_tds", "passing_touchdowns"),
@@ -185,20 +186,32 @@ def _latest_values(
     return historical, raw_sources
 
 
-def _external_projection(sources: list[dict[str, Any]]) -> tuple[float | None, list[str]]:
-    values: list[float] = []
+def _external_projection(
+    sources: list[dict[str, Any]], source_settings: dict[str, dict[str, Any]]
+) -> tuple[float | None, list[str]]:
+    weighted_values: list[tuple[float, float]] = []
     labels: list[str] = []
     for source in sources:
+        setting = source_settings.get(str(source["source_id"]))
+        if setting is not None and not bool(setting.get("enabled", True)):
+            continue
+        weight = float(setting.get("weight", 1)) if setting is not None else 1.0
+        if weight <= 0:
+            continue
         raw = source["raw"]
         if not isinstance(raw, dict):
             continue
         for key in ("season_projection", "projected_points", "projection", "proj_points", "points"):
             value = _number(raw.get(key))
             if value is not None and value > 0:
-                values.append(value)
+                weighted_values.append((value, weight))
                 labels.append(source["source_name"])
                 break
-    return (sum(values) / len(values), list(dict.fromkeys(labels))) if values else (None, [])
+    if not weighted_values:
+        return None, []
+    total_weight = sum(weight for _, weight in weighted_values)
+    projection = sum(value * weight for value, weight in weighted_values) / total_weight
+    return projection, list(dict.fromkeys(labels))
 
 
 def _workload(stats: dict[str, Any], position: str) -> float:
@@ -231,6 +244,7 @@ def build_projection_board(
     """Build transparent internal season distributions, not vendor projections."""
     players = {item.id: item for item in db.scalars(select(Player))}
     historical, source_rows = _latest_values(db, league.id)
+    source_settings = effective_source_settings(db)
     result: dict[str, dict[str, Any]] = {}
     pool = max(len(board), 1)
     for row in board:
@@ -243,7 +257,9 @@ def build_projection_board(
         historical_points, mapped_rules = score_historical_stats(
             stats, league.scoring_rules_json or {}, player.position.upper()
         )
-        external, external_sources = _external_projection(source_rows.get(player.id, []))
+        external, external_sources = _external_projection(
+            source_rows.get(player.id, []), source_settings
+        )
         rank = int(row.get("consensus_rank") or pool)
         rank_baseline = max(24.0, 310.0 * math.exp(-2.25 * (rank - 1) / pool))
         if external is not None and historical_points is not None:

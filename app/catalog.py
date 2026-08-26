@@ -608,6 +608,17 @@ def player_detail(db: Session, league_id: str, player_id: str) -> dict[str, Any]
     espn_projection_raw = (
         espn_projection_value.raw_value_json or {} if espn_projection_value else {}
     )
+    pff_projection_value = db.scalar(
+        select(SourcePlayerValue)
+        .where(
+            SourcePlayerValue.player_id == player_id,
+            SourcePlayerValue.source_id == "pff_ppr_projection_csv",
+            SourcePlayerValue.value_type == "season_projection",
+        )
+        .order_by(SourcePlayerValue.fetched_at.desc(), SourcePlayerValue.id.desc())
+        .limit(1)
+    )
+    pff_projection_raw = pff_projection_value.raw_value_json or {} if pff_projection_value else {}
     schedule = next(
         (
             value.raw_value_json or {}
@@ -641,7 +652,14 @@ def player_detail(db: Session, league_id: str, player_id: str) -> dict[str, Any]
     )
     espn_projection_total = _number(espn_projection_raw.get("season_projection"))
     espn_projection_average = _number(espn_projection_raw.get("projected_average"))
+    pff_projection_total = _number(pff_projection_raw.get("season_projection"))
+    pff_projection_average = _number(pff_projection_raw.get("projected_average"))
+    pff_projection_floor = _number(pff_projection_raw.get("projection_floor"))
+    pff_projection_ceiling = _number(pff_projection_raw.get("projection_ceiling"))
     espn_in_model = "ESPN 2026 PPR Season Projections (TMFL)" in (
+        season_projection.get("sources") or []
+    )
+    pff_in_model = "PFF 2026 PPR Season Projections (TMFL)" in (
         season_projection.get("sources") or []
     )
     if espn_projection_total is None:
@@ -649,14 +667,96 @@ def player_detail(db: Session, league_id: str, player_id: str) -> dict[str, Any]
     elif espn_in_model:
         espn_projection_reason = (
             "Included because this is an auction/redraft league using the ESPN 2026 PPR "
-            "projection set. DraftDesk blends the ESPN total with prior-year production "
-            "recalculated under the imported MFL scoring rules when that history is available."
+            "projection set. DraftDesk combines enabled projection sources using your saved "
+            "influence weights, then blends that result with prior-year production recalculated "
+            "under the imported MFL scoring rules when that history is available."
         )
     else:
         espn_projection_reason = (
             "Shown for comparison only. This ESPN file is a 2026 PPR redraft projection scoped "
             "to TMFL, so it does not change this league's full-season outcome model."
         )
+    if pff_projection_total is None:
+        pff_projection_reason = "No PFF full-season projection row matched this player."
+    elif pff_in_model:
+        pff_projection_reason = (
+            "Included because this is an auction/redraft league using the PFF 2026 PPR "
+            "projection set. DraftDesk combines enabled projection sources using your saved "
+            "influence weights, then blends that result with prior-year production recalculated "
+            "under the imported MFL scoring rules when that history is available."
+        )
+    else:
+        pff_projection_reason = (
+            "Shown for comparison only. This PFF file is a 2026 PPR redraft projection scoped "
+            "to TMFL, or you disabled it in Sources, so it does not change this league's "
+            "full-season outcome model."
+        )
+    pff_analysis = [
+        item.strip()
+        for item in re.split(r"\n\s*\n", str(pff_projection_raw.get("expert_analysis") or ""))
+        if item.strip()
+    ]
+    espn_projection_json = {
+        "id": "espn",
+        "label": "ESPN",
+        "season_total": round(espn_projection_total, 1)
+        if espn_projection_total is not None
+        else None,
+        "per_game": round(espn_projection_average, 1)
+        if espn_projection_average is not None
+        else None,
+        "projection_floor": None,
+        "projection_ceiling": None,
+        "injury_status": espn_projection_raw.get("injury_status") or None,
+        "analysis": [espn_projection_raw["season_outlook"]]
+        if espn_projection_raw.get("season_outlook")
+        else [],
+        "analysis_label": "ESPN outlook",
+        "season_outlook": espn_projection_raw.get("season_outlook") or None,
+        "source_player_id": espn_projection_raw.get("espn_player_id") or None,
+        "espn_player_id": espn_projection_raw.get("espn_player_id") or None,
+        "season": espn_projection_raw.get("season") or None,
+        "scoring_format": "PPR",
+        "included_in_outcomes": espn_in_model,
+        "reason": espn_projection_reason,
+        "source_updated_at": espn_projection_value.source_updated_at
+        if espn_projection_value
+        else None,
+        "fetched_at": espn_projection_value.fetched_at if espn_projection_value else None,
+    }
+    pff_projection_json = {
+        "id": "pff",
+        "label": "PFF",
+        "season_total": round(pff_projection_total, 1)
+        if pff_projection_total is not None
+        else None,
+        "per_game": round(pff_projection_average, 1)
+        if pff_projection_average is not None
+        else None,
+        "projection_floor": round(pff_projection_floor, 1)
+        if pff_projection_floor is not None
+        else None,
+        "projection_ceiling": round(pff_projection_ceiling, 1)
+        if pff_projection_ceiling is not None
+        else None,
+        "analysis": pff_analysis,
+        "analysis_label": "PFF expert analysis",
+        "source_player_id": pff_projection_raw.get("pff_player_id") or None,
+        "pff_player_id": pff_projection_raw.get("pff_player_id") or None,
+        "overall_rank": pff_projection_raw.get("overall_rank") or None,
+        "position_rank": pff_projection_raw.get("position_rank") or None,
+        "tier": pff_projection_raw.get("tier") or None,
+        "tags": [
+            tag for tag in str(pff_projection_raw.get("tags") or "").split("|") if tag
+        ],
+        "scoring_format": pff_projection_raw.get("scoring_format") or "PPR",
+        "included_in_outcomes": pff_in_model,
+        "reason": pff_projection_reason,
+        "source_updated_at": pff_projection_value.source_updated_at
+        if pff_projection_value
+        else None,
+        "fetched_at": pff_projection_value.fetched_at if pff_projection_value else None,
+    }
     metadata = player.metadata_json or {}
     external_links: list[dict[str, Any]] = []
     is_team_defense = player.position.upper() in {"DEF", "DST", "D/ST"}
@@ -837,25 +937,9 @@ def player_detail(db: Session, league_id: str, player_id: str) -> dict[str, Any]
                 "projection_note": row.get("projection_note"),
             },
             "season_projection": season_projection,
-            "espn_projection": {
-                "season_total": round(espn_projection_total, 1)
-                if espn_projection_total is not None
-                else None,
-                "per_game": round(espn_projection_average, 1)
-                if espn_projection_average is not None
-                else None,
-                "injury_status": espn_projection_raw.get("injury_status") or None,
-                "season_outlook": espn_projection_raw.get("season_outlook") or None,
-                "espn_player_id": espn_projection_raw.get("espn_player_id") or None,
-                "season": espn_projection_raw.get("season") or None,
-                "scoring_format": "PPR",
-                "included_in_outcomes": espn_in_model,
-                "reason": espn_projection_reason,
-                "source_updated_at": espn_projection_value.source_updated_at
-                if espn_projection_value
-                else None,
-                "fetched_at": espn_projection_value.fetched_at if espn_projection_value else None,
-            },
+            "espn_projection": espn_projection_json,
+            "pff_projection": pff_projection_json,
+            "projection_options": [espn_projection_json, pff_projection_json],
             "source_rank_details": source_rank_details,
         },
         "source_values": [

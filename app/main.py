@@ -231,7 +231,7 @@ from app.users import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260826.3"
+templates.env.globals["asset_version"] = "20260826.4"
 SESSION_SIGNING_SECRET = ""
 
 
@@ -1348,6 +1348,9 @@ SOURCE_RAW_COLUMN_PRIORITY = (
     "tier",
     "season_projection",
     "projected_average",
+    "projection_floor",
+    "projection_ceiling",
+    "expert_analysis",
     "projection",
     "projected_points",
     "adp",

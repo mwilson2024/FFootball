@@ -34,6 +34,7 @@ from app.sources import (
     initialize_sources,
     sync_local_projection_source,
 )
+from app.users import save_source_setting
 
 
 def _ranking(db: Session, player_id: str, rank: int, points: str = "10") -> None:
@@ -143,6 +144,38 @@ def test_espn_ppr_projection_csv_feeds_tmfl_season_outcomes(
     assert projection["median"] == 312.5
     assert "ESPN 2026 PPR Season Projections (TMFL)" in projection["sources"]
     assert projection["basis"] == "Imported full-season projection"
+
+
+def test_pff_projection_source_can_be_included_or_disabled(
+    seeded: Session, tmp_path, monkeypatch
+) -> None:
+    initialize_sources(seeded)
+    projection_file = tmp_path / "pff-projections.csv"
+    projection_file.write_text(
+        "player_name,team,position,season_projection,projected_average,projection_floor,"
+        "projection_ceiling,pff_player_id,expert_analysis\n"
+        'Leading Zero,BUF,RB,340,20,250,430,67890,"PFF role analysis."\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setitem(LOCAL_PROJECTION_SPECS["pff_ppr_projection_csv"], "path", projection_file)
+    result = sync_local_projection_source(seeded, "pff_ppr_projection_csv")
+    _ranking(seeded, "0001234", 1, "20")
+    seeded.commit()
+
+    league = seeded.get_one(League, ("00999", 2026))
+    board = draftable_consensus(seeded, "00999")
+    included = build_projection_board(seeded, league, board)["0001234"]
+
+    assert result["matched"] == 1
+    assert included["median"] == 340
+    assert "PFF 2026 PPR Season Projections (TMFL)" in included["sources"]
+
+    save_source_setting(
+        seeded, "pff_ppr_projection_csv", enabled=False, weight=Decimal("1")
+    )
+    disabled = build_projection_board(seeded, league, board)["0001234"]
+    assert disabled["median"] != 340
+    assert "PFF 2026 PPR Season Projections (TMFL)" not in disabled["sources"]
 
 
 def test_scenario_lab_and_post_draft_analysis_use_real_order(seeded: Session, monkeypatch) -> None:

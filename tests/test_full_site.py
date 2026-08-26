@@ -673,6 +673,15 @@ async def test_local_dynasty_rankings_are_scoped_to_adfl(
         'Leading Zero,BUF,RB,312.5,18.38,12345,"ESPN expects a featured role."\n',
         encoding="utf-8",
     )
+    pff_projection_file = tmp_path / "pff-projections.csv"
+    pff_projection_file.write_text(
+        "player_name,team,position,season_projection,projected_average,projection_floor,"
+        "projection_ceiling,pff_player_id,overall_rank,position_rank,tier,tags,"
+        "expert_analysis,scoring_format\n"
+        'Leading Zero,BUF,RB,330,19.41,250,410,67890,3,2,1,breakout,'
+        '"PFF expects an expanded role.",PPR\n',
+        encoding="utf-8",
+    )
     monkeypatch.setitem(LOCAL_RANKING_SPECS["espn_dynasty_csv"], "path", ranking_file)
     monkeypatch.setitem(LOCAL_RANKING_SPECS["fantasypros_dynasty_csv"], "path", fantasypros_file)
     monkeypatch.setitem(
@@ -681,10 +690,14 @@ async def test_local_dynasty_rankings_are_scoped_to_adfl(
     monkeypatch.setitem(
         LOCAL_PROJECTION_SPECS["espn_ppr_projection_csv"], "path", espn_projection_file
     )
+    monkeypatch.setitem(
+        LOCAL_PROJECTION_SPECS["pff_ppr_projection_csv"], "path", pff_projection_file
+    )
     espn_result = sync_local_ranking_source(seeded, "espn_dynasty_csv")
     fantasypros_result = sync_local_ranking_source(seeded, "fantasypros_dynasty_csv")
     fantasysharks_result = sync_local_ranking_source(seeded, "fantasysharks_dynasty_csv")
     espn_projection_result = sync_local_projection_source(seeded, "espn_ppr_projection_csv")
+    pff_projection_result = sync_local_projection_source(seeded, "pff_ppr_projection_csv")
     adfl = {row["player_id"]: row for row in build_consensus(seeded, "adfl")}
     tmfl = {row["player_id"]: row for row in build_consensus(seeded, "00999")}
 
@@ -692,6 +705,7 @@ async def test_local_dynasty_rankings_are_scoped_to_adfl(
     assert fantasypros_result["matched"] == 1
     assert fantasysharks_result["matched"] == 1
     assert espn_projection_result["matched"] == 1
+    assert pff_projection_result["matched"] == 1
     assert adfl["0001234"]["source_ranks"]["espn_dynasty_csv"] == "2"
     assert adfl["0001234"]["source_ranks"]["fantasypros_dynasty_csv"] == "4"
     assert adfl["0001234"]["source_ranks"]["fantasysharks_dynasty_csv"] == "1"
@@ -706,6 +720,17 @@ async def test_local_dynasty_rankings_are_scoped_to_adfl(
     )
     assert detail["profile"]["espn_projection"]["included_in_outcomes"] is False
     assert "comparison only" in detail["profile"]["espn_projection"]["reason"]
+    assert detail["profile"]["pff_projection"]["season_total"] == 330
+    assert detail["profile"]["pff_projection"]["projection_floor"] == 250
+    assert detail["profile"]["pff_projection"]["projection_ceiling"] == 410
+    assert detail["profile"]["pff_projection"]["analysis"] == [
+        "PFF expects an expanded role."
+    ]
+    assert detail["profile"]["pff_projection"]["included_in_outcomes"] is False
+    assert [item["label"] for item in detail["profile"]["projection_options"]] == [
+        "ESPN",
+        "PFF",
+    ]
     assert detail["profile"]["fantasysharks"]["player_id"] == "14777"
     assert {
         "label": "FantasySharks profile",
@@ -715,6 +740,7 @@ async def test_local_dynasty_rankings_are_scoped_to_adfl(
     tmfl_detail = player_detail(seeded, "00999", "0001234")
     assert tmfl_detail is not None
     assert tmfl_detail["profile"]["espn_projection"]["included_in_outcomes"] is True
+    assert tmfl_detail["profile"]["pff_projection"]["included_in_outcomes"] is True
     assert "auction/redraft league" in tmfl_detail["profile"]["espn_projection"]["reason"]
     assert any(
         link["label"] == "FantasySharks profile"

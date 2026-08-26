@@ -54,6 +54,7 @@ def test_source_initialization_applies_source_defaults(db: Session) -> None:
     assert all(Decimal(source.weight) > 0 for source in sources)
     assert db.get(DataSource, "espn_dynasty_csv") is not None
     assert db.get(DataSource, "espn_ppr_projection_csv") is not None
+    assert db.get(DataSource, "pff_ppr_projection_csv") is not None
     assert db.get(DataSource, "fantasypros_redraft_csv") is not None
     assert db.get(DataSource, "fantasypros_dynasty_csv") is not None
     assert db.get(DataSource, "fantasysharks_dynasty_csv") is not None
@@ -95,6 +96,9 @@ def test_shared_ranking_files_are_mapped_to_the_intended_league_types() -> None:
     projection = LOCAL_PROJECTION_SPECS["espn_ppr_projection_csv"]
     assert projection["path"].name == "ESPN_2026_PPR_Projections.csv"
     assert projection["league_types"] == {LeagueType.AUCTION}
+    pff_projection = LOCAL_PROJECTION_SPECS["pff_ppr_projection_csv"]
+    assert pff_projection["path"].name == "PFF_2026_PPR_Projections.csv"
+    assert pff_projection["league_types"] == {LeagueType.AUCTION}
 
 
 def test_live_draft_sync_imports_mfl_picks_and_is_idempotent(seeded: Session) -> None:
