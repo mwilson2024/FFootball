@@ -595,6 +595,19 @@ def player_detail(db: Session, league_id: str, player_id: str) -> dict[str, Any]
         .limit(1)
     )
     fantasysharks = fantasysharks_value.raw_value_json or {} if fantasysharks_value else {}
+    espn_projection_value = db.scalar(
+        select(SourcePlayerValue)
+        .where(
+            SourcePlayerValue.player_id == player_id,
+            SourcePlayerValue.source_id == "espn_ppr_projection_csv",
+            SourcePlayerValue.value_type == "season_projection",
+        )
+        .order_by(SourcePlayerValue.fetched_at.desc(), SourcePlayerValue.id.desc())
+        .limit(1)
+    )
+    espn_projection_raw = (
+        espn_projection_value.raw_value_json or {} if espn_projection_value else {}
+    )
     schedule = next(
         (
             value.raw_value_json or {}
@@ -626,6 +639,24 @@ def player_detail(db: Session, league_id: str, player_id: str) -> dict[str, Any]
         if league
         else {}
     )
+    espn_projection_total = _number(espn_projection_raw.get("season_projection"))
+    espn_projection_average = _number(espn_projection_raw.get("projected_average"))
+    espn_in_model = "ESPN 2026 PPR Season Projections (TMFL)" in (
+        season_projection.get("sources") or []
+    )
+    if espn_projection_total is None:
+        espn_projection_reason = "No ESPN full-season projection row matched this player."
+    elif espn_in_model:
+        espn_projection_reason = (
+            "Included because this is an auction/redraft league using the ESPN 2026 PPR "
+            "projection set. DraftDesk blends the ESPN total with prior-year production "
+            "recalculated under the imported MFL scoring rules when that history is available."
+        )
+    else:
+        espn_projection_reason = (
+            "Shown for comparison only. This ESPN file is a 2026 PPR redraft projection scoped "
+            "to TMFL, so it does not change this league's full-season outcome model."
+        )
     metadata = player.metadata_json or {}
     external_links: list[dict[str, Any]] = []
     is_team_defense = player.position.upper() in {"DEF", "DST", "D/ST"}
@@ -804,6 +835,24 @@ def player_detail(db: Session, league_id: str, player_id: str) -> dict[str, Any]
                 "projection_note": row.get("projection_note"),
             },
             "season_projection": season_projection,
+            "espn_projection": {
+                "season_total": round(espn_projection_total, 1)
+                if espn_projection_total is not None
+                else None,
+                "per_game": round(espn_projection_average, 1)
+                if espn_projection_average is not None
+                else None,
+                "injury_status": espn_projection_raw.get("injury_status") or None,
+                "espn_player_id": espn_projection_raw.get("espn_player_id") or None,
+                "season": espn_projection_raw.get("season") or None,
+                "scoring_format": "PPR",
+                "included_in_outcomes": espn_in_model,
+                "reason": espn_projection_reason,
+                "source_updated_at": espn_projection_value.source_updated_at
+                if espn_projection_value
+                else None,
+                "fetched_at": espn_projection_value.fetched_at if espn_projection_value else None,
+            },
             "source_rank_details": source_rank_details,
         },
         "source_values": [
