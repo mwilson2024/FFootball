@@ -34,6 +34,19 @@ def _number(value: Any) -> float | None:
         return None
 
 
+def _raw_field(row: dict[str, Any], *names: str) -> str | None:
+    normalized = {
+        re.sub(r"[^a-z0-9]+", "_", str(key).casefold()).strip("_"): value
+        for key, value in row.items()
+    }
+    for name in names:
+        key = re.sub(r"[^a-z0-9]+", "_", name.casefold()).strip("_")
+        value = normalized.get(key)
+        if value not in (None, ""):
+            return str(value).strip()
+    return None
+
+
 def _visible_stat_value(value: Any) -> bool:
     if value in (None, ""):
         return False
@@ -619,6 +632,21 @@ def player_detail(db: Session, league_id: str, player_id: str) -> dict[str, Any]
         .limit(1)
     )
     pff_projection_raw = pff_projection_value.raw_value_json or {} if pff_projection_value else {}
+    fantasypros_projection_value = db.scalar(
+        select(SourcePlayerValue)
+        .where(
+            SourcePlayerValue.player_id == player_id,
+            SourcePlayerValue.source_id == "fantasypros_redraft_csv",
+            SourcePlayerValue.value_type == "rank",
+        )
+        .order_by(SourcePlayerValue.fetched_at.desc(), SourcePlayerValue.id.desc())
+        .limit(1)
+    )
+    fantasypros_projection_raw = (
+        fantasypros_projection_value.raw_value_json or {}
+        if fantasypros_projection_value
+        else {}
+    )
     schedule = next(
         (
             value.raw_value_json or {}
@@ -756,6 +784,38 @@ def player_detail(db: Session, league_id: str, player_id: str) -> dict[str, Any]
         if pff_projection_value
         else None,
         "fetched_at": pff_projection_value.fetched_at if pff_projection_value else None,
+    }
+    fantasypros_projection_json = {
+        "id": "fantasypros",
+        "label": "FantasyPros",
+        "context_only": True,
+        "upside": _raw_field(fantasypros_projection_raw, "UPSIDE", "upside"),
+        "bust": _raw_field(fantasypros_projection_raw, "BUST", "bust"),
+        "season_sos": _raw_field(
+            fantasypros_projection_raw,
+            "SOS SEASON",
+            "season_sos",
+        ),
+        "ecr_vs_adp": _raw_field(
+            fantasypros_projection_raw,
+            "ECR VS. ADP",
+            "ecr_vs_adp",
+        ),
+        "source_player_id": player.id if fantasypros_projection_value else None,
+        "reason": (
+            "FantasyPros supplies ranking and draft-market context rather than a full-season "
+            "point projection in this file. DraftDesk uses its rank in the consensus board when "
+            "the FantasyPros redraft source is enabled; these four indicators do not directly "
+            "change the full-season points model."
+            if fantasypros_projection_value
+            else "No FantasyPros redraft row matched this player."
+        ),
+        "source_updated_at": fantasypros_projection_value.source_updated_at
+        if fantasypros_projection_value
+        else None,
+        "fetched_at": fantasypros_projection_value.fetched_at
+        if fantasypros_projection_value
+        else None,
     }
     metadata = player.metadata_json or {}
     external_links: list[dict[str, Any]] = []
@@ -939,7 +999,12 @@ def player_detail(db: Session, league_id: str, player_id: str) -> dict[str, Any]
             "season_projection": season_projection,
             "espn_projection": espn_projection_json,
             "pff_projection": pff_projection_json,
-            "projection_options": [espn_projection_json, pff_projection_json],
+            "fantasypros_projection": fantasypros_projection_json,
+            "projection_options": [
+                espn_projection_json,
+                pff_projection_json,
+                fantasypros_projection_json,
+            ],
             "source_rank_details": source_rank_details,
         },
         "source_values": [
