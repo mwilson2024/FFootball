@@ -11,6 +11,7 @@ from app.models import (
     AppSetting,
     DataSource,
     UserAccount,
+    UserAvoidedTeam,
     UserLeagueSetting,
     UserMFLMembership,
     UserSourceSetting,
@@ -298,6 +299,80 @@ def reset_source_settings(db: Session) -> int:
     db.execute(delete(UserSourceSetting).where(UserSourceSetting.username == username))
     db.commit()
     return int(count or 0)
+
+
+NFL_TEAMS: dict[str, str] = {
+    "ARI": "Arizona Cardinals",
+    "ATL": "Atlanta Falcons",
+    "BAL": "Baltimore Ravens",
+    "BUF": "Buffalo Bills",
+    "CAR": "Carolina Panthers",
+    "CHI": "Chicago Bears",
+    "CIN": "Cincinnati Bengals",
+    "CLE": "Cleveland Browns",
+    "DAL": "Dallas Cowboys",
+    "DEN": "Denver Broncos",
+    "DET": "Detroit Lions",
+    "GB": "Green Bay Packers",
+    "HOU": "Houston Texans",
+    "IND": "Indianapolis Colts",
+    "JAX": "Jacksonville Jaguars",
+    "KC": "Kansas City Chiefs",
+    "LAC": "Los Angeles Chargers",
+    "LAR": "Los Angeles Rams",
+    "LV": "Las Vegas Raiders",
+    "MIA": "Miami Dolphins",
+    "MIN": "Minnesota Vikings",
+    "NE": "New England Patriots",
+    "NO": "New Orleans Saints",
+    "NYG": "New York Giants",
+    "NYJ": "New York Jets",
+    "PHI": "Philadelphia Eagles",
+    "PIT": "Pittsburgh Steelers",
+    "SEA": "Seattle Seahawks",
+    "SF": "San Francisco 49ers",
+    "TB": "Tampa Bay Buccaneers",
+    "TEN": "Tennessee Titans",
+    "WAS": "Washington Commanders",
+}
+NFL_TEAM_ALIASES = {
+    "GBP": "GB",
+    "JAC": "JAX",
+    "KCC": "KC",
+    "LVR": "LV",
+    "NEP": "NE",
+    "NOS": "NO",
+    "SFO": "SF",
+    "TBB": "TB",
+    "WSH": "WAS",
+}
+
+
+def canonical_nfl_team(team: str | None) -> str:
+    code = str(team or "").strip().upper()
+    return NFL_TEAM_ALIASES.get(code, code)
+
+
+def avoided_teams(db: Session) -> set[str]:
+    username = active_username()
+    return {
+        str(team).upper()
+        for team in db.scalars(
+            select(UserAvoidedTeam.team).where(UserAvoidedTeam.username == username)
+        )
+    }
+
+
+def save_avoided_teams(db: Session, teams: list[str]) -> set[str]:
+    username = active_username()
+    normalized = {canonical_nfl_team(team) for team in teams if str(team).strip()}
+    unknown = sorted(normalized.difference(NFL_TEAMS))
+    if unknown:
+        raise ValueError(f"Unknown NFL team code: {', '.join(unknown)}")
+    db.execute(delete(UserAvoidedTeam).where(UserAvoidedTeam.username == username))
+    db.add_all(UserAvoidedTeam(username=username, team=team) for team in sorted(normalized))
+    db.commit()
+    return normalized
 
 
 def league_setting(db: Session, league_id: str) -> UserLeagueSetting:

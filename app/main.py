@@ -149,6 +149,7 @@ from app.schemas import (
     AuctionNominationOrderUpdate,
     AuctionRobModeUpdate,
     AuctionStageUpdate,
+    AvoidedTeamsUpdate,
     CommissionerImportsUpdate,
     DraftModeUpdate,
     DraftPickCreate,
@@ -205,9 +206,11 @@ from app.user_context import (
 )
 from app.users import (
     AUCTION_STRATEGIES,
+    NFL_TEAMS,
     auction_rob_mode,
     auction_stage_enabled,
     authorized_league_ids,
+    avoided_teams,
     bootstrap_user,
     current_account,
     draft_mode,
@@ -219,6 +222,7 @@ from app.users import (
     reset_source_settings,
     save_auction_rob_mode,
     save_auction_stage,
+    save_avoided_teams,
     save_draft_mode,
     save_mfl_memberships,
     save_source_setting,
@@ -227,7 +231,7 @@ from app.users import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260826.1"
+templates.env.globals["asset_version"] = "20260826.2"
 SESSION_SIGNING_SECRET = ""
 
 
@@ -1525,6 +1529,33 @@ def update_source(source_id: str, payload: SourceUpdate, db: Db) -> dict[str, An
 @app.post("/api/sources/reset")
 def reset_sources(db: Db) -> dict[str, int]:
     return {"reset_count": reset_source_settings(db)}
+
+
+def _avoided_teams_json(db: Session) -> dict[str, Any]:
+    selected = avoided_teams(db)
+    return {
+        "teams": sorted(selected),
+        "options": [
+            {"code": code, "name": name, "avoided": code in selected}
+            for code, name in NFL_TEAMS.items()
+        ],
+    }
+
+
+@app.get("/api/sources/avoided-teams")
+def get_avoided_teams(db: Db) -> dict[str, Any]:
+    return _avoided_teams_json(db)
+
+
+@app.put("/api/sources/avoided-teams")
+def update_avoided_teams(payload: AvoidedTeamsUpdate, db: Db) -> dict[str, Any]:
+    try:
+        save_avoided_teams(db, payload.teams)
+    except ValueError as exc:
+        raise HTTPException(
+            422, detail={"code": "invalid_nfl_team", "message": str(exc)}
+        ) from exc
+    return _avoided_teams_json(db)
 
 
 @app.post("/api/sources/preview")

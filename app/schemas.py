@@ -200,6 +200,17 @@ class PreferenceUpdate(BaseModel):
     tags: list[str] = Field(default_factory=list, max_length=20)
 
 
+class AvoidedTeamsUpdate(BaseModel):
+    teams: list[str] = Field(default_factory=list, max_length=32)
+
+    @field_validator("teams", mode="before")
+    @classmethod
+    def normalize_avoided_teams(cls, value: object) -> list[str]:
+        if not isinstance(value, list):
+            raise ValueError("Teams must be a list")
+        return list(dict.fromkeys(str(item).strip().upper() for item in value if str(item).strip()))
+
+
 class IdentityUpdate(BaseModel):
     gsis_id: str | None = None
     sleeper_id: str | None = None

@@ -29,7 +29,7 @@ from app.models import (
 )
 from app.sources import normalize_player_name
 from app.user_context import active_username, personal_source_prefix
-from app.users import effective_source_settings
+from app.users import avoided_teams, canonical_nfl_team, effective_source_settings
 
 SOURCE_FAMILIES = {
     "league_model": "mfl",
@@ -235,6 +235,7 @@ def build_consensus(
             )
         }
     )
+    avoided_team_codes = avoided_teams(db)
     source_options = effective_source_settings(db)
     for source_id, override in (source_overrides or {}).items():
         if source_id in source_options:
@@ -343,6 +344,8 @@ def build_consensus(
         )
         owner_name = franchise_names.get(owner, "Team name unavailable") if owner else None
         preference = preferences.get(player.id)
+        nfl_team = canonical_nfl_team(player.nfl_team)
+        avoid_team = bool(nfl_team and nfl_team in avoided_team_codes)
         rows.append(
             {
                 "player_id": player.id,
@@ -350,6 +353,8 @@ def build_consensus(
                 "position": player.position,
                 "fantasy_positions": player.fantasy_positions_json or [player.position],
                 "nfl_team": player.nfl_team,
+                "avoid_team": avoid_team,
+                "avoid_team_label": f"Avoid · {nfl_team}" if avoid_team else None,
                 "status": player.status,
                 "injury_status": player.injury_status,
                 "practice_participation": player.practice_participation,

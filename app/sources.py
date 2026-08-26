@@ -130,7 +130,7 @@ DEFAULT_SOURCES: list[dict[str, Any]] = [
         "id": "mfl_projection",
         "name": "MFL Scoring-Adjusted Weekly Projection",
         "kind": "projection",
-        "enabled": True,
+        "enabled": False,
         "weight": Decimal("1"),
         "terms_url": "https://api.myfantasyleague.com/2026/api_info",
         "license": "MFL API terms",

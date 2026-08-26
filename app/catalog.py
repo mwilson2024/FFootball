@@ -741,6 +741,8 @@ def player_detail(db: Session, league_id: str, player_id: str) -> dict[str, Any]
         flags.append("Fade")
     if "sleeper" in (preference.get("tags") or []):
         flags.append("Sleeper")
+    if row.get("avoid_team"):
+        flags.append(str(row.get("avoid_team_label") or "Avoid team"))
     source_rank_details = []
     latest_lookup = {(value.source_id, value.value_type): value for value in latest_values}
     signal_descriptions = {

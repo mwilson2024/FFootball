@@ -762,6 +762,9 @@ def test_projection_aav_and_trend_affect_consensus_but_schedule_does_not(
     seeded: Session,
 ) -> None:
     initialize_sources(seeded)
+    save_source_setting(
+        seeded, "mfl_projection", enabled=True, weight=Decimal("1")
+    )
     add_rank(seeded, "0001234", 1)
     add_rank(seeded, "99", 2)
     snapshots = list(seeded.query(RankingSnapshot).all())

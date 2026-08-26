@@ -6,6 +6,7 @@
   <meta name="csrf-token" content="{{ request.state.user.csrf_token if request.state.user else '' }}">
   <title>{{ title }} · MFL Draft Manager</title>
   <link rel="stylesheet" href="/static/app.css?v={{ asset_version }}">
+  <link rel="stylesheet" href="/static/team-preferences.css?v={{ asset_version }}">
 </head>
 <body>
   <header class="topbar">

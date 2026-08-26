@@ -240,6 +240,16 @@ class UserSourceSetting(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class UserAvoidedTeam(Base):
+    __tablename__ = "user_avoided_teams"
+    __table_args__ = (UniqueConstraint("username", "team"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    username: Mapped[str] = mapped_column(String(100), index=True)
+    team: Mapped[str] = mapped_column(String(3), index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class UserLeagueSetting(Base):
     __tablename__ = "user_league_settings"
     __table_args__ = (UniqueConstraint("username", "league_id"),)

@@ -14,12 +14,14 @@ from app.user_context import reset_active_username, set_active_username
 from app.users import (
     auction_rob_mode,
     auction_stage_enabled,
+    avoided_teams,
     bootstrap_user,
     effective_auction_strategy,
     effective_source_settings,
     reset_source_settings,
     save_auction_rob_mode,
     save_auction_stage,
+    save_avoided_teams,
     save_mfl_memberships,
     save_source_setting,
 )
@@ -151,6 +153,7 @@ def test_reset_source_settings_restores_defaults_for_only_current_user(
     alice = set_active_username("Alice")
     try:
         assert effective_source_settings(seeded)["league_model"]["enabled"] is False
+        assert effective_source_settings(seeded)["mfl_projection"]["enabled"] is False
         save_source_setting(seeded, "sleeper", enabled=False, weight=Decimal("8.5"))
         assert effective_source_settings(seeded)["sleeper"] == {
             "enabled": False,
@@ -163,8 +166,42 @@ def test_reset_source_settings_restores_defaults_for_only_current_user(
             "weight": Decimal("0.25"),
         }
         assert effective_source_settings(seeded)["league_model"]["enabled"] is False
+        assert effective_source_settings(seeded)["mfl_projection"]["enabled"] is False
     finally:
         reset_active_username(alice)
+
+
+def test_avoided_teams_are_personal_badges_without_ranking_or_availability_changes(
+    seeded: Session,
+) -> None:
+    initialize_sources(seeded)
+    alice = set_active_username("Alice")
+    try:
+        baseline = {row["player_id"]: row for row in build_consensus(seeded, "00999")}
+        assert avoided_teams(seeded) == set()
+
+        assert save_avoided_teams(seeded, ["BUF"]) == {"BUF"}
+        personalized = {row["player_id"]: row for row in build_consensus(seeded, "00999")}
+        leading_zero = personalized["0001234"]
+
+        assert leading_zero["avoid_team"] is True
+        assert leading_zero["avoid_team_label"] == "Avoid · BUF"
+        assert leading_zero["available"] == baseline["0001234"]["available"]
+        assert leading_zero["consensus_rank"] == baseline["0001234"]["consensus_rank"]
+        assert personalized["99"]["avoid_team"] is False
+        detail = player_detail(seeded, "00999", "0001234")
+        assert detail is not None
+        assert "Avoid · BUF" in detail["profile"]["flags"]
+    finally:
+        reset_active_username(alice)
+
+    bob = set_active_username("Bob")
+    try:
+        assert avoided_teams(seeded) == set()
+        bob_rows = {row["player_id"]: row for row in build_consensus(seeded, "00999")}
+        assert bob_rows["0001234"]["avoid_team"] is False
+    finally:
+        reset_active_username(bob)
 
 
 def test_initialize_sources_replaces_stale_global_weights_with_code_defaults(

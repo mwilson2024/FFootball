@@ -45,7 +45,12 @@ def test_source_initialization_applies_source_defaults(db: Session) -> None:
 
     assert sources
     assert db.get(DataSource, "league_model").enabled is False
-    assert all(source.enabled for source in sources if source.id != "league_model")
+    assert db.get(DataSource, "mfl_projection").enabled is False
+    assert all(
+        source.enabled
+        for source in sources
+        if source.id not in {"league_model", "mfl_projection"}
+    )
     assert all(Decimal(source.weight) > 0 for source in sources)
     assert db.get(DataSource, "espn_dynasty_csv") is not None
     assert db.get(DataSource, "espn_ppr_projection_csv") is not None
