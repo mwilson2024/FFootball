@@ -113,6 +113,7 @@ from app.models import (
     AuctionPurchase,
     DataSource,
     DraftPick,
+    DraftSession,
     Franchise,
     ImportRecord,
     InteractiveAuctionBid,
@@ -231,7 +232,7 @@ from app.users import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260826.5"
+templates.env.globals["asset_version"] = "20260827.1"
 SESSION_SIGNING_SECRET = ""
 
 
@@ -1162,6 +1163,121 @@ def admin_users(db: Db) -> list[dict[str, Any]]:
         select(UserAccount).order_by(UserAccount.display_name, UserAccount.username)
     )
     return [_admin_user_json(db, account) for account in accounts]
+
+
+@app.get("/api/admin/draft-connection")
+def admin_draft_connection(league_id: str, db: Db) -> dict[str, Any]:
+    _require_admin(db)
+    league = _league_or_404(db, league_id)
+    session = db.scalar(
+        select(DraftSession)
+        .where(
+            DraftSession.league_id == league_id,
+            DraftSession.season == league.season,
+        )
+        .limit(1)
+    )
+    snapshot = db.scalar(
+        select(MFLSnapshot)
+        .where(
+            MFLSnapshot.league_id == league_id,
+            MFLSnapshot.export_type == "draftResults",
+        )
+        .order_by(MFLSnapshot.fetched_at.desc(), MFLSnapshot.id.desc())
+        .limit(1)
+    )
+    preview = (
+        reconcile_preview(db, league_id, snapshot.payload_json)
+        if snapshot and isinstance(snapshot.payload_json, dict)
+        else {"additions": [], "conflicts": [], "remote_count": 0}
+    )
+    method = draft_mode(db, league_id)
+    is_live = bool(session and session.status == "live")
+    companion_running = bool(is_live and method == "companion")
+    now = datetime.now(UTC)
+    fetched_at = snapshot.fetched_at if snapshot else None
+    comparable_fetched = (
+        fetched_at.replace(tzinfo=UTC)
+        if fetched_at and fetched_at.tzinfo is None
+        else fetched_at
+    )
+    age_seconds = (
+        max(0, int((now - comparable_fetched).total_seconds()))
+        if comparable_fetched
+        else None
+    )
+    interval_seconds = 30
+    stale_after_seconds = 75
+    conflicts = preview["conflicts"]
+    if method == "local":
+        connection_state = "local"
+        connection_label = "Local mode"
+    elif not is_live:
+        connection_state = "paused"
+        connection_label = "Companion paused"
+    elif conflicts:
+        connection_state = "conflict"
+        connection_label = "Sync conflict"
+    elif age_seconds is None or age_seconds > stale_after_seconds:
+        connection_state = "stale"
+        connection_label = "MFL check overdue"
+    else:
+        connection_state = "connected"
+        connection_label = "MFL connected"
+    warning = None
+    if conflicts:
+        warning = (
+            f"Automatic importing is paused by {len(conflicts)} MFL conflict(s). "
+            "Open the Draft Room and correct or reconcile the conflicting pick."
+        )
+    elif companion_running and (age_seconds is None or age_seconds > stale_after_seconds):
+        warning = (
+            "No recent MFL draftResults response has arrived. Keep the MFL draft room open "
+            "and be ready to pause Companion mode if this does not recover."
+        )
+    next_check_at = (
+        comparable_fetched + timedelta(seconds=interval_seconds)
+        if companion_running and comparable_fetched
+        else None
+    )
+    imported_count = int(
+        db.scalar(
+            select(func.count(DraftPick.id)).where(
+                DraftPick.league_id == league_id,
+                DraftPick.source == "mfl",
+            )
+        )
+        or 0
+    )
+    recorded_count = int(
+        db.scalar(
+            select(func.count(DraftPick.id)).where(DraftPick.league_id == league_id)
+        )
+        or 0
+    )
+    return {
+        "league_id": league.id,
+        "league_name": league.name,
+        "draft_mode": method,
+        "is_live": is_live,
+        "companion_sync_running": companion_running,
+        "connection_state": connection_state,
+        "connection_label": connection_label,
+        "last_successful_check_at": comparable_fetched.isoformat()
+        if comparable_fetched
+        else None,
+        "next_check_at": next_check_at.isoformat() if next_check_at else None,
+        "server_time": now.isoformat(),
+        "poll_interval_seconds": interval_seconds,
+        "stale_after_seconds": stale_after_seconds,
+        "age_seconds": age_seconds,
+        "mfl_pick_count": int(preview["remote_count"]),
+        "imported_pick_count": imported_count,
+        "recorded_pick_count": recorded_count,
+        "pending_pick_count": len(preview["additions"]),
+        "conflict_count": len(conflicts),
+        "warning": warning,
+    }
 
 
 @app.post("/api/presence", status_code=204)

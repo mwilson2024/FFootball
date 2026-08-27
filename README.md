@@ -107,6 +107,8 @@ that shared file from an owner-provided ESPN JSON export with:
   normalized values, mapping state, and the raw imported response.
 - **Settings:** configure both leagues without editing code and test public and protected access
   separately. Admins can also see which previously signed-in users are online or recently active.
+  A private draft-connection panel at the bottom shows Companion polling, the latest successful
+  MFL check, the next-check countdown, imported pick totals, and stale or conflict warnings.
   The User-Agent identifies the app; it is not authentication.
 - **My Account:** select your franchise and auction strategy. Player tiers, targets, sleepers,
   queues, and source adjustments belong only to the signed-in MFL user.

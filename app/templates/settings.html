@@ -54,5 +54,18 @@
   </article>
 </section>
 <section id="admin-nomination-panel" class="panel nomination-panel" hidden aria-labelledby="admin-nomination-heading"><div class="panel-head"><div><p class="eyebrow">AUCTION ADMIN</p><h2 id="admin-nomination-heading">Snake nomination order</h2></div><div class="toolbar"><button type="button" onclick="randomizeNominationOrder()">Randomize teams</button><button class="danger-button" type="button" onclick="resetAuctionAdmin()">Reset auction</button></div></div><p id="admin-nomination-status" class="nomination-status" aria-live="polite">Loading nomination order…</p><ol id="admin-nomination-board" class="nomination-board"></ol><p class="muted">Drag team cards into position or edit the number on a card. Randomizing or manually changing the order restarts nomination tracking at the first team. Reset auction removes locally recorded purchases, returns nominations to the first eligible team, and turns live mode off. Gold marks the current nominator, blue marks the next, and red means the roster is full.</p></section>
+{% if is_admin %}
+<section id="admin-draft-connection" class="panel admin-draft-connection" aria-labelledby="admin-draft-connection-heading">
+  <div class="panel-head"><div><p class="eyebrow">DRAFT-DAY HEALTH</p><h2 id="admin-draft-connection-heading">Draft connection status</h2><p id="admin-draft-connection-league" class="muted">Loading selected league…</p></div><span id="admin-draft-connection-badge" class="admin-connection-badge loading">Checking…</span></div>
+  <div class="admin-connection-grid">
+    <div><span>Companion polling</span><strong id="admin-draft-polling">Checking…</strong></div>
+    <div><span>Last successful MFL check</span><strong id="admin-draft-last-check">Checking…</strong></div>
+    <div><span>Next check</span><strong id="admin-draft-next-check">—</strong></div>
+    <div><span>MFL picks</span><strong id="admin-draft-pick-count">—</strong></div>
+  </div>
+  <p id="admin-draft-connection-detail" class="muted" aria-live="polite"></p>
+  <div id="admin-draft-connection-warning" class="admin-connection-warning" role="alert" hidden></div>
+</section>
+{% endif %}
 {% endblock %}
 {% block scripts %}<script>initSettings()</script>{% endblock %}

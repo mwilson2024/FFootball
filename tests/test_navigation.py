@@ -227,6 +227,12 @@ def test_live_draft_board_is_linked_from_draft_room_and_admin() -> None:
     assert 'id="admin-real-draft-toggle"' in settings
     assert 'id="admin-mock-draft-toggle"' in settings
     assert 'id="admin-mock-draft-reset"' in settings
+    assert 'id="admin-draft-connection"' in settings
+    assert 'id="admin-draft-connection-warning"' in settings
+    assert settings.index('id="admin-draft-connection"') > settings.index(
+        'id="admin-nomination-panel"'
+    )
+    assert "/api/admin/draft-connection" in script
     assert "Go Live &amp; open board" in settings
     assert ">Go Live</button>" in draft
     assert "editRealDraftPick" in script

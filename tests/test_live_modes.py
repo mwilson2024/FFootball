@@ -267,6 +267,47 @@ def test_admin_can_choose_and_run_a_real_time_local_draft(seeded) -> None:
         app.dependency_overrides.clear()
 
 
+def test_admin_draft_connection_status_is_private_and_tracks_companion(seeded) -> None:
+    _draft_order_snapshot(seeded)
+    bootstrap_user(seeded, "wilsonmw", admin_usernames={"wilsonmw"})
+    bootstrap_user(seeded, "tester", admin_usernames={"wilsonmw"})
+
+    def override_db():
+        yield seeded
+
+    app.dependency_overrides[get_db] = override_db
+    try:
+        with TestClient(app) as client:
+            user_token, _ = _session("tester")
+            client.cookies.set(SESSION_COOKIE, user_token)
+            forbidden = client.get("/api/admin/draft-connection?league_id=00999")
+
+            admin_token, admin_session = _session("wilsonmw")
+            client.cookies.set(SESSION_COOKIE, admin_token)
+            paused = client.get("/api/admin/draft-connection?league_id=00999")
+            started = client.put(
+                "/api/draft/live?league_id=00999",
+                headers={"X-CSRF-Token": admin_session.csrf_token},
+                json={"is_live": True},
+            )
+            connected = client.get("/api/admin/draft-connection?league_id=00999")
+
+        assert forbidden.status_code == 403
+        assert paused.status_code == 200
+        assert paused.json()["connection_state"] == "paused"
+        assert paused.json()["companion_sync_running"] is False
+        assert started.status_code == 200
+        assert connected.status_code == 200
+        assert connected.json()["connection_state"] == "connected"
+        assert connected.json()["companion_sync_running"] is True
+        assert connected.json()["poll_interval_seconds"] == 30
+        assert connected.json()["last_successful_check_at"] is not None
+        assert connected.json()["next_check_at"] is not None
+        assert connected.json()["mfl_pick_count"] == 0
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_auction_closed_staging_and_live_permissions(seeded) -> None:
     bootstrap_user(seeded, "tester", admin_usernames={"wilsonmw"})
 
