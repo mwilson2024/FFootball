@@ -98,6 +98,13 @@ def test_auction_state_includes_selected_team_roster(seeded) -> None:
                 status="ROSTER",
                 salary=Decimal("11"),
             ),
+            RosterAssignment(
+                league_id="00999",
+                franchise_id="0002",
+                player_id="99",
+                status="ROSTER",
+                salary=Decimal("3"),
+            ),
         ]
     )
     seeded.commit()
@@ -130,6 +137,10 @@ def test_auction_state_includes_selected_team_roster(seeded) -> None:
                 "source": "mfl",
             }
         ]
+        beta = response.json()["intelligence"]["opponent_insights"][0]
+        assert beta["franchise_name"] == "Beta"
+        assert beta["roster"][0]["player_id"] == "99"
+        assert beta["roster"][0]["player_name"] == "Quarter Back"
     finally:
         app.dependency_overrides.clear()
 

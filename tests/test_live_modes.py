@@ -57,6 +57,47 @@ def _session(username: str, leagues: set[str] | None = None):
     )
 
 
+def test_auctioneer_page_is_admin_only_and_both_views_show_sale_controls(seeded) -> None:
+    bootstrap_user(seeded, "tester", admin_usernames={"wilsonmw"})
+    bootstrap_user(seeded, "wilsonmw", admin_usernames={"wilsonmw"})
+
+    def override_db():
+        yield seeded
+
+    app.dependency_overrides[get_db] = override_db
+    try:
+        with TestClient(app) as client:
+            user_token, _ = _session("tester")
+            client.cookies.set(SESSION_COOKIE, user_token)
+            regular = client.get("/auction?league_id=00999")
+            forbidden = client.get("/auction/auctioneer?league_id=00999")
+
+            admin_token, _ = _session("wilsonmw")
+            client.cookies.set(SESSION_COOKIE, admin_token)
+            admin_regular = client.get("/auction?league_id=00999")
+            auctioneer = client.get("/auction/auctioneer?league_id=00999")
+
+        assert regular.status_code == 200
+        assert 'id="sale-form"' in regular.text
+        assert 'class="auction-values-column"' in regular.text
+        assert 'class="auction-values-top"' not in regular.text
+        assert "<h2>Team money</h2>" not in regular.text
+        assert "Hover for roster and spending details" not in regular.text
+        assert "Auctioneer view" not in regular.text
+        assert forbidden.status_code == 403
+        assert admin_regular.status_code == 200
+        assert 'id="sale-form"' in admin_regular.text
+        assert "/auction/auctioneer?league_id=00999" in admin_regular.text
+        assert auctioneer.status_code == 200
+        assert 'id="sale-form"' in auctioneer.text
+        assert 'class="auction-values-top"' in auctioneer.text
+        assert 'class="auction-values-column"' not in auctioneer.text
+        assert "AUCTIONEER CONTROL ROOM" in auctioneer.text
+        assert "Back to auction" in auctioneer.text
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_real_draft_is_locked_and_shared_mock_picks_are_isolated(seeded) -> None:
     _draft_order_snapshot(seeded)
     bootstrap_user(seeded, "tester", admin_usernames={"wilsonmw"})

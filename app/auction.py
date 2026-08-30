@@ -434,6 +434,8 @@ def _validate(
     minimum_bid = Decimal(league.minimum_bid)
     if payload.amount < minimum_bid:
         raise AuctionValidationError(f"Bid must be at least {minimum_bid}")
+    if payload.amount != payload.amount.to_integral_value():
+        raise AuctionValidationError("Bid must be a whole dollar amount")
     if not _precision_valid(payload.amount, minimum_bid, league.settings_json.get("precision")):
         raise AuctionValidationError("Bid has more precision than this league permits")
     budget = franchise_budget(db, league, franchise)

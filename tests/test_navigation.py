@@ -101,6 +101,36 @@ def test_auction_page_supports_multiple_leagues_and_scoped_exports() -> None:
     assert "selectAdminAuctionLeague" in script
 
 
+def test_auction_has_compact_money_cards_roster_viewer_and_auctioneer_page() -> None:
+    auction = (TEMPLATES / "auction.html").read_text(encoding="utf-8")
+    auctioneer = (TEMPLATES / "auctioneer.html").read_text(encoding="utf-8")
+    script = (TEMPLATES.parent / "static" / "app.js").read_text(encoding="utf-8")
+    css = (TEMPLATES.parent / "static" / "app.css").read_text(encoding="utf-8")
+
+    assert "/auction/auctioneer?league_id=" in auction
+    assert "{% if auctioneer_view %}" in auction
+    assert 'id="auction-roster-team"' in auction
+    assert 'step="1" inputmode="numeric"' in auction
+    assert auctioneer.strip() == '{% extends "auction.html" %}'
+    assert "function auctionRosterTeams" in script
+    assert "function viewAuctionRoster" in script
+    assert 'class="budget-primary"' in script
+    assert 'class="budget-primary budget-full"' in script
+    assert 'class="budget-extra"' in script
+    assert '${escapeHtml(team.name)}</h3>' in script
+    assert "Winning amount must be a whole dollar amount" in script
+    assert ".budget:hover .budget-extra" in css
+    assert 'class="auction-values-column"' in auction
+    assert 'class="auction-values-top"' in auction
+    assert ".auction-viewer-workspace" in css
+    assert ".auctioneer-workspace" in css
+    assert ".auction-values-column .budget dl.budget-primary" in css
+    assert "grid-template-columns:auto auto auto auto" in css
+    assert ".auction-values-column .budget:hover dl.budget-primary" in css
+    assert ".auction-values-column .budget-heading h3" in css
+    assert ".auction-values-column .budget-turns{flex:none}" in css
+
+
 def test_admin_shows_persistent_commissioner_import_toggle() -> None:
     settings = (TEMPLATES / "settings.html").read_text(encoding="utf-8")
     script = (TEMPLATES.parent / "static" / "app.js").read_text(encoding="utf-8")
@@ -350,7 +380,8 @@ def test_auction_has_live_intelligence_personal_war_room_and_owner_insights() ->
     assert "PERSONAL AUCTION WAR ROOM" in auction
     assert 'id="auction-war-room-targets"' in auction
     assert 'id="auction-owner-insights"' in auction
-    assert 'class="auction-layout auction-workspace"' in auction
+    assert 'class="auction-layout auction-workspace ' in auction
+    assert 'class="auction-values-top"' in auction
     assert 'id="budget-grid"' in auction
     assert 'id="auction-current-roster"' in auction
     assert 'id="auction-current-roster-content"' in auction
@@ -368,10 +399,13 @@ def test_auction_has_live_intelligence_personal_war_room_and_owner_insights() ->
         < auction.index('class="panel sale"')
     )
     assert (
-        auction.index('class="auction-layout auction-workspace"')
+        auction.index('class="auction-layout auction-workspace ')
         < auction.index('id="auction-intelligence-strip"')
         < auction.index('id="auction-war-room"')
     )
+    assert ".auction-values-top .budget-grid" in (
+        TEMPLATES.parent / "static" / "app.css"
+    ).read_text(encoding="utf-8")
 
 
 def test_player_profile_has_contextual_back_button() -> None:

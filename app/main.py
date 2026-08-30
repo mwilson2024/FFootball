@@ -239,7 +239,7 @@ from scripts.import_auction_csv_as_draft import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260830.3"
+templates.env.globals["asset_version"] = "20260830.10"
 SESSION_SIGNING_SECRET = ""
 
 
@@ -737,9 +737,7 @@ def _auction_room_intelligence(
         team_purchases = [
             purchase for purchase in purchases if purchase["franchise_id"] == franchise_id
         ]
-        purchase_by_player = {
-            str(purchase["player_id"]): purchase for purchase in team_purchases
-        }
+        purchase_by_player = {str(purchase["player_id"]): purchase for purchase in team_purchases}
         roster = []
         for player_id in player_ids:
             player = players_by_id.get(player_id)
@@ -759,9 +757,7 @@ def _auction_room_intelligence(
                     "position": player.position if player else None,
                     "nfl_team": player.nfl_team if player else None,
                     "bye_week": player.bye_week if player else None,
-                    "amount": (
-                        _money_string(Decimal(str(paid))) if paid is not None else None
-                    ),
+                    "amount": (_money_string(Decimal(str(paid))) if paid is not None else None),
                     "status": (
                         roster_purchase.get("status")
                         if roster_purchase
@@ -1114,8 +1110,7 @@ def scoring_page(request: Request, db: Db, league_id: str | None = None) -> Any:
     )
 
 
-@app.get("/auction", response_class=HTMLResponse)
-def auction_room(request: Request, db: Db, league_id: str | None = None) -> Any:
+def _auction_page_context(db: Session, league_id: str | None = None) -> dict[str, Any]:
     settings = runtime_settings(db)
     auction_leagues = list(
         db.scalars(
@@ -1155,7 +1150,23 @@ def auction_room(request: Request, db: Db, league_id: str | None = None) -> Any:
     ) or (staged and context["is_admin"])
     if interactive:
         context["can_record_purchase"] = False
+    return context
+
+
+@app.get("/auction", response_class=HTMLResponse)
+def auction_room(request: Request, db: Db, league_id: str | None = None) -> Any:
+    context = _auction_page_context(db, league_id)
+    context["auctioneer_view"] = False
     return templates.TemplateResponse(request, "auction.html", context)
+
+
+@app.get("/auction/auctioneer", response_class=HTMLResponse)
+def auctioneer_room(request: Request, db: Db, league_id: str | None = None) -> Any:
+    _require_admin(db)
+    context = _auction_page_context(db, league_id)
+    context["auctioneer_view"] = True
+    context["title"] = "Auctioneer view"
+    return templates.TemplateResponse(request, "auctioneer.html", context)
 
 
 @app.get("/keepers", response_class=HTMLResponse)

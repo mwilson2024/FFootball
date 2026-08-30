@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 import pytest
+from pydantic import ValidationError
 
 from app.auction import (
     AuctionValidationError,
@@ -17,7 +18,7 @@ from app.auction import (
     update_purchase,
 )
 from app.models import AuctionPurchase, Franchise, League, Player, RosterAssignment, RosterStatus
-from app.schemas import PurchaseCreate, PurchaseUpdate
+from app.schemas import InteractiveAuctionBidCreate, PurchaseCreate, PurchaseUpdate
 
 
 def sale(player: str = "0001234", franchise: str = "0001", amount: str = "17") -> PurchaseCreate:
@@ -55,11 +56,18 @@ def test_rejects_illegal_and_duplicate_sales(seeded):
 
 
 def test_decimal_precision_and_undo(seeded):
-    with pytest.raises(AuctionValidationError, match="precision"):
+    with pytest.raises(AuctionValidationError, match="whole dollar"):
         add_purchase(seeded, sale(amount="1.50"))
     add_purchase(seeded, sale(amount="4"))
     undo(seeded, "00999")
     add_purchase(seeded, sale(franchise="0002", amount="3"))
+
+
+def test_live_bid_schema_rejects_fractional_dollars() -> None:
+    with pytest.raises(ValidationError, match="multiple of 1"):
+        InteractiveAuctionBidCreate(league_id="00999", amount=Decimal("2.50"))
+
+    assert InteractiveAuctionBidCreate(league_id="00999", amount=Decimal("3")).amount == 3
 
 
 def test_nomination_order_can_be_arranged_and_advances_as_a_snake(seeded):

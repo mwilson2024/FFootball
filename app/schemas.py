@@ -143,7 +143,7 @@ class InteractiveAuctionNominationCreate(BaseModel):
 
 class InteractiveAuctionBidCreate(BaseModel):
     league_id: str
-    amount: Decimal = Field(gt=0)
+    amount: Decimal = Field(gt=0, multiple_of=1)
 
     @field_validator("league_id", mode="before")
     @classmethod
