@@ -129,6 +129,8 @@ def test_auction_has_compact_money_cards_roster_viewer_and_auctioneer_page() -> 
     assert ".auction-values-column .budget:hover dl.budget-primary" in css
     assert ".auction-values-column .budget-heading h3" in css
     assert ".auction-values-column .budget-turns{flex:none}" in css
+    assert "minmax(225px,.68fr)" in css
+    assert "scrollbar-gutter:stable" in css
 
 
 def test_admin_shows_persistent_commissioner_import_toggle() -> None:
