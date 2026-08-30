@@ -121,6 +121,62 @@ def test_combined_catalog_filters_and_roster_status(seeded: Session) -> None:
     assert roster["teams"][0]["slots_remaining"] == 3
 
 
+def test_roster_overview_includes_active_local_auction_purchases(seeded: Session) -> None:
+    add_rank(seeded, "0001234", 1)
+    purchase = add_purchase(
+        seeded,
+        PurchaseCreate(
+            league_id="00999",
+            franchise_id="0001",
+            player_id="0001234",
+            amount=Decimal("7"),
+        ),
+    )
+    seeded.commit()
+
+    roster = roster_overview(seeded, "00999")
+    alpha = next(team for team in roster["teams"] if team["franchise_id"] == "0001")
+
+    assert purchase.active is True
+    assert alpha["slots_used"] == 1
+    assert alpha["position_counts"] == {"RB": 1}
+    assert [player["player_id"] for player in alpha["players"]] == ["0001234"]
+    assert alpha["players"][0]["salary"] == "7.00"
+    assert alpha["players"][0]["source"] == "local"
+    assert [row["player_id"] for row in roster["table"]] == ["0001234"]
+
+
+def test_roster_overview_deduplicates_synced_and_local_auction_player(
+    seeded: Session,
+) -> None:
+    add_purchase(
+        seeded,
+        PurchaseCreate(
+            league_id="00999",
+            franchise_id="0001",
+            player_id="0001234",
+            amount=Decimal("7"),
+        ),
+    )
+    seeded.add(
+        RosterAssignment(
+            league_id="00999",
+            franchise_id="0001",
+            player_id="0001234",
+            status="ROSTER",
+        )
+    )
+    seeded.commit()
+
+    roster = roster_overview(seeded, "00999")
+    alpha = next(team for team in roster["teams"] if team["franchise_id"] == "0001")
+
+    assert alpha["slots_used"] == 1
+    assert len(alpha["players"]) == 1
+    assert alpha["players"][0]["salary"] == "7.00"
+    assert alpha["players"][0]["source"] == "mfl"
+
+
 def test_player_pool_only_contains_positions_draftable_in_selected_league(
     seeded: Session,
 ) -> None:

@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.auction import franchise_budget
 from app.consensus import build_consensus
 from app.models import (
+    AuctionPurchase,
     DataSource,
     Franchise,
     KeeperSelection,
@@ -498,9 +499,51 @@ def roster_overview(db: Session, league_id: str) -> dict[str, Any]:
             )
         )
     )
-    by_franchise: dict[str, list[RosterAssignment]] = {}
+    by_franchise: dict[str, dict[str, dict[str, Any]]] = {}
+    owned_players: dict[str, dict[str, Any]] = {}
     for assignment in assignments:
-        by_franchise.setdefault(assignment.franchise_id, []).append(assignment)
+        ownership = {
+            "franchise_id": assignment.franchise_id,
+            "player_id": assignment.player_id,
+            "status": assignment.status,
+            "salary": assignment.salary,
+            "contract_info": assignment.contract_info,
+            "source": "mfl",
+        }
+        by_franchise.setdefault(assignment.franchise_id, {})[assignment.player_id] = ownership
+        owned_players[assignment.player_id] = ownership
+    if league.league_type == LeagueType.AUCTION:
+        purchases = list(
+            db.scalars(
+                select(AuctionPurchase)
+                .where(
+                    AuctionPurchase.league_id == league_id,
+                    AuctionPurchase.active.is_(True),
+                )
+                .order_by(AuctionPurchase.purchase_order, AuctionPurchase.player_id)
+            )
+        )
+        for purchase in purchases:
+            existing = owned_players.get(purchase.player_id)
+            if existing is not None:
+                # MFL remains authoritative after synchronization, but retain the locally
+                # recorded auction price when MFL's roster export does not include one.
+                if (
+                    existing["franchise_id"] == purchase.franchise_id
+                    and existing["salary"] is None
+                ):
+                    existing["salary"] = purchase.amount
+                continue
+            ownership = {
+                "franchise_id": purchase.franchise_id,
+                "player_id": purchase.player_id,
+                "status": purchase.status,
+                "salary": purchase.amount,
+                "contract_info": None,
+                "source": purchase.source,
+            }
+            by_franchise.setdefault(purchase.franchise_id, {})[purchase.player_id] = ownership
+            owned_players[purchase.player_id] = ownership
     teams: list[dict[str, Any]] = []
     table: list[dict[str, Any]] = []
     for franchise in db.scalars(
@@ -509,9 +552,10 @@ def roster_overview(db: Session, league_id: str) -> dict[str, Any]:
         position_counts: dict[str, int] = {}
         players: list[dict[str, Any]] = []
         strength = Decimal("0")
-        for assignment in by_franchise.get(franchise.id, []):
-            row = board.get(assignment.player_id)
-            player = db.get(Player, assignment.player_id)
+        for ownership in by_franchise.get(franchise.id, {}).values():
+            player_id = str(ownership["player_id"])
+            row = board.get(player_id)
+            player = db.get(Player, player_id)
             if player is None:
                 continue
             position_counts[player.position] = position_counts.get(player.position, 0) + 1
@@ -524,9 +568,12 @@ def roster_overview(db: Session, league_id: str) -> dict[str, Any]:
                 "player_name": player.name,
                 "position": player.position,
                 "nfl_team": player.nfl_team,
-                "status": assignment.status,
-                "salary": str(assignment.salary) if assignment.salary is not None else None,
-                "contract_info": assignment.contract_info,
+                "status": ownership["status"],
+                "salary": str(ownership["salary"])
+                if ownership["salary"] is not None
+                else None,
+                "contract_info": ownership["contract_info"],
+                "source": ownership["source"],
                 "keeper": keeper is not None,
                 "keeper_cost": str(keeper.keeper_cost)
                 if keeper and keeper.keeper_cost is not None
