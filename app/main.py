@@ -3721,11 +3721,28 @@ async def push_to_mfl(payload: ImportConfirmation, db: Db) -> dict[str, str]:
                 "message": "Auction changed after preview; preview again before confirming",
             },
         )
-    async with MFLClient(settings) as client:
-        await client.export("auctionResults", league_id=payload.league_id, db=db, force=True)
-        response = await client.import_auction_results(
-            payload.league_id, xml.decode(), clear=payload.clear, overwrite=payload.overwrite
-        )
+    try:
+        async with MFLClient(settings) as client:
+            await client.export("auctionResults", league_id=payload.league_id, db=db, force=True)
+            response = await client.import_auction_results(
+                payload.league_id, xml.decode(), clear=payload.clear, overwrite=payload.overwrite
+            )
+    except MFLAuthenticationError as exc:
+        raise HTTPException(
+            403,
+            detail={
+                "code": "mfl_import_authentication_failed",
+                "message": str(exc),
+            },
+        ) from exc
+    except MFLError as exc:
+        raise HTTPException(
+            502,
+            detail={
+                "code": "mfl_import_failed",
+                "message": str(exc),
+            },
+        ) from exc
     db.add(
         ImportRecord(league_id=payload.league_id, payload_xml=xml.decode(), response_text=response)
     )

@@ -243,7 +243,39 @@ class MFLClient:
             data=data,
             headers={"Cookie": f"MFL_USER_ID={self._cookie or ''}"},
         )
+        text = response.text.lstrip()
+        if "json" in response.headers.get("content-type", "") or text.startswith(("{", "<")):
+            self._parse_response(response)
         return response.text
+
+    @staticmethod
+    def _response_error(response: httpx.Response) -> str:
+        prefix = f"MFL returned HTTP {response.status_code}"
+        text = response.text.strip()
+        if not text:
+            return prefix
+        try:
+            if "json" in response.headers.get("content-type", "") or text.startswith("{"):
+                payload = response.json()
+                error = payload.get("error") if isinstance(payload, dict) else None
+                if isinstance(error, dict):
+                    detail = error.get("$t") or error.get("message") or error.get("value")
+                else:
+                    detail = error
+                if detail:
+                    return f"{prefix}: {str(detail)[:500]}"
+            if text.startswith("<"):
+                root = ET.fromstring(response.content)
+                error_node = root if root.tag == "error" else root.find(".//error")
+                if error_node is not None:
+                    detail = (error_node.text or "").strip() or error_node.attrib.get("message")
+                    if detail:
+                        return f"{prefix}: {detail[:500]}"
+        except (ValueError, ET.ParseError):
+            pass
+        if not text.startswith("<"):
+            return f"{prefix}: {text[:500]}"
+        return prefix
 
     async def _request(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
         last_error: Exception | None = None
@@ -254,12 +286,13 @@ class MFLClient:
                     raise MFLAuthenticationError("MFL authorization failed")
                 if response.status_code == 429 or response.status_code >= 500:
                     if attempt == 3:
-                        response.raise_for_status()
+                        raise MFLError(self._response_error(response))
                     retry_after = response.headers.get("Retry-After")
                     delay = float(retry_after) if retry_after else (2**attempt + random.random())
                     await self._sleep(min(delay, 15))
                     continue
-                response.raise_for_status()
+                if response.status_code >= 400:
+                    raise MFLError(self._response_error(response))
                 return response
             except (httpx.TimeoutException, httpx.NetworkError, httpx.HTTPStatusError) as exc:
                 last_error = exc

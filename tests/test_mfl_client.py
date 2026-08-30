@@ -4,7 +4,7 @@ import httpx
 import pytest
 
 from app.config import Settings
-from app.mfl import MFLAuthenticationError, MFLClient
+from app.mfl import MFLAuthenticationError, MFLClient, MFLError
 
 
 @pytest.mark.asyncio
@@ -132,3 +132,47 @@ async def test_authenticated_myleagues_export_uses_central_host_and_login_cookie
 
     assert requests[1].url.host == "api.myfantasyleague.com"
     assert "MFL_USER_ID=private-cookie" in requests[1].headers["cookie"]
+
+
+@pytest.mark.asyncio
+async def test_import_surfaces_mfl_validation_error_without_retrying():
+    import_calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal import_calls
+        if request.url.path.endswith("/login"):
+            return httpx.Response(200, text='<status MFL_USER_ID="cookie"/>', request=request)
+        import_calls += 1
+        return httpx.Response(
+            400,
+            text="<error>Commissioner import is not allowed for this league.</error>",
+            request=request,
+        )
+
+    settings = Settings(
+        mfl_username="commissioner",
+        mfl_password="password",
+        mfl_enable_imports=True,
+    )
+    async with MFLClient(settings, transport=httpx.MockTransport(handler)) as client:
+        with pytest.raises(MFLError, match="Commissioner import is not allowed"):
+            await client.import_auction_results("0001", "<auctionResults />")
+
+    assert import_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_import_rejects_error_body_returned_with_http_200():
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/login"):
+            return httpx.Response(200, text='<status MFL_USER_ID="cookie"/>', request=request)
+        return httpx.Response(200, text="<error>Invalid auctionResults payload.</error>", request=request)
+
+    settings = Settings(
+        mfl_username="commissioner",
+        mfl_password="password",
+        mfl_enable_imports=True,
+    )
+    async with MFLClient(settings, transport=httpx.MockTransport(handler)) as client:
+        with pytest.raises(MFLError, match="Invalid auctionResults payload"):
+            await client.import_auction_results("0001", "<auctionResults />")
