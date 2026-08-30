@@ -81,7 +81,7 @@ from app.catalog import (
 )
 from app.config import get_settings
 from app.consensus import create_consensus_snapshot, parse_ranking_csv
-from app.db import get_db, init_db
+from app.db import SessionLocal, get_db, init_db
 from app.depth_charts import depth_chart_overview
 from app.draft import (
     DraftValidationError,
@@ -243,8 +243,6 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     if settings.auth_required:
         SESSION_SIGNING_SECRET = resolve_session_secret(settings)
     init_db()
-    from app.db import SessionLocal
-
     with SessionLocal() as db:
         initialize_sources(db)
         for source_id in LOCAL_RANKING_SOURCE_IDS:
@@ -2398,8 +2396,11 @@ def api_draft_analysis(
 
 
 @app.get("/api/leagues/{league_id}/events")
-def league_event_stream(league_id: str, db: Db) -> StreamingResponse:
-    _league_or_404(db, league_id)
+def league_event_stream(league_id: str) -> StreamingResponse:
+    # Validate access with a short-lived session. A FastAPI yield dependency would remain open
+    # until this never-ending SSE response closes, eventually exhausting the connection pool.
+    with SessionLocal() as db:
+        _league_or_404(db, league_id)
     return StreamingResponse(
         league_events.stream(league_id),
         media_type="text/event-stream",

@@ -1,10 +1,11 @@
 from collections.abc import Generator
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-from app.config import get_settings
+from app.config import Settings, get_settings
 
 
 class Base(DeclarativeBase):
@@ -19,10 +20,21 @@ def _ensure_sqlite_parent(url: str) -> None:
 
 settings = get_settings()
 _ensure_sqlite_parent(settings.database_url)
-engine = create_engine(
-    settings.database_url,
-    connect_args={"check_same_thread": False} if settings.database_url.startswith("sqlite") else {},
-)
+
+
+def engine_options(database_settings: Settings) -> dict[str, Any]:
+    options: dict[str, Any] = {
+        "pool_size": database_settings.database_pool_size,
+        "max_overflow": database_settings.database_max_overflow,
+        "pool_timeout": database_settings.database_pool_timeout_seconds,
+        "pool_pre_ping": True,
+    }
+    if database_settings.database_url.startswith("sqlite"):
+        options["connect_args"] = {"check_same_thread": False}
+    return options
+
+
+engine = create_engine(settings.database_url, **engine_options(settings))
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False, autoflush=False)
 
 

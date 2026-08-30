@@ -32,6 +32,11 @@ def _amount(value: Decimal) -> str:
     return format(value, "f")
 
 
+def _unix_timestamp(value: datetime) -> str:
+    timestamp = value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+    return str(int(timestamp.timestamp()))
+
+
 def export_rows(db: Session, league_id: str) -> tuple[League, list[dict[str, str]]]:
     league = db.scalar(select(League).where(League.id == league_id))
     if league is None:
@@ -127,17 +132,26 @@ def export_csv(db: Session, league_id: str, directory: Path) -> Path:
 
 def build_xml(db: Session, league_id: str) -> tuple[League, bytes, int]:
     league, rows = export_rows(db, league_id)
+    purchases = {
+        purchase.player_id: purchase
+        for purchase in db.scalars(
+            select(AuctionPurchase).where(
+                AuctionPurchase.league_id == league_id,
+                AuctionPurchase.active.is_(True),
+            )
+        )
+    }
     unit_name = str(league.settings_json.get("auction_unit", "LEAGUE"))
     root = ET.Element("auctionResults")
     unit = ET.SubElement(root, "auctionUnit", {"unit": unit_name})
-    now = str(int(datetime.now(UTC).timestamp()))
     for row in rows:
+        purchase = purchases[row["player_id"]]
         attributes = {
             "player": row["player_id"],
             "franchise": row["franchise_id"],
             "winningBid": row["auction_value"],
-            "timeStarted": now,
-            "lastBidTime": now,
+            "timeStarted": _unix_timestamp(purchase.created_at),
+            "lastBidTime": _unix_timestamp(purchase.updated_at or purchase.created_at),
         }
         if row["status"] != "ROSTER":
             attributes["status"] = row["status"]

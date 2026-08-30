@@ -200,6 +200,9 @@ also runs that installation explicitly for deterministic Railpack builds. If dep
    AUTH_REQUIRED=true
    SESSION_SECRET=<a stable random value of at least 32 characters>
    DATABASE_URL=sqlite:////app/data/fantasy_draft.db
+   DATABASE_POOL_SIZE=10
+   DATABASE_MAX_OVERFLOW=15
+   DATABASE_POOL_TIMEOUT_SECONDS=30
    EXPORT_DIRECTORY=/app/data/exports
    AUDIT_DIRECTORY=/app/data/audit
    MFL_SEASON=2026
@@ -226,6 +229,11 @@ also runs that installation explicitly for deterministic Railpack builds. If dep
 The `/app/data` volume holds the SQLite database, generated exports, and append-only audit backups.
 Railway redeploys can replace application files, so do not mount the volume over `/app`; mount it at
 exactly `/app/data` and include it in your normal Railway volume backup routine.
+
+The default database pool keeps 10 connections ready and allows 15 temporary overflow connections,
+for a hard maximum of 25 per application replica. Live-update streams validate access with a
+short-lived database session and release it before streaming begins, so connected draft screens do
+not reserve database connections indefinitely.
 
 The production cookie is HTTP-only, secure, SameSite=Lax, HMAC-signed, and valid for 30 days.
 Mutating requests require a CSRF token; login attempts are rate-limited; host validation and common

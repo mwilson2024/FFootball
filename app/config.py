@@ -2,7 +2,7 @@ from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,6 +11,9 @@ class Settings(BaseSettings):
 
     app_env: str = "development"
     database_url: str = "sqlite:///./data/fantasy_draft.db"
+    database_pool_size: int = Field(default=10, ge=1, le=25)
+    database_max_overflow: int = Field(default=15, ge=0, le=24)
+    database_pool_timeout_seconds: int = Field(default=30, ge=1, le=120)
     mfl_season: int = 2026
     mfl_keeper_league_id: str = ""
     mfl_auction_league_id: str = ""
@@ -41,6 +44,12 @@ class Settings(BaseSettings):
     @classmethod
     def ids_stay_strings(cls, value: object) -> str:
         return "" if value is None else str(value)
+
+    @model_validator(mode="after")
+    def database_connection_limit(self) -> "Settings":
+        if self.database_pool_size + self.database_max_overflow > 25:
+            raise ValueError("database pool size plus overflow cannot exceed 25 connections")
+        return self
 
     @property
     def commissioner_configured(self) -> bool:
