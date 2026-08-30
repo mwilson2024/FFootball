@@ -79,6 +79,7 @@ POSITION_ALIASES = {
     "K": "PK",
     "PK": "PK",
 }
+AUCTION_DEFENSE_INSERT_AFTER = 200
 FANTASYPROS_DEFENSE_SLUGS = {
     "ARI": "arizona-defense",
     "ATL": "atlanta-defense",
@@ -159,6 +160,20 @@ def _is_draftable(row: dict[str, Any], allowed: set[str]) -> bool:
     return bool(positions & allowed)
 
 
+def _place_auction_team_defenses(
+    rows: list[dict[str, Any]], *, league_type: str, allowed: set[str]
+) -> list[dict[str, Any]]:
+    """Keep required team defenses usable but safely below premium auction players."""
+    if league_type != LeagueType.AUCTION or "DEF" not in allowed:
+        return rows
+    defenses = [row for row in rows if str(row.get("position", "")).upper() == "DEF"]
+    if not defenses:
+        return rows
+    offense = [row for row in rows if str(row.get("position", "")).upper() != "DEF"]
+    insert_at = min(AUCTION_DEFENSE_INSERT_AFTER, len(offense))
+    return offense[:insert_at] + defenses + offense[insert_at:]
+
+
 def consensus_tier(rank: int) -> int:
     """Return the shared ADFL/TMFL tier for an overall consensus rank."""
     if rank <= 24:
@@ -178,11 +193,17 @@ def draftable_consensus(
     source_overrides: dict[str, dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     allowed = draftable_positions(db, league_id)
+    league = db.scalar(select(League).where(League.id == league_id).order_by(League.season.desc()))
     rows = [
         row
         for row in build_consensus(db, league_id, source_overrides)
         if _is_draftable(row, allowed)
     ]
+    rows = _place_auction_team_defenses(
+        rows,
+        league_type=str(league.league_type) if league else "",
+        allowed=allowed,
+    )
     league_ranked = sorted(
         (row for row in rows if row["league_adjusted_rank"] is not None),
         key=lambda row: (row["league_adjusted_rank"], row["player_id"]),

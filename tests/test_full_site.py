@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.auction import add_purchase
 from app.catalog import (
+    _place_auction_team_defenses,
     consensus_tier,
     draftable_positions,
     player_detail,
@@ -217,6 +218,26 @@ def test_player_pool_only_contains_positions_draftable_in_selected_league(
         "url": "https://www.fantasypros.com/nfl/news/buffalo-defense.php",
         "guessed": False,
     } in defense_detail["profile"]["external_links"]
+
+
+def test_auction_team_defenses_are_visible_after_top_200_without_becoming_priority() -> None:
+    offense = [
+        {"player_id": f"offense-{index}", "position": "WR"} for index in range(205)
+    ]
+    defenses = [
+        {"player_id": "defense-a", "position": "DEF"},
+        {"player_id": "defense-b", "position": "DEF"},
+    ]
+
+    rows = _place_auction_team_defenses(
+        offense + defenses,
+        league_type="auction",
+        allowed={"QB", "RB", "WR", "TE", "DEF"},
+    )
+
+    assert [row["player_id"] for row in rows[200:202]] == ["defense-a", "defense-b"]
+    assert rows[199]["player_id"] == "offense-199"
+    assert rows[202]["player_id"] == "offense-200"
 
 
 def test_dynamic_bid_reacts_to_selected_players_and_remaining_money(seeded: Session) -> None:
