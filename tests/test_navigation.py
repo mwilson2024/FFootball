@@ -87,12 +87,15 @@ def test_auction_page_supports_multiple_leagues_and_scoped_exports() -> None:
     assert ">MFL Import<" in auction
     assert "Download CSV" in auction
     assert "Download MFL XML" in auction
-    assert "Direct commissioner import" in auction
+    assert "Import as auction results" in auction
+    assert "Import rosters as draft results" in auction
     assert 'id="mfl-commissioner-import" hidden' in auction
     assert "openMflImport()" in auction
     assert "showMflCommissionerImport()" in auction
+    assert "showMflDraftResultsImport()" in auction
     assert "function openMflImport" in script
     assert "async function showMflCommissionerImport" in script
+    assert "async function showMflDraftResultsImport" in script
     assert 'id="admin-auction-league"' in settings
     assert "loadAdminAuctionLeagues" in script
     assert "selectAdminAuctionLeague" in script
@@ -347,13 +350,25 @@ def test_auction_has_live_intelligence_personal_war_room_and_owner_insights() ->
     assert "PERSONAL AUCTION WAR ROOM" in auction
     assert 'id="auction-war-room-targets"' in auction
     assert 'id="auction-owner-insights"' in auction
+    assert 'class="auction-layout auction-workspace"' in auction
+    assert 'id="budget-grid"' in auction
+    assert 'id="auction-current-roster"' in auction
+    assert 'id="auction-current-roster-content"' in auction
     assert "Opposing owner intelligence" in auction
     assert "renderAuctionIntelligence" in script
     assert "renderAuctionWarRoom" in script
+    assert "renderAuctionCurrentRoster" in script
+    assert "minimum-only" in script
     assert "focusAuctionPlayer" in script
     assert "renderOwnerIntelligence" in script
     assert (
-        auction.index('class="auction-layout"')
+        auction.index('id="budget-grid"')
+        < auction.index("Available players")
+        < auction.index('id="auction-current-roster"')
+        < auction.index('class="panel sale"')
+    )
+    assert (
+        auction.index('class="auction-layout auction-workspace"')
         < auction.index('id="auction-intelligence-strip"')
         < auction.index('id="auction-war-room"')
     )

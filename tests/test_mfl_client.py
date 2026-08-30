@@ -166,7 +166,9 @@ async def test_import_rejects_error_body_returned_with_http_200():
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path.endswith("/login"):
             return httpx.Response(200, text='<status MFL_USER_ID="cookie"/>', request=request)
-        return httpx.Response(200, text="<error>Invalid auctionResults payload.</error>", request=request)
+        return httpx.Response(
+            200, text="<error>Invalid auctionResults payload.</error>", request=request
+        )
 
     settings = Settings(
         mfl_username="commissioner",
@@ -176,3 +178,27 @@ async def test_import_rejects_error_body_returned_with_http_200():
     async with MFLClient(settings, transport=httpx.MockTransport(handler)) as client:
         with pytest.raises(MFLError, match="Invalid auctionResults payload"):
             await client.import_auction_results("0001", "<auctionResults />")
+
+
+@pytest.mark.asyncio
+async def test_import_accepts_fresh_session_reauthentication_without_stored_password():
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.path.endswith("/login"):
+            return httpx.Response(
+                200,
+                text='<status MFL_USER_ID="fresh-cookie"/>',
+                request=request,
+            )
+        return httpx.Response(200, text="<status>OK</status>", request=request)
+
+    settings = Settings(mfl_enable_imports=True)
+    async with MFLClient(settings, transport=httpx.MockTransport(handler)) as client:
+        await client.authenticate("signed-in-user", "fresh-password")
+        response = await client.import_auction_results("0001", "<auctionResults />")
+
+    assert response == "<status>OK</status>"
+    assert len(requests) == 2
+    assert "MFL_USER_ID=fresh-cookie" in requests[1].headers["cookie"]

@@ -108,6 +108,7 @@ from app.draft import (
 from app.draft_links import draft_link_groups
 from app.exports import build_xml, export_csv, export_xml
 from app.mfl import MFLAuthenticationError, MFLClient, MFLError
+from app.mfl_draft_import import prepare_draft_results_import
 from app.models import (
     AuctionLiveState,
     AuctionPurchase,
@@ -155,6 +156,7 @@ from app.schemas import (
     DraftModeUpdate,
     DraftPickCreate,
     DraftPickUpdate,
+    DraftResultsImportConfirmation,
     IdentityUpdate,
     ImportConfirmation,
     InteractiveAuctionBidCreate,
@@ -229,10 +231,15 @@ from app.users import (
     save_source_setting,
     strategy_json,
 )
+from scripts.import_auction_csv_as_draft import (
+    ImportValidationError,
+    MFLImportError,
+    send_plan,
+)
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260827.1"
+templates.env.globals["asset_version"] = "20260830.3"
 SESSION_SIGNING_SECRET = ""
 
 
@@ -683,12 +690,14 @@ def _auction_room_intelligence(
     current_franchise_id = _current_user_franchise_id(db, league)
     budget_by_id = {str(item["franchise_id"]): item for item in budgets}
     owned_by_franchise: dict[str, set[str]] = {franchise_id: set() for franchise_id in budget_by_id}
-    for franchise_id, player_id in db.execute(
-        select(RosterAssignment.franchise_id, RosterAssignment.player_id).where(
-            RosterAssignment.league_id == league.id
-        )
+    assignments_by_franchise: dict[str, dict[str, RosterAssignment]] = {}
+    for assignment in db.scalars(
+        select(RosterAssignment).where(RosterAssignment.league_id == league.id)
     ):
-        owned_by_franchise.setdefault(str(franchise_id), set()).add(str(player_id))
+        franchise_id = str(assignment.franchise_id)
+        player_id = str(assignment.player_id)
+        owned_by_franchise.setdefault(franchise_id, set()).add(player_id)
+        assignments_by_franchise.setdefault(franchise_id, {})[player_id] = assignment
     for purchase in purchases:
         owned_by_franchise.setdefault(str(purchase["franchise_id"]), set()).add(
             str(purchase["player_id"])
@@ -728,6 +737,50 @@ def _auction_room_intelligence(
         team_purchases = [
             purchase for purchase in purchases if purchase["franchise_id"] == franchise_id
         ]
+        purchase_by_player = {
+            str(purchase["player_id"]): purchase for purchase in team_purchases
+        }
+        roster = []
+        for player_id in player_ids:
+            player = players_by_id.get(player_id)
+            roster_purchase = purchase_by_player.get(player_id)
+            roster_assignment = assignments_by_franchise.get(franchise_id, {}).get(player_id)
+            paid = (
+                roster_purchase.get("amount")
+                if roster_purchase
+                else roster_assignment.salary
+                if roster_assignment
+                else None
+            )
+            roster.append(
+                {
+                    "player_id": player_id,
+                    "player_name": player.name if player else player_id,
+                    "position": player.position if player else None,
+                    "nfl_team": player.nfl_team if player else None,
+                    "bye_week": player.bye_week if player else None,
+                    "amount": (
+                        _money_string(Decimal(str(paid))) if paid is not None else None
+                    ),
+                    "status": (
+                        roster_purchase.get("status")
+                        if roster_purchase
+                        else roster_assignment.status
+                        if roster_assignment
+                        else "ROSTER"
+                    ),
+                    "source": "local" if roster_purchase else "mfl",
+                }
+            )
+        position_order = {"QB": 0, "RB": 1, "WR": 2, "TE": 3, "PK": 4, "DEF": 5}
+        roster.sort(
+            key=lambda item: (
+                position_order.get(
+                    _normalized_roster_position(cast(str | None, item["position"])), 99
+                ),
+                str(item["player_name"]),
+            )
+        )
         purchase_total = sum(
             (Decimal(str(purchase["amount"])) for purchase in team_purchases), Decimal("0")
         )
@@ -763,6 +816,7 @@ def _auction_room_intelligence(
             ),
             "last_purchase": team_purchases[0] if team_purchases else None,
             "bye_warnings": bye_warnings,
+            "roster": roster,
         }
         team_details[franchise_id] = detail
         if franchise_id != current_franchise_id:
@@ -1135,7 +1189,8 @@ def _commissioner_import_status(db: Session) -> dict[str, bool]:
     return {
         "enabled": settings.mfl_enable_imports,
         "credentials_configured": credentials_configured,
-        "ready": settings.commissioner_configured,
+        "reauthentication_required": True,
+        "ready": settings.mfl_enable_imports,
     }
 
 
@@ -1184,7 +1239,7 @@ def admin_draft_connection(league_id: str, db: Db) -> dict[str, Any]:
         .order_by(MFLSnapshot.fetched_at.desc(), MFLSnapshot.id.desc())
         .limit(1)
     )
-    preview = (
+    preview: dict[str, Any] = (
         reconcile_preview(db, league_id, snapshot.payload_json)
         if snapshot and isinstance(snapshot.payload_json, dict)
         else {"additions": [], "conflicts": [], "remote_count": 0}
@@ -1195,18 +1250,16 @@ def admin_draft_connection(league_id: str, db: Db) -> dict[str, Any]:
     now = datetime.now(UTC)
     fetched_at = snapshot.fetched_at if snapshot else None
     comparable_fetched = (
-        fetched_at.replace(tzinfo=UTC)
-        if fetched_at and fetched_at.tzinfo is None
-        else fetched_at
+        fetched_at.replace(tzinfo=UTC) if fetched_at and fetched_at.tzinfo is None else fetched_at
     )
     age_seconds = (
-        max(0, int((now - comparable_fetched).total_seconds()))
-        if comparable_fetched
-        else None
+        max(0, int((now - comparable_fetched).total_seconds())) if comparable_fetched else None
     )
     interval_seconds = 30
     stale_after_seconds = 75
-    conflicts = preview["conflicts"]
+    conflicts = list(preview.get("conflicts") or [])
+    additions = list(preview.get("additions") or [])
+    remote_count = int(preview.get("remote_count") or 0)
     if method == "local":
         connection_state = "local"
         connection_label = "Local mode"
@@ -1248,10 +1301,7 @@ def admin_draft_connection(league_id: str, db: Db) -> dict[str, Any]:
         or 0
     )
     recorded_count = int(
-        db.scalar(
-            select(func.count(DraftPick.id)).where(DraftPick.league_id == league_id)
-        )
-        or 0
+        db.scalar(select(func.count(DraftPick.id)).where(DraftPick.league_id == league_id)) or 0
     )
     return {
         "league_id": league.id,
@@ -1261,18 +1311,16 @@ def admin_draft_connection(league_id: str, db: Db) -> dict[str, Any]:
         "companion_sync_running": companion_running,
         "connection_state": connection_state,
         "connection_label": connection_label,
-        "last_successful_check_at": comparable_fetched.isoformat()
-        if comparable_fetched
-        else None,
+        "last_successful_check_at": comparable_fetched.isoformat() if comparable_fetched else None,
         "next_check_at": next_check_at.isoformat() if next_check_at else None,
         "server_time": now.isoformat(),
         "poll_interval_seconds": interval_seconds,
         "stale_after_seconds": stale_after_seconds,
         "age_seconds": age_seconds,
-        "mfl_pick_count": int(preview["remote_count"]),
+        "mfl_pick_count": remote_count,
         "imported_pick_count": imported_count,
         "recorded_pick_count": recorded_count,
-        "pending_pick_count": len(preview["additions"]),
+        "pending_pick_count": len(additions),
         "conflict_count": len(conflicts),
         "warning": warning,
     }
@@ -1669,9 +1717,7 @@ def update_avoided_teams(payload: AvoidedTeamsUpdate, db: Db) -> dict[str, Any]:
     try:
         save_avoided_teams(db, payload.teams)
     except ValueError as exc:
-        raise HTTPException(
-            422, detail={"code": "invalid_nfl_team", "message": str(exc)}
-        ) from exc
+        raise HTTPException(422, detail={"code": "invalid_nfl_team", "message": str(exc)}) from exc
     return _avoided_teams_json(db)
 
 
@@ -3690,27 +3736,42 @@ def import_preview(db: Db, league_id: str | None = None) -> dict[str, Any]:
     _require_admin(db)
     settings = runtime_settings(db)
     selected = league_id or settings.mfl_auction_league_id
+    _league_or_404(db, selected)
     _, xml, count = build_xml(db, selected)
     return {
         "league_id": selected,
         "purchase_count": count,
         "xml": xml.decode(),
         "confirmation_token": hashlib.sha256(xml).hexdigest(),
-        "imports_enabled": settings.commissioner_configured,
+        "imports_enabled": settings.mfl_enable_imports,
+        "reauthentication_username": active_username(),
         "warning": "OVERWRITE without CLEAR can create inconsistent franchise funds.",
     }
 
 
 @app.post("/api/auction/push-to-mfl")
-async def push_to_mfl(payload: ImportConfirmation, db: Db) -> dict[str, str]:
+async def push_to_mfl(
+    request: Request,
+    payload: ImportConfirmation,
+    db: Db,
+) -> dict[str, str]:
     _require_admin(db)
+    _league_or_404(db, payload.league_id)
     settings = runtime_settings(db)
-    if not settings.commissioner_configured:
+    username = active_username()
+    if not settings.mfl_enable_imports:
+        _audit_mutation(
+            db,
+            stream="mfl-imports",
+            action="auction_results_import_failed",
+            league_id=payload.league_id,
+            details={"username": username, "reason": "imports_disabled"},
+        )
         raise HTTPException(
             403,
             detail={
                 "code": "commissioner_disabled",
-                "message": "Commissioner import is disabled or credentials are missing",
+                "message": "Commissioner imports are disabled in Admin settings",
             },
         )
     _, xml, _ = build_xml(db, payload.league_id)
@@ -3722,13 +3783,33 @@ async def push_to_mfl(payload: ImportConfirmation, db: Db) -> dict[str, str]:
                 "message": "Auction changed after preview; preview again before confirming",
             },
         )
+    client_ip = request.client.host if request.client else "unknown"
+    rate_key = login_rate_key(client_ip, username)
+    if not login_allowed(rate_key):
+        raise HTTPException(
+            429,
+            detail={
+                "code": "mfl_reauthentication_rate_limited",
+                "message": "Too many MFL sign-in attempts. Wait ten minutes and try again.",
+            },
+        )
+    password = payload.password.get_secret_value()
     try:
         async with MFLClient(settings) as client:
+            await client.authenticate(username, password)
             await client.export("auctionResults", league_id=payload.league_id, db=db, force=True)
             response = await client.import_auction_results(
                 payload.league_id, xml.decode(), clear=payload.clear, overwrite=payload.overwrite
             )
     except MFLAuthenticationError as exc:
+        record_login_failure(rate_key)
+        _audit_mutation(
+            db,
+            stream="mfl-imports",
+            action="auction_results_import_failed",
+            league_id=payload.league_id,
+            details={"username": username, "error_type": type(exc).__name__, "message": str(exc)},
+        )
         raise HTTPException(
             403,
             detail={
@@ -3737,6 +3818,13 @@ async def push_to_mfl(payload: ImportConfirmation, db: Db) -> dict[str, str]:
             },
         ) from exc
     except MFLError as exc:
+        _audit_mutation(
+            db,
+            stream="mfl-imports",
+            action="auction_results_import_failed",
+            league_id=payload.league_id,
+            details={"username": username, "error_type": type(exc).__name__, "message": str(exc)},
+        )
         raise HTTPException(
             502,
             detail={
@@ -3744,6 +3832,9 @@ async def push_to_mfl(payload: ImportConfirmation, db: Db) -> dict[str, str]:
                 "message": str(exc),
             },
         ) from exc
+    finally:
+        password = ""
+    clear_login_failures(rate_key)
     db.add(
         ImportRecord(league_id=payload.league_id, payload_xml=xml.decode(), response_text=response)
     )
@@ -3754,6 +3845,7 @@ async def push_to_mfl(payload: ImportConfirmation, db: Db) -> dict[str, str]:
         action="auction_results_import",
         league_id=payload.league_id,
         details={
+            "username": username,
             "clear": payload.clear,
             "overwrite": payload.overwrite,
             "confirmation_token": payload.confirmation_token,
@@ -3761,3 +3853,224 @@ async def push_to_mfl(payload: ImportConfirmation, db: Db) -> dict[str, str]:
         },
     )
     return {"response": response}
+
+
+@app.get("/api/auction/draft-results-import-preview")
+def draft_results_import_preview(db: Db, league_id: str | None = None) -> dict[str, Any]:
+    _require_admin(db)
+    settings = runtime_settings(db)
+    selected = league_id or settings.mfl_auction_league_id
+    league = _league_or_404(db, selected)
+    try:
+        prepared = prepare_draft_results_import(
+            db,
+            league.id,
+            export_directory=settings.export_directory,
+            audit_directory=settings.audit_directory,
+        )
+    except (OSError, ValueError, ImportValidationError) as exc:
+        _audit_mutation(
+            db,
+            stream="mfl-imports",
+            action="draft_results_preview_failed",
+            league_id=league.id,
+            details={
+                "username": active_username(),
+                "error_type": type(exc).__name__,
+                "message": str(exc),
+            },
+        )
+        raise HTTPException(
+            409,
+            detail={"code": "draft_results_preview_failed", "message": str(exc)},
+        ) from exc
+    confirmation_text = f"IMPORT DRAFT RESULTS {league.id}"
+    _audit_mutation(
+        db,
+        stream="mfl-imports",
+        action="draft_results_preview",
+        league_id=league.id,
+        details={
+            "username": active_username(),
+            "purchase_count": len(prepared.plan.picks),
+            "expected_capacity": prepared.expected_capacity,
+            "ready": prepared.ready,
+            "confirmation_token": prepared.confirmation_token,
+        },
+    )
+    return {
+        "league_id": league.id,
+        "purchase_count": len(prepared.plan.picks),
+        "round_count": max((pick.round for pick in prepared.plan.picks), default=0),
+        "franchise_count": len(prepared.franchise_counts),
+        "expected_capacity": prepared.expected_capacity,
+        "franchise_counts": prepared.franchise_counts,
+        "warnings": prepared.plan.warnings,
+        "readiness_errors": list(prepared.readiness_errors),
+        "ready": prepared.ready,
+        "xml": prepared.artifacts["xml"].read_text(encoding="utf-8"),
+        "confirmation_token": prepared.confirmation_token,
+        "confirmation_text": confirmation_text,
+        "imports_enabled": settings.mfl_enable_imports,
+        "reauthentication_username": active_username(),
+    }
+
+
+@app.post("/api/auction/push-as-draft-results")
+async def push_as_draft_results(
+    request: Request,
+    payload: DraftResultsImportConfirmation,
+    db: Db,
+) -> dict[str, Any]:
+    _require_admin(db)
+    league = _league_or_404(db, payload.league_id)
+    settings = runtime_settings(db)
+    username = active_username()
+
+    def audit_failure(reason: str, exc: Exception | None = None) -> None:
+        details: dict[str, Any] = {"username": username, "reason": reason}
+        if exc is not None:
+            details.update({"error_type": type(exc).__name__, "message": str(exc)})
+        _audit_mutation(
+            db,
+            stream="mfl-imports",
+            action="draft_results_import_failed",
+            league_id=league.id,
+            details=details,
+        )
+
+    if not settings.mfl_enable_imports:
+        audit_failure("imports_disabled")
+        raise HTTPException(
+            403,
+            detail={
+                "code": "commissioner_disabled",
+                "message": "Commissioner imports are disabled in Admin settings",
+            },
+        )
+    expected_confirmation = f"IMPORT DRAFT RESULTS {league.id}"
+    if not hmac.compare_digest(payload.confirmation_text.strip(), expected_confirmation):
+        audit_failure("confirmation_mismatch")
+        raise HTTPException(
+            409,
+            detail={
+                "code": "confirmation_mismatch",
+                "message": f"Type {expected_confirmation} exactly before importing",
+            },
+        )
+    try:
+        prepared = prepare_draft_results_import(
+            db,
+            league.id,
+            export_directory=settings.export_directory,
+            audit_directory=settings.audit_directory,
+        )
+    except (OSError, ValueError, ImportValidationError) as exc:
+        audit_failure("validation_failed", exc)
+        raise HTTPException(
+            409,
+            detail={"code": "draft_results_validation_failed", "message": str(exc)},
+        ) from exc
+    if payload.confirmation_token != prepared.confirmation_token:
+        audit_failure("preview_stale")
+        raise HTTPException(
+            409,
+            detail={
+                "code": "preview_stale",
+                "message": "Auction changed after preview; preview again before confirming",
+            },
+        )
+    if not prepared.ready:
+        audit_failure("auction_incomplete")
+        raise HTTPException(
+            409,
+            detail={
+                "code": "auction_incomplete",
+                "message": "; ".join(prepared.readiness_errors),
+            },
+        )
+
+    client_ip = request.client.host if request.client else "unknown"
+    rate_key = login_rate_key(client_ip, username)
+    if not login_allowed(rate_key):
+        audit_failure("reauthentication_rate_limited")
+        raise HTTPException(
+            429,
+            detail={
+                "code": "mfl_reauthentication_rate_limited",
+                "message": "Too many MFL sign-in attempts. Wait ten minutes and try again.",
+            },
+        )
+
+    password = payload.password.get_secret_value()
+    try:
+        receipt = await asyncio.to_thread(
+            send_plan,
+            prepared.plan,
+            prepared.artifacts,
+            prepared.output_directory,
+            username=username,
+            password=password,
+            timeout=30,
+            assume_yes=True,
+        )
+    except MFLImportError as exc:
+        record_login_failure(rate_key)
+        audit_failure("mfl_rejected_import", exc)
+        message = str(exc)
+        lowered = message.casefold()
+        permission_error = "commissioner access" in lowered or "authorization" in lowered
+        raise HTTPException(
+            403 if permission_error else 502,
+            detail={
+                "code": (
+                    "mfl_commissioner_access_required"
+                    if permission_error
+                    else "mfl_draft_results_import_failed"
+                ),
+                "message": message,
+            },
+        ) from exc
+    except OSError as exc:
+        audit_failure("artifact_failure", exc)
+        raise HTTPException(
+            500,
+            detail={"code": "import_artifact_failed", "message": str(exc)},
+        ) from exc
+    finally:
+        password = ""
+
+    clear_login_failures(rate_key)
+    xml = prepared.artifacts["xml"].read_text(encoding="utf-8")
+    response_path = Path(str(receipt["files"]["response"]))
+    response_text = response_path.read_text(encoding="utf-8", errors="replace")
+    db.add(ImportRecord(league_id=league.id, payload_xml=xml, response_text=response_text))
+    db.commit()
+    _audit_mutation(
+        db,
+        stream="mfl-imports",
+        action="draft_results_import",
+        league_id=league.id,
+        details={
+            "username": username,
+            "verification": receipt["verification"],
+            "expected_picks": receipt["expected_picks"],
+            "observed_export_picks": receipt["observed_export_picks"],
+            "league_host": receipt["league_host"],
+            "source_sha256": receipt["source_sha256"],
+            "xml_sha256": receipt["xml_sha256"],
+            "receipt_file": Path(str(receipt["receipt"])).name,
+        },
+    )
+    return {
+        "verification": receipt["verification"],
+        "expected_picks": receipt["expected_picks"],
+        "observed_export_picks": receipt["observed_export_picks"],
+        "league_host": receipt["league_host"],
+        "mfl_response": response_text,
+        "message": (
+            "All draft results were verified on MFL."
+            if receipt["verification"] == "matched"
+            else "MFL returned no import error; its draft-results export is still updating."
+        ),
+    }

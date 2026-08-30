@@ -523,7 +523,7 @@ def roster_overview(db: Session, league_id: str) -> dict[str, Any]:
     by_franchise: dict[str, dict[str, dict[str, Any]]] = {}
     owned_players: dict[str, dict[str, Any]] = {}
     for assignment in assignments:
-        ownership = {
+        ownership: dict[str, Any] = {
             "franchise_id": assignment.franchise_id,
             "player_id": assignment.player_id,
             "status": assignment.status,

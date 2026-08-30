@@ -88,8 +88,10 @@ that shared file from an owner-provided ESPN JSON export with:
   updates, atomic purchases, correction/reassignment tools, strategy-aware
   dynamic pricing, live market intelligence, and a personal auction war room with roster needs,
   affordable targets, bye conflicts, and opposing-owner budget and bidding profiles. It also
-  includes undo/redo, CSV, MFL XML, and a commissioner-only MFL import that requires a fresh XML
-  preview plus explicit confirmation.
+  includes undo/redo, CSV, MFL XML, and commissioner-only MFL imports that require a fresh XML
+  preview, explicit confirmation, and per-import MFL reauthentication. When MFL has no auction
+  configured, a guarded fallback can convert a completed local auction into MFL draft results while
+  retaining auction prices only in the local audit artifacts.
 - **Power Rankings:** a deterministic league-strength board based on legal starting-lineup value,
   bench depth, and unfilled lineup spots. Its post-draft lab adds projected standings, position
   grades, steals/reaches, roster weaknesses, and a read-only counterfactual replay, plus an optional
@@ -150,10 +152,13 @@ diagnostic log is kept at `data/logs/sync_warnings.log` (2 MB per file, five bac
 
 ## Commissioner safety and exports
 
-Commissioner writes require the persistent **Commissioner imports** switch in Admin plus configured
-commissioner credentials. `MFL_ENABLE_IMPORTS` supplies the initial default when no saved Admin choice
-exists. Auction import requires an exact XML preview and unchanged SHA-256 confirmation token. The app
-fetches fresh MFL state before POSTing and never submits automatically.
+Commissioner writes require the persistent **Commissioner imports** switch in Admin. The signed-in
+website administrator must re-enter the password for their current MFL username for every import;
+the password is used only for that request and is never stored or logged. `MFL_ENABLE_IMPORTS`
+supplies the initial default when no saved Admin choice exists. Auction-results import requires an
+exact XML preview and unchanged SHA-256 confirmation token. The draft-results fallback additionally
+requires every roster spot to be filled and the exact phrase `IMPORT DRAFT RESULTS <league id>`;
+it backs up existing MFL draft results before replacing them. The app never submits automatically.
 
 Real draft picks are rejected until an admin starts the real draft. Companion mode always rejects
 local real picks; local mode accepts them only from an admin or the MFL team currently on the clock.

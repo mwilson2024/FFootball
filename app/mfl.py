@@ -228,7 +228,7 @@ class MFLClient:
         clear: bool = False,
         overwrite: bool = False,
     ) -> str:
-        if not self.settings.commissioner_configured:
+        if not self.settings.mfl_enable_imports:
             raise MFLAuthenticationError("MFL imports are disabled")
         if self._cookie is None:
             await self.login()

@@ -59,6 +59,7 @@ def test_league_and_auction_state_are_json_serializable(seeded, monkeypatch):
         assert auction.json()["league"]["id"] == "00999"
         assert auction.json()["war_room"]["franchise_name"] == "Alpha"
         assert auction.json()["war_room"]["maximum_bid"] == "17.00"
+        assert auction.json()["war_room"]["roster"] == []
         assert auction.json()["intelligence"]["market"]["open_slots"] == 8
         assert auction.json()["intelligence"]["opponent_insights"][0]["franchise_name"] == "Beta"
         assert draft.status_code == 200
@@ -77,6 +78,58 @@ def test_league_and_auction_state_are_json_serializable(seeded, monkeypatch):
         assert assistant.json()["league_name"] == "Test League"
         assert assistant.json()["franchise_id"] == "0001"
         assert assistant.json()["franchise_name"] == "Alpha"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_auction_state_includes_selected_team_roster(seeded) -> None:
+    seeded.add_all(
+        [
+            UserLeagueSetting(
+                username="tester",
+                league_id="00999",
+                franchise_id="0001",
+                auction_strategy_json={"template": "balanced"},
+            ),
+            RosterAssignment(
+                league_id="00999",
+                franchise_id="0001",
+                player_id="0001234",
+                status="ROSTER",
+                salary=Decimal("11"),
+            ),
+        ]
+    )
+    seeded.commit()
+
+    def override_db():
+        yield seeded
+
+    app.dependency_overrides[get_db] = override_db
+    try:
+        with TestClient(app) as client:
+            token, _ = make_session_token(
+                main_module.SESSION_SIGNING_SECRET,
+                "tester",
+                {"00999"},
+                max_age_seconds=3600,
+            )
+            client.cookies.set(SESSION_COOKIE, token)
+            response = client.get("/api/auction/state?league_id=00999")
+
+        assert response.status_code == 200
+        assert response.json()["war_room"]["roster"] == [
+            {
+                "player_id": "0001234",
+                "player_name": "Leading Zero",
+                "position": "RB",
+                "nfl_team": "BUF",
+                "bye_week": None,
+                "amount": "11.00",
+                "status": "ROSTER",
+                "source": "mfl",
+            }
+        ]
     finally:
         app.dependency_overrides.clear()
 

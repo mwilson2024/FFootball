@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 
 from app.models import RosterStatus
 
@@ -43,8 +43,21 @@ class KeeperCreate(BaseModel):
 class ImportConfirmation(BaseModel):
     league_id: str
     confirmation_token: str
+    password: SecretStr = Field(min_length=1, max_length=500)
     clear: bool = False
     overwrite: bool = False
+
+
+class DraftResultsImportConfirmation(BaseModel):
+    league_id: str
+    confirmation_token: str
+    confirmation_text: str
+    password: SecretStr = Field(min_length=1, max_length=500)
+
+    @field_validator("league_id", mode="before")
+    @classmethod
+    def preserve_draft_results_league_id(cls, value: object) -> str:
+        return str(value).strip()
 
 
 class SetupUpdate(BaseModel):
