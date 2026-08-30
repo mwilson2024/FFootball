@@ -143,6 +143,9 @@ def test_roster_overview_includes_active_local_auction_purchases(seeded: Session
     assert [player["player_id"] for player in alpha["players"]] == ["0001234"]
     assert alpha["players"][0]["salary"] == "7.00"
     assert alpha["players"][0]["source"] == "local"
+    assert alpha["players"][0]["purchase_id"] == purchase.id
+    assert alpha["players"][0]["purchase_version"] == 1
+    assert alpha["players"][0]["editable"] is True
     assert [row["player_id"] for row in roster["table"]] == ["0001234"]
 
 
@@ -175,6 +178,7 @@ def test_roster_overview_deduplicates_synced_and_local_auction_player(
     assert len(alpha["players"]) == 1
     assert alpha["players"][0]["salary"] == "7.00"
     assert alpha["players"][0]["source"] == "mfl"
+    assert alpha["players"][0]["editable"] is False
 
 
 def test_player_pool_only_contains_positions_draftable_in_selected_league(

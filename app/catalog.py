@@ -509,6 +509,9 @@ def roster_overview(db: Session, league_id: str) -> dict[str, Any]:
             "salary": assignment.salary,
             "contract_info": assignment.contract_info,
             "source": "mfl",
+            "purchase_id": None,
+            "purchase_version": None,
+            "editable": False,
         }
         by_franchise.setdefault(assignment.franchise_id, {})[assignment.player_id] = ownership
         owned_players[assignment.player_id] = ownership
@@ -541,6 +544,9 @@ def roster_overview(db: Session, league_id: str) -> dict[str, Any]:
                 "salary": purchase.amount,
                 "contract_info": None,
                 "source": purchase.source,
+                "purchase_id": purchase.id,
+                "purchase_version": purchase.version,
+                "editable": True,
             }
             by_franchise.setdefault(purchase.franchise_id, {})[purchase.player_id] = ownership
             owned_players[purchase.player_id] = ownership
@@ -574,6 +580,9 @@ def roster_overview(db: Session, league_id: str) -> dict[str, Any]:
                 else None,
                 "contract_info": ownership["contract_info"],
                 "source": ownership["source"],
+                "purchase_id": ownership["purchase_id"],
+                "purchase_version": ownership["purchase_version"],
+                "editable": ownership["editable"],
                 "keeper": keeper is not None,
                 "keeper_cost": str(keeper.keeper_cost)
                 if keeper and keeper.keeper_cost is not None

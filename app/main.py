@@ -2074,6 +2074,7 @@ def franchise_detail(league_id: str, franchise_id: str, db: Db) -> dict[str, Any
             404, detail={"code": "franchise_not_found", "message": "Franchise not found"}
         )
     detail = cast(dict[str, Any], team)
+    detail["league_type"] = result["league_type"]
     detail["stored_power"] = stored_team_power(db, league_id, franchise_id)
     return detail
 
