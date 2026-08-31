@@ -350,15 +350,20 @@ async def secure_session(request: Request, call_next: Any) -> Response:
     finally:
         reset_active_league_ids(league_context_token)
         reset_active_username(context_token)
+    quick_player_embed = (
+        request.url.path.startswith("/player/")
+        and request.query_params.get("quick") == "1"
+    )
+    frame_ancestors = "'self'" if quick_player_embed else "'none'"
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; "
         "script-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; "
-        "base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+        f"base-uri 'self'; form-action 'self'; frame-ancestors {frame_ancestors}"
     )
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
     response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN" if quick_player_embed else "DENY"
     if request.url.path.startswith("/static/"):
         response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
     if settings.app_env.lower() in {"production", "prod"}:

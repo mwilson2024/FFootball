@@ -88,3 +88,18 @@ def test_railway_healthcheck_host_is_allowed_but_unknown_hosts_are_rejected():
         assert response.json() == {"status": "ok"}
 
         assert client.get("/health", headers={"Host": "untrusted.example"}).status_code == 400
+
+
+def test_only_quick_player_pages_allow_same_origin_framing():
+    with TestClient(app) as client:
+        ordinary = client.get("/health")
+        assert ordinary.headers["X-Frame-Options"] == "DENY"
+        assert "frame-ancestors 'none'" in ordinary.headers["Content-Security-Policy"]
+
+        token, _ = make_session_token(
+            main_module.SESSION_SIGNING_SECRET, "manager", set(), max_age_seconds=3600
+        )
+        client.cookies.set(SESSION_COOKIE, token)
+        embedded = client.get("/player/0001234?quick=1", follow_redirects=False)
+        assert embedded.headers["X-Frame-Options"] == "SAMEORIGIN"
+        assert "frame-ancestors 'self'" in embedded.headers["Content-Security-Policy"]
