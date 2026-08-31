@@ -435,7 +435,8 @@ def test_auction_has_live_intelligence_personal_war_room_and_owner_insights() ->
     assert ".purchase-menu-options" in css
     assert ".players table th:last-child,.players table td:last-child" in css
     assert ".auction-values-column{display:grid;height:auto" in css
-    assert "grid-template-rows:auto minmax(0,1fr)" in css
+    assert "grid-template-rows:minmax(0,1fr)" in css
+    assert '<aside class="auction-values-column" aria-label="Team money"><section' in auction
     assert (
         ".auction-values-column .budget-grid{height:auto;max-height:none;"
         "min-height:0;overflow-y:auto}"
