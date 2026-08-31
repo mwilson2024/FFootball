@@ -131,8 +131,8 @@ def test_live_draft_sync_imports_mfl_picks_and_is_idempotent(seeded: Session) ->
     second = asyncio.run(sync_live_draft_sessions(seeded, FakeClient()))
     imported = seeded.scalar(select(DraftPick).where(DraftPick.player_id == "0001234"))
 
-    assert LIVE_DRAFT_SYNC_SECONDS == 30
-    assert inspect.signature(live_draft_sync_loop).parameters["interval_seconds"].default == 30
+    assert LIVE_DRAFT_SYNC_SECONDS == 5
+    assert inspect.signature(live_draft_sync_loop).parameters["interval_seconds"].default == 5
     assert calls == [
         ("draftResults", "00999", True),
         ("draftResults", "00999", True),

@@ -23,7 +23,7 @@ from app.user_context import (
     source_visible_to_user,
 )
 
-DRAFT_POLL_INTERVALS = (30, 45, 60, 90, 120, 300)
+DRAFT_POLL_INTERVALS = (10, 15, 20, 30, 45, 60, 90, 120, 300)
 
 
 def draft_poll_interval(db: Session, league_id: str) -> int:
@@ -37,7 +37,7 @@ def draft_poll_interval(db: Session, league_id: str) -> int:
 
 def save_draft_poll_interval(db: Session, league_id: str, seconds: int) -> int:
     if seconds not in DRAFT_POLL_INTERVALS:
-        raise ValueError("Polling interval must be 30, 45, 60, 90, 120, or 300 seconds")
+        raise ValueError("Polling interval must be one of the protected choices from 10 seconds to 5 minutes")
     key = f"draft_poll_interval:{league_id}"
     row = db.get(AppSetting, key)
     if row is None:

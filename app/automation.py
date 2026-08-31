@@ -26,7 +26,8 @@ from app.sync import sync_league
 from app.users import draft_mode, draft_poll_interval
 
 LOGGER = logging.getLogger("uvicorn.error")
-LIVE_DRAFT_SYNC_SECONDS = 30
+# Lightweight scheduler wake-up; per-league settings control actual MFL calls.
+LIVE_DRAFT_SYNC_SECONDS = 5
 
 
 def next_daily_sync(

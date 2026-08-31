@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="/static/app.css?v={{ asset_version }}">
   <link rel="stylesheet" href="/static/team-preferences.css?v={{ asset_version }}">
 </head>
-<body>
+<body class="{{ 'quick-embed' if request.query_params.get('quick') == '1' else '' }}">
   <header class="topbar">
     <a class="brand" href="/">DraftDesk <span>MFL</span></a>
     {% if request.state.user %}
