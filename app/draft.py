@@ -1408,6 +1408,11 @@ def _draft_intelligence_payload(
 
     bye_groups: dict[int, list[str]] = {}
     roster_players: list[dict[str, Any]] = []
+    completed_pick_by_player_id = {
+        str(item["player_id"]): item.get("overall_pick")
+        for item in completed
+        if item.get("player_id")
+    }
     for player_id in selected_player_ids:
         player = players_by_id.get(player_id)
         if player is None:
@@ -1423,6 +1428,7 @@ def _draft_intelligence_payload(
                 "nfl_team": player.nfl_team,
                 "bye_week": player.bye_week,
                 "consensus_rank": row.get("consensus_rank"),
+                "pick": completed_pick_by_player_id.get(player_id),
             }
         )
     roster_players.sort(

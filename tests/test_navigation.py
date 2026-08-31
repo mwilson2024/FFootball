@@ -121,7 +121,9 @@ def test_auction_has_compact_money_cards_roster_viewer_and_auctioneer_page() -> 
     assert 'data-default-widths="82,68,230,88,105,118,110,88,102"' in auction
     assert "table.dataset.defaultWidths" in script
     assert "<th>Team</th>" in script
-    assert "/auction/history?league_id=" in auction
+    assert 'id="auction-history-dialog"' in auction
+    assert "openFullAuctionHistory()" in auction
+    assert "function renderFullAuctionHistory" in script
     assert "purchases.slice(0,12)" in script
     assert 'class="purchase-menu"' in script
     assert auctioneer.strip() == '{% extends "auction.html" %}'
