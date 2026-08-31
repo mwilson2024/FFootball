@@ -81,6 +81,8 @@ def test_auctioneer_page_is_admin_only_and_both_views_show_sale_controls(seeded)
         assert 'id="sale-form"' in regular.text
         assert 'class="auction-values-column"' in regular.text
         assert 'class="auction-values-top"' not in regular.text
+        assert 'id="sale-franchise" type="hidden"' in regular.text
+        assert "Type franchise name" not in regular.text
         assert "<h2>Team money</h2>" not in regular.text
         assert "Hover for roster and spending details" not in regular.text
         assert "Auctioneer view" not in regular.text
@@ -90,6 +92,8 @@ def test_auctioneer_page_is_admin_only_and_both_views_show_sale_controls(seeded)
         assert "/auction/auctioneer?league_id=00999" in admin_regular.text
         assert auctioneer.status_code == 200
         assert 'id="sale-form"' in auctioneer.text
+        assert "Type franchise name" in auctioneer.text
+        assert '<select id="sale-franchise">' in auctioneer.text
         assert 'class="auction-values-top"' in auctioneer.text
         assert 'class="auction-values-column"' not in auctioneer.text
         assert "AUCTIONEER CONTROL ROOM" in auctioneer.text
@@ -351,14 +355,23 @@ def test_admin_draft_connection_status_is_private_and_tracks_companion(seeded) -
 
 def test_auction_closed_staging_and_live_permissions(seeded) -> None:
     bootstrap_user(seeded, "tester", admin_usernames={"wilsonmw"})
+    seeded.add(
+        UserLeagueSetting(
+            username="tester",
+            league_id="00999",
+            franchise_id="0001",
+            auction_strategy_json={"template": "balanced"},
+        )
+    )
+    seeded.commit()
 
     def override_db():
         yield seeded
 
-    def purchase(player_id: str) -> dict[str, object]:
+    def purchase(player_id: str, franchise_id: str = "0001") -> dict[str, object]:
         return {
             "league_id": "00999",
-            "franchise_id": "0001",
+            "franchise_id": franchise_id,
             "player_id": player_id,
             "amount": "2",
             "status": "ROSTER",
@@ -409,6 +422,11 @@ def test_auction_closed_staging_and_live_permissions(seeded) -> None:
             )
 
             client.cookies.set(SESSION_COOKIE, user_token)
+            wrong_team_pick = client.post(
+                "/api/auction/purchases",
+                headers={"X-CSRF-Token": user_session.csrf_token},
+                json=purchase("99", "0002"),
+            )
             live_user_pick = client.post(
                 "/api/auction/purchases",
                 headers={"X-CSRF-Token": user_session.csrf_token},
@@ -425,9 +443,14 @@ def test_auction_closed_staging_and_live_permissions(seeded) -> None:
         assert staged_admin_pick.status_code == 201
         assert rob_off.json()["rob_mode"] is False
         assert live.status_code == 200
+        assert wrong_team_pick.status_code == 403
+        assert wrong_team_pick.json()["detail"]["code"] == "auction_franchise_mismatch"
         assert live_user_pick.status_code == 201
         assert final_state.json()["phase"] == "live"
         assert final_state.json()["can_record_purchase"] is True
+        assert final_state.json()["can_record_own_purchase"] is True
+        assert final_state.json()["current_user_franchise_id"] == "0001"
+        assert final_state.json()["current_user_franchise_name"] == "Alpha"
     finally:
         app.dependency_overrides.clear()
 
@@ -544,6 +567,54 @@ def test_interactive_auction_enforces_turns_shared_bids_and_admin_award(seeded) 
         assert after.json()["interactive_bidding"]["active"] is False
         assert after.json()["nomination"]["current_franchise_id"] == "0002"
         assert seeded.scalar(select(func.count(AuctionPurchase.id))) == 1
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_live_owner_must_link_an_mfl_franchise_before_recording_a_win(seeded) -> None:
+    bootstrap_user(seeded, "tester", admin_usernames={"wilsonmw"})
+    bootstrap_user(seeded, "wilsonmw", admin_usernames={"wilsonmw"})
+
+    def override_db():
+        yield seeded
+
+    app.dependency_overrides[get_db] = override_db
+    try:
+        with TestClient(app) as client:
+            admin_token, admin_session = _session("wilsonmw")
+            client.cookies.set(SESSION_COOKIE, admin_token)
+            client.put(
+                "/api/admin/auction-mode",
+                headers={"X-CSRF-Token": admin_session.csrf_token},
+                json={"enabled": False},
+            )
+            client.put(
+                "/api/auction/live?league_id=00999",
+                headers={"X-CSRF-Token": admin_session.csrf_token},
+                json={"is_live": True},
+            )
+
+            user_token, user_session = _session("tester")
+            client.cookies.set(SESSION_COOKIE, user_token)
+            state = client.get("/api/auction/state?league_id=00999")
+            purchase = client.post(
+                "/api/auction/purchases",
+                headers={"X-CSRF-Token": user_session.csrf_token},
+                json={
+                    "league_id": "00999",
+                    "franchise_id": "0001",
+                    "player_id": "0001234",
+                    "amount": "2",
+                    "status": "ROSTER",
+                },
+            )
+
+        assert state.status_code == 200
+        assert state.json()["can_record_purchase"] is True
+        assert state.json()["can_record_own_purchase"] is False
+        assert state.json()["current_user_franchise_id"] is None
+        assert purchase.status_code == 409
+        assert purchase.json()["detail"]["code"] == "auction_franchise_required"
     finally:
         app.dependency_overrides.clear()
 

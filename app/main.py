@@ -239,7 +239,7 @@ from scripts.import_auction_csv_as_draft import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260830.11"
+templates.env.globals["asset_version"] = "20260830.13"
 SESSION_SIGNING_SECRET = ""
 
 
@@ -1145,11 +1145,18 @@ def _auction_page_context(db: Session, league_id: str | None = None) -> dict[str
     staged = auction_stage_enabled(db, selected) if selected else False
     interactive = _interactive_auction(db, selected).enabled if selected else False
     context["interactive_bidding"] = interactive
+    current_user_franchise_id = (
+        _current_user_franchise_id(db, selected_league) if selected_league else None
+    )
+    context["current_user_franchise_id"] = current_user_franchise_id
     context["can_record_purchase"] = (
         bool(live and live.is_live) and (context["is_admin"] or not context["rob_mode"])
     ) or (staged and context["is_admin"])
     if interactive:
         context["can_record_purchase"] = False
+    context["can_record_own_purchase"] = bool(
+        context["can_record_purchase"] and current_user_franchise_id
+    )
     return context
 
 
@@ -3137,6 +3144,7 @@ def auction_state(db: Db, league_id: str | None = None) -> dict[str, Any]:
     is_admin = is_current_admin(db)
     rob_mode = auction_rob_mode(db)
     interactive = _interactive_auction_json(db, selected)
+    current_user_franchise_id = _current_user_franchise_id(db, league)
     can_record = (
         (live.is_live and (is_admin or not rob_mode)) or (staged and is_admin)
     ) and not interactive["enabled"]
@@ -3175,6 +3183,9 @@ def auction_state(db: Db, league_id: str | None = None) -> dict[str, Any]:
         "rob_mode": rob_mode,
         "phase": phase,
         "can_record_purchase": can_record,
+        "can_record_own_purchase": bool(can_record and current_user_franchise_id),
+        "current_user_franchise_id": current_user_franchise_id,
+        "current_user_franchise_name": interactive["current_user_franchise_name"],
         "interactive_bidding": interactive,
         **room_intelligence,
     }
@@ -3652,8 +3663,28 @@ def purchase(payload: PurchaseCreate, background_tasks: BackgroundTasks, db: Db)
                 "message": "The auction is closed until an admin enables staging or goes live",
             },
         )
+    is_admin = is_current_admin(db)
     if not live.is_live or auction_rob_mode(db):
         _require_admin(db)
+    elif not is_admin:
+        league = _league_or_404(db, payload.league_id)
+        current_user_franchise_id = _current_user_franchise_id(db, league)
+        if not current_user_franchise_id:
+            raise HTTPException(
+                409,
+                detail={
+                    "code": "auction_franchise_required",
+                    "message": "Link your MFL franchise under My Account before recording a win",
+                },
+            )
+        if payload.franchise_id != current_user_franchise_id:
+            raise HTTPException(
+                403,
+                detail={
+                    "code": "auction_franchise_mismatch",
+                    "message": "You can only record winning bids for your linked MFL franchise",
+                },
+            )
     result = add_purchase(db, payload)
     advance_nomination(db, payload.league_id, actor=active_username())
     _bump_auction(db, payload.league_id)

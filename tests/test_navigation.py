@@ -387,10 +387,15 @@ def test_auction_has_live_intelligence_personal_war_room_and_owner_insights() ->
     assert 'id="budget-grid"' in auction
     assert 'id="auction-current-roster"' in auction
     assert 'id="auction-current-roster-content"' in auction
+    assert 'id="auction-user-budget"' in auction
+    assert 'class="auction-center-status"' in auction
     assert "Opposing owner intelligence" in auction
     assert "renderAuctionIntelligence" in script
     assert "renderAuctionWarRoom" in script
     assert "renderAuctionCurrentRoster" in script
+    assert "position-group-${positionGroup%2?'alternate':'base'}" in script
+    assert "canRecordAuctionPurchase" in script
+    assert "auctionState.current_user_franchise_id" in script
     assert "minimum-only" in script
     assert "focusAuctionPlayer" in script
     assert "renderOwnerIntelligence" in script
@@ -408,6 +413,9 @@ def test_auction_has_live_intelligence_personal_war_room_and_owner_insights() ->
     assert ".auction-values-top .budget-grid" in (
         TEMPLATES.parent / "static" / "app.css"
     ).read_text(encoding="utf-8")
+    css = (TEMPLATES.parent / "static" / "app.css").read_text(encoding="utf-8")
+    assert ".auction-current-roster-table tbody tr.position-group-base" in css
+    assert ".auction-current-roster-table tbody tr.position-group-alternate" in css
 
 
 def test_player_profile_has_contextual_back_button() -> None:

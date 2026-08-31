@@ -274,6 +274,15 @@ def test_admin_can_reset_local_auction_and_nomination_state(seeded):
 
 def test_rob_mode_controls_who_can_record_auction_purchases(seeded):
     bootstrap_user(seeded, "tester", admin_usernames={"wilsonmw"})
+    seeded.add(
+        UserLeagueSetting(
+            username="tester",
+            league_id="00999",
+            franchise_id="0001",
+            auction_strategy_json={"template": "balanced"},
+        )
+    )
+    seeded.commit()
 
     def override_db():
         yield seeded
