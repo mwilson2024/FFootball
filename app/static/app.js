@@ -198,7 +198,7 @@ function subscribeLeagueEvents(leagueId,key,handler,fallbackMs=60000,ignoredType
 function enhanceDraftWorkspace(){
   const layout=document.querySelector('.draft-layout'),side=layout?.querySelector('.draft-side')
   if(!layout||!side||side.classList.contains('draft-command-column'))return
-  layout.classList.add('draft-workspace');side.classList.add('draft-command-column')
+  document.body.classList.add('draft-room-page');layout.classList.add('draft-workspace');side.classList.add('draft-command-column')
   const order=document.querySelector('#draft-order')?.closest('.panel'),radar=document.querySelector('#draft-queue')?.closest('.panel'),recent=document.querySelector('#draft-picks')?.closest('.panel')
   order?.classList.add('draft-order-panel');recent?.classList.add('draft-recent-panel')
   const roster=document.createElement('section');roster.id='draft-roster-panel';roster.className='panel draft-roster-panel';roster.innerHTML='<div class="panel-head"><div><p class="eyebrow">YOUR TEAM</p><h2 id="draft-roster-name">Roster</h2></div><span id="draft-roster-count" class="pill">0 players</span></div><div id="draft-roster-preview" class="draft-roster-preview"><p class="muted">Choose your team to load its roster.</p></div>'
@@ -207,7 +207,21 @@ function enhanceDraftWorkspace(){
   if(order&&recent){side.insertBefore(recent,radar||null);side.insertBefore(order,recent)}
   const queue=document.querySelector('#draft-queue'),metrics=document.querySelector('#war-room-metrics')
   if(queue)new MutationObserver(()=>renderDraftRadarLanes()).observe(queue,{childList:true,subtree:true})
+  const draftOrder=document.querySelector('#draft-order');if(draftOrder)new MutationObserver(()=>renderCondensedDraftOrder()).observe(draftOrder,{childList:true,subtree:true})
   if(metrics)new MutationObserver(()=>renderDraftRosterPreview(draftStateData?.war_room)).observe(metrics,{childList:true,subtree:true})
+}
+let condensingDraftOrder=false
+function renderCondensedDraftOrder(){
+  const target=document.querySelector('#draft-order'),slots=draftStateData?.draft_order||[]
+  if(!target||!slots.length||condensingDraftOrder)return
+  const seen=new Set(),teams=[]
+  for(const slot of slots){const id=String(slot.franchise_id||slot.franchise_name||'');if(!id||seen.has(id))continue;seen.add(id);teams.push(slot)}
+  const current=draftStateData?.current_drafter
+  const firstDetail=target.querySelector('li small')?.textContent||''
+  if(target.children.length===teams.length&&['Draft position','On the clock'].includes(firstDetail))return
+  condensingDraftOrder=true
+  target.innerHTML=teams.map((slot,index)=>`<li class="${current&&slot.franchise_id===current.franchise_id?'current':''}"><strong>${index+1}. ${escapeHtml(slot.franchise_name)}</strong><small>${current&&slot.franchise_id===current.franchise_id?'On the clock':'Draft position'}</small></li>`).join('')
+  condensingDraftOrder=false
 }
 function draftRadarItem(row,note=''){return `<li><a class="player-name-link" href="${profileHref(row)}"><strong>${escapeHtml(row.player_name)}</strong></a><small>${escapeHtml(row.position)}${note?` · ${escapeHtml(note)}`:''}</small></li>`}
 function renderDraftRadarLanes(){
