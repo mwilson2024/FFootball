@@ -442,9 +442,9 @@ def test_auction_has_live_intelligence_personal_war_room_and_owner_insights() ->
         "min-height:0;overflow-y:auto}"
         in css
     )
-    assert "function syncAuctionMoneyColumnHeight()" in script
-    assert "players.getBoundingClientRect().height" in script
-    assert "new ResizeObserver(syncAuctionMoneyColumnHeight)" in script
+    assert "--auction-panel-height:calc(65vh + 9rem)" in css
+    assert ".auction-viewer-workspace .auction-main-column>.players>.table-wrap" in css
+    assert 'id="auction-name-filter"' not in auction
     assert "grid-template-columns:minmax(300px,.65fr) minmax(0,1.75fr)" in css
     assert "grid-template-columns:repeat(5,minmax(0,1fr))" in css
     assert "activity.classList.toggle('current-nominator'" in script
