@@ -239,7 +239,7 @@ from scripts.import_auction_csv_as_draft import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260831.8"
+templates.env.globals["asset_version"] = "20260831.9"
 SESSION_SIGNING_SECRET = ""
 
 
