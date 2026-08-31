@@ -433,6 +433,17 @@ def test_auction_has_live_intelligence_personal_war_room_and_owner_insights() ->
     assert ".players table th:last-child,.players table td:last-child" in css
 
 
+def test_full_auction_history_has_live_search() -> None:
+    history = (TEMPLATES / "auction_history.html").read_text(encoding="utf-8")
+    script = (TEMPLATES.parent / "static" / "app.js").read_text(encoding="utf-8")
+
+    assert 'id="auction-history-search"' in history
+    assert 'id="auction-history-body"' in history
+    assert 'data-auction-history="' in history
+    assert "filterAuctionHistory(this.value)" in history
+    assert "function filterAuctionHistory" in script
+
+
 def test_player_profile_has_contextual_back_button() -> None:
     profile = (TEMPLATES / "player_profile.html").read_text(encoding="utf-8")
     script = (TEMPLATES.parent / "static" / "app.js").read_text(encoding="utf-8")
