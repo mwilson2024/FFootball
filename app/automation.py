@@ -14,7 +14,7 @@ from app.config import Settings, get_settings
 from app.db import SessionLocal
 from app.draft import apply_reconciliation, reconcile_preview
 from app.mfl import MFLClient
-from app.models import AppSetting, DraftSession, League, LeagueType
+from app.models import AppSetting, DraftSession, League, LeagueType, MFLSnapshot
 from app.power_cache import (
     refresh_power_snapshot_job,
     round_refresh_due,
@@ -23,7 +23,7 @@ from app.realtime import league_events
 from app.settings_store import runtime_settings
 from app.source_sync import sync_enabled_sources
 from app.sync import sync_league
-from app.users import draft_mode
+from app.users import draft_mode, draft_poll_interval
 
 LOGGER = logging.getLogger("uvicorn.error")
 LIVE_DRAFT_SYNC_SECONDS = 30
@@ -109,7 +109,7 @@ async def automatic_sync_once() -> dict[str, Any]:
         return {"leagues": league_results, **source_results}
 
 
-async def sync_live_draft_sessions(db: Session, client: MFLClient) -> list[dict[str, Any]]:
+async def sync_live_draft_sessions(db: Session, client: MFLClient, *, respect_intervals: bool = False) -> list[dict[str, Any]]:
     sessions = list(
         db.scalars(
             select(DraftSession)
@@ -120,6 +120,12 @@ async def sync_live_draft_sessions(db: Session, client: MFLClient) -> list[dict[
     sessions = [session for session in sessions if draft_mode(db, session.league_id) == "companion"]
     results: list[dict[str, Any]] = []
     for session in sessions:
+        if respect_intervals:
+            latest = db.scalar(select(MFLSnapshot).where(MFLSnapshot.league_id == session.league_id, MFLSnapshot.export_type == "draftResults").order_by(MFLSnapshot.fetched_at.desc()).limit(1))
+            if latest and latest.fetched_at:
+                fetched = latest.fetched_at.replace(tzinfo=UTC) if latest.fetched_at.tzinfo is None else latest.fetched_at
+                if (datetime.now(UTC) - fetched).total_seconds() < draft_poll_interval(db, session.league_id):
+                    continue
         try:
             response = await client.export(
                 "draftResults",
@@ -190,7 +196,7 @@ async def live_draft_sync_once() -> list[dict[str, Any]]:
             return []
         settings = runtime_settings(db)
         async with MFLClient(settings) as client:
-            return await sync_live_draft_sessions(db, client)
+            return await sync_live_draft_sessions(db, client, respect_intervals=True)
 
 
 async def live_draft_sync_loop(interval_seconds: int = LIVE_DRAFT_SYNC_SECONDS) -> None:

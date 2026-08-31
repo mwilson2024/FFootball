@@ -23,6 +23,30 @@ from app.user_context import (
     source_visible_to_user,
 )
 
+DRAFT_POLL_INTERVALS = (30, 45, 60, 90, 120, 300)
+
+
+def draft_poll_interval(db: Session, league_id: str) -> int:
+    row = db.get(AppSetting, f"draft_poll_interval:{league_id}")
+    try:
+        value = int(row.value) if row else 30
+    except (TypeError, ValueError):
+        value = 30
+    return value if value in DRAFT_POLL_INTERVALS else 30
+
+
+def save_draft_poll_interval(db: Session, league_id: str, seconds: int) -> int:
+    if seconds not in DRAFT_POLL_INTERVALS:
+        raise ValueError("Polling interval must be 30, 45, 60, 90, 120, or 300 seconds")
+    key = f"draft_poll_interval:{league_id}"
+    row = db.get(AppSetting, key)
+    if row is None:
+        db.add(AppSetting(key=key, value=str(seconds)))
+    else:
+        row.value = str(seconds); row.updated_at = datetime.now(UTC)
+    db.commit()
+    return seconds
+
 DEFAULT_AUCTION_STRATEGY = "balanced"
 ROB_MODE_SETTING_KEY = "auction_rob_mode"
 AUCTION_STAGE_SETTING_PREFIX = "auction_stage:"

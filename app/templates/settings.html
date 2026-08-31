@@ -58,7 +58,7 @@
 <section id="admin-draft-connection" class="panel admin-draft-connection" aria-labelledby="admin-draft-connection-heading">
   <div class="panel-head"><div><p class="eyebrow">DRAFT-DAY HEALTH</p><h2 id="admin-draft-connection-heading">Draft connection status</h2><p id="admin-draft-connection-league" class="muted">Loading selected league…</p></div><span id="admin-draft-connection-badge" class="admin-connection-badge loading">Checking…</span></div>
   <div class="admin-connection-grid">
-    <div><span>Companion polling</span><strong id="admin-draft-polling">Checking…</strong></div>
+    <div><span>Companion polling</span><strong id="admin-draft-polling">Checking…</strong><select id="admin-draft-poll-interval" aria-label="Companion polling interval" onchange="setAdminDraftPolling(this.value)"></select></div>
     <div><span>Last successful MFL check</span><strong id="admin-draft-last-check">Checking…</strong></div>
     <div><span>Next check</span><strong id="admin-draft-next-check">—</strong></div>
     <div><span>MFL picks</span><strong id="admin-draft-pick-count">—</strong></div>

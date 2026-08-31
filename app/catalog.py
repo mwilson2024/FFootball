@@ -22,6 +22,7 @@ from app.models import (
     Player,
     PlayerIdentity,
     RosterAssignment,
+    DraftPick,
     SourcePlayerValue,
 )
 from app.projections import build_projection_board
@@ -149,6 +150,12 @@ def draftable_positions(db: Session, league_id: str) -> set[str]:
             normalized = POSITION_ALIASES.get(item.strip(), item.strip())
             if normalized:
                 allowed.add(normalized)
+    if league and league.league_type == LeagueType.AUCTION:
+        individual_defense = {"DT", "DE", "DL", "LB", "CB", "S", "DB", "DP"}
+        if allowed & individual_defense:
+            allowed.add("DEF")
+        allowed -= individual_defense
+    allowed -= {"COACH", "HC"}
     return allowed or {"QB", "RB", "WR", "TE"}
 
 
@@ -191,6 +198,7 @@ def draftable_consensus(
     db: Session,
     league_id: str,
     source_overrides: dict[str, dict[str, Any]] | None = None,
+    include_hidden: bool = False,
 ) -> list[dict[str, Any]]:
     allowed = draftable_positions(db, league_id)
     league = db.scalar(select(League).where(League.id == league_id).order_by(League.season.desc()))
@@ -198,6 +206,7 @@ def draftable_consensus(
         row
         for row in build_consensus(db, league_id, source_overrides)
         if _is_draftable(row, allowed)
+        and (include_hidden or not (row["preference"].get("hidden") and row.get("available")))
     ]
     rows = _place_auction_team_defenses(
         rows,
@@ -500,6 +509,28 @@ def query_players(
     }
 
 
+def live_roster_ownership(db: Session, league_id: str) -> dict[str, dict[str, dict[str, Any]]]:
+    """Combine synced rosters, companion/local picks, and local auction sales."""
+    by_franchise: dict[str, dict[str, dict[str, Any]]] = {}
+    owned: dict[str, dict[str, Any]] = {}
+    for assignment in db.scalars(select(RosterAssignment).where(RosterAssignment.league_id == league_id)):
+        item = {"franchise_id": assignment.franchise_id, "player_id": assignment.player_id, "status": assignment.status, "salary": assignment.salary, "contract_info": assignment.contract_info, "source": "mfl", "purchase_id": None, "purchase_version": None, "editable": False}
+        by_franchise.setdefault(assignment.franchise_id, {})[assignment.player_id] = item; owned[assignment.player_id] = item
+    for pick in db.scalars(select(DraftPick).where(DraftPick.league_id == league_id).order_by(DraftPick.overall_pick)):
+        if pick.player_id in owned:
+            continue
+        item = {"franchise_id": pick.franchise_id, "player_id": pick.player_id, "status": "ROSTER", "salary": None, "contract_info": None, "source": pick.source, "purchase_id": None, "purchase_version": None, "editable": False}
+        by_franchise.setdefault(pick.franchise_id, {})[pick.player_id] = item; owned[pick.player_id] = item
+    for purchase in db.scalars(select(AuctionPurchase).where(AuctionPurchase.league_id == league_id, AuctionPurchase.active.is_(True)).order_by(AuctionPurchase.purchase_order)):
+        existing = owned.get(purchase.player_id)
+        if existing:
+            if existing["franchise_id"] == purchase.franchise_id and existing["salary"] is None: existing["salary"] = purchase.amount
+            continue
+        item = {"franchise_id": purchase.franchise_id, "player_id": purchase.player_id, "status": purchase.status, "salary": purchase.amount, "contract_info": None, "source": purchase.source, "purchase_id": purchase.id, "purchase_version": purchase.version, "editable": True}
+        by_franchise.setdefault(purchase.franchise_id, {})[purchase.player_id] = item; owned[purchase.player_id] = item
+    return by_franchise
+
+
 def roster_overview(db: Session, league_id: str) -> dict[str, Any]:
     league = db.scalar(select(League).where(League.id == league_id))
     if league is None:
@@ -511,66 +542,7 @@ def roster_overview(db: Session, league_id: str) -> dict[str, Any]:
             select(KeeperSelection).where(KeeperSelection.league_id == league_id)
         )
     }
-    assignments = list(
-        db.scalars(
-            select(RosterAssignment)
-            .where(RosterAssignment.league_id == league_id)
-            .order_by(
-                RosterAssignment.franchise_id, RosterAssignment.status, RosterAssignment.player_id
-            )
-        )
-    )
-    by_franchise: dict[str, dict[str, dict[str, Any]]] = {}
-    owned_players: dict[str, dict[str, Any]] = {}
-    for assignment in assignments:
-        ownership: dict[str, Any] = {
-            "franchise_id": assignment.franchise_id,
-            "player_id": assignment.player_id,
-            "status": assignment.status,
-            "salary": assignment.salary,
-            "contract_info": assignment.contract_info,
-            "source": "mfl",
-            "purchase_id": None,
-            "purchase_version": None,
-            "editable": False,
-        }
-        by_franchise.setdefault(assignment.franchise_id, {})[assignment.player_id] = ownership
-        owned_players[assignment.player_id] = ownership
-    if league.league_type == LeagueType.AUCTION:
-        purchases = list(
-            db.scalars(
-                select(AuctionPurchase)
-                .where(
-                    AuctionPurchase.league_id == league_id,
-                    AuctionPurchase.active.is_(True),
-                )
-                .order_by(AuctionPurchase.purchase_order, AuctionPurchase.player_id)
-            )
-        )
-        for purchase in purchases:
-            existing = owned_players.get(purchase.player_id)
-            if existing is not None:
-                # MFL remains authoritative after synchronization, but retain the locally
-                # recorded auction price when MFL's roster export does not include one.
-                if (
-                    existing["franchise_id"] == purchase.franchise_id
-                    and existing["salary"] is None
-                ):
-                    existing["salary"] = purchase.amount
-                continue
-            ownership = {
-                "franchise_id": purchase.franchise_id,
-                "player_id": purchase.player_id,
-                "status": purchase.status,
-                "salary": purchase.amount,
-                "contract_info": None,
-                "source": purchase.source,
-                "purchase_id": purchase.id,
-                "purchase_version": purchase.version,
-                "editable": True,
-            }
-            by_franchise.setdefault(purchase.franchise_id, {})[purchase.player_id] = ownership
-            owned_players[purchase.player_id] = ownership
+    by_franchise = live_roster_ownership(db, league_id)
     teams: list[dict[str, Any]] = []
     table: list[dict[str, Any]] = []
     for franchise in db.scalars(
@@ -641,7 +613,7 @@ def player_detail(db: Session, league_id: str, player_id: str) -> dict[str, Any]
     player = db.get(Player, player_id)
     if player is None:
         return None
-    board = {row["player_id"]: row for row in draftable_consensus(db, league_id)}
+    board = {row["player_id"]: row for row in draftable_consensus(db, league_id, include_hidden=True)}
     row = board.get(player_id, {})
     identity = db.scalar(select(PlayerIdentity).where(PlayerIdentity.player_id == player_id))
     raw_values = list(

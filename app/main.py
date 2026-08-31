@@ -209,6 +209,7 @@ from app.user_context import (
 )
 from app.users import (
     AUCTION_STRATEGIES,
+    DRAFT_POLL_INTERVALS,
     NFL_TEAMS,
     auction_rob_mode,
     auction_stage_enabled,
@@ -217,6 +218,7 @@ from app.users import (
     bootstrap_user,
     current_account,
     draft_mode,
+    draft_poll_interval,
     effective_source_settings,
     is_current_admin,
     league_setting,
@@ -227,6 +229,7 @@ from app.users import (
     save_auction_stage,
     save_avoided_teams,
     save_draft_mode,
+    save_draft_poll_interval,
     save_mfl_memberships,
     save_source_setting,
     strategy_json,
@@ -239,7 +242,7 @@ from scripts.import_auction_csv_as_draft import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260831.11"
+templates.env.globals["asset_version"] = "20260831.12"
 SESSION_SIGNING_SECRET = ""
 
 
@@ -1293,8 +1296,8 @@ def admin_draft_connection(league_id: str, db: Db) -> dict[str, Any]:
     age_seconds = (
         max(0, int((now - comparable_fetched).total_seconds())) if comparable_fetched else None
     )
-    interval_seconds = 30
-    stale_after_seconds = 75
+    interval_seconds = draft_poll_interval(db, league_id)
+    stale_after_seconds = max(75, interval_seconds * 2 + 15)
     conflicts = list(preview.get("conflicts") or [])
     additions = list(preview.get("additions") or [])
     remote_count = int(preview.get("remote_count") or 0)
@@ -1353,6 +1356,7 @@ def admin_draft_connection(league_id: str, db: Db) -> dict[str, Any]:
         "next_check_at": next_check_at.isoformat() if next_check_at else None,
         "server_time": now.isoformat(),
         "poll_interval_seconds": interval_seconds,
+        "poll_interval_options": list(DRAFT_POLL_INTERVALS),
         "stale_after_seconds": stale_after_seconds,
         "age_seconds": age_seconds,
         "mfl_pick_count": remote_count,
@@ -1362,6 +1366,17 @@ def admin_draft_connection(league_id: str, db: Db) -> dict[str, Any]:
         "conflict_count": len(conflicts),
         "warning": warning,
     }
+
+
+@app.put("/api/admin/draft-polling")
+def admin_draft_polling(league_id: str, seconds: int, db: Db) -> dict[str, Any]:
+    _require_admin(db)
+    _league_or_404(db, league_id)
+    try:
+        saved = save_draft_poll_interval(db, league_id, seconds)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"league_id": league_id, "poll_interval_seconds": saved, "options": list(DRAFT_POLL_INTERVALS)}
 
 
 @app.post("/api/presence", status_code=204)

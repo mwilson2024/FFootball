@@ -8,7 +8,7 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.catalog import draftable_consensus
+from app.catalog import draftable_consensus, live_roster_ownership
 from app.config import Settings
 from app.models import Franchise, League
 
@@ -71,10 +71,12 @@ def build_power_rankings(
         )
     )
     board = board if board is not None else draftable_consensus(db, league_id)
+    board_by_id = {row["player_id"]: row for row in board}
+    ownership = live_roster_ownership(db, league_id)
     fixed, flex_slots, superflex_slots = _lineup_requirements(league.lineup_json or {})
     teams: list[dict[str, Any]] = []
     for franchise in franchises:
-        roster = [row for row in board if row.get("owner_id") == franchise.id]
+        roster = [board_by_id[player_id] for player_id in ownership.get(franchise.id, {}) if player_id in board_by_id]
         roster.sort(key=lambda row: (-_player_value(row), int(row.get("consensus_rank") or 99999)))
         selected: set[str] = set()
         needs: dict[str, int] = {}

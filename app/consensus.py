@@ -67,6 +67,7 @@ def _preference_json(
             "do_not_draft": False,
             "notes": None,
             "tags": [],
+            "hidden": False,
         }
     return {
         "manual_rank": preference.manual_rank,
@@ -77,6 +78,7 @@ def _preference_json(
         "do_not_draft": preference.do_not_draft,
         "notes": preference.notes,
         "tags": preference.tags_json,
+        "hidden": "hidden" in (preference.tags_json or []),
     }
 
 
@@ -411,15 +413,18 @@ def build_consensus(
                 ),
             }
         )
-    rows.sort(
-        key=lambda row: (
-            row["preference"]["manual_rank"] is None,
-            row["preference"]["manual_rank"] or 99999,
-            -float(row["consensus_score"]),
-            row["league_adjusted_rank"] or 99999,
-            row["player_id"],
-        )
+    rows.sort(key=lambda row: (-float(row["consensus_score"]), row["league_adjusted_rank"] or 99999, row["player_id"]))
+    # Manual ranks are positional moves, not a separate group that jumps ahead of
+    # every unedited player. Applying them after the calculated sort makes a single
+    # edit behave like moving a row in a conventional draft board.
+    moved = sorted(
+        (row for row in rows if row["preference"]["manual_rank"] is not None),
+        key=lambda row: (int(row["preference"]["manual_rank"]), row["player_id"]),
     )
+    for row in moved:
+        rows.remove(row)
+        target = max(0, min(len(rows), int(row["preference"]["manual_rank"]) - 1))
+        rows.insert(target, row)
     for index, row in enumerate(rows, 1):
         row["consensus_rank"] = index
     return rows

@@ -5,8 +5,8 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.catalog import draftable_consensus
-from app.models import Franchise, League, Player, RosterAssignment, SourcePlayerValue
+from app.catalog import draftable_consensus, live_roster_ownership
+from app.models import Franchise, League, Player, SourcePlayerValue
 from app.users import league_setting
 
 
@@ -105,20 +105,13 @@ def bye_week_advice(
     board = draftable_consensus(db, league_id)
     board_by_id = {row["player_id"]: row for row in board}
     schedules = _schedule_values(db)
-    assignments = list(
-        db.scalars(
-            select(RosterAssignment).where(
-                RosterAssignment.league_id == league_id,
-                RosterAssignment.franchise_id == franchise.id,
-            )
-        )
-    )
+    assignments = live_roster_ownership(db, league_id).get(franchise.id, {}).values()
     roster: list[dict[str, Any]] = []
     for assignment in assignments:
-        player = db.get(Player, assignment.player_id)
+        player = db.get(Player, assignment["player_id"])
         if player is None:
             continue
-        status = str(assignment.status or "ROSTER").upper()
+        status = str(assignment["status"] or "ROSTER").upper()
         if any(label in status for label in ("INJURED", "TAXI", "PRACTICE")):
             continue
         row = board_by_id.get(player.id, {})
@@ -130,7 +123,7 @@ def bye_week_advice(
                 "nfl_team": player.nfl_team,
                 "bye_week": player.bye_week,
                 "overall_rank": row.get("consensus_rank"),
-                "status": assignment.status,
+                "status": assignment["status"],
             }
         )
 
