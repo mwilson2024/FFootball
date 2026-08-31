@@ -111,6 +111,11 @@ def test_auction_has_compact_money_cards_roster_viewer_and_auctioneer_page() -> 
     assert "{% if auctioneer_view %}" in auction
     assert 'id="auction-roster-team"' in auction
     assert 'step="1" inputmode="numeric"' in auction
+    assert 'id="record-winning-bid-button"' in auction
+    assert 'id="sale-dialog"' in auction
+    assert ">Purchase</button>" in script
+    assert "/auction/history?league_id=" in auction
+    assert "purchases.slice(0,12)" in script
     assert auctioneer.strip() == '{% extends "auction.html" %}'
     assert "function auctionRosterTeams" in script
     assert "function viewAuctionRoster" in script
@@ -402,8 +407,9 @@ def test_auction_has_live_intelligence_personal_war_room_and_owner_insights() ->
     assert (
         auction.index('id="budget-grid"')
         < auction.index("Available players")
+        < auction.index('id="recent-purchases"')
         < auction.index('id="auction-current-roster"')
-        < auction.index('class="panel sale"')
+        < auction.index('id="sale-dialog"')
     )
     assert (
         auction.index('class="auction-layout auction-workspace ')
@@ -416,6 +422,8 @@ def test_auction_has_live_intelligence_personal_war_room_and_owner_insights() ->
     css = (TEMPLATES.parent / "static" / "app.css").read_text(encoding="utf-8")
     assert ".auction-current-roster-table tbody tr.position-group-base" in css
     assert ".auction-current-roster-table tbody tr.position-group-alternate" in css
+    assert ".auction-support-grid" in css
+    assert ".auction-recent-list" in css
 
 
 def test_player_profile_has_contextual_back_button() -> None:

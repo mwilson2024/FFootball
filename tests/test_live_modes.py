@@ -60,6 +60,18 @@ def _session(username: str, leagues: set[str] | None = None):
 def test_auctioneer_page_is_admin_only_and_both_views_show_sale_controls(seeded) -> None:
     bootstrap_user(seeded, "tester", admin_usernames={"wilsonmw"})
     bootstrap_user(seeded, "wilsonmw", admin_usernames={"wilsonmw"})
+    player = seeded.scalar(select(Player))
+    franchise = seeded.scalar(select(Franchise).where(Franchise.league_id == "00999"))
+    seeded.add(
+        AuctionPurchase(
+            league_id="00999",
+            franchise_id=franchise.id,
+            player_id=player.id,
+            amount=Decimal("7"),
+            purchase_order=1,
+        )
+    )
+    seeded.commit()
 
     def override_db():
         yield seeded
@@ -70,6 +82,7 @@ def test_auctioneer_page_is_admin_only_and_both_views_show_sale_controls(seeded)
             user_token, _ = _session("tester")
             client.cookies.set(SESSION_COOKIE, user_token)
             regular = client.get("/auction?league_id=00999")
+            history = client.get("/auction/history?league_id=00999")
             forbidden = client.get("/auction/auctioneer?league_id=00999")
 
             admin_token, _ = _session("wilsonmw")
@@ -78,6 +91,11 @@ def test_auctioneer_page_is_admin_only_and_both_views_show_sale_controls(seeded)
             auctioneer = client.get("/auction/auctioneer?league_id=00999")
 
         assert regular.status_code == 200
+        assert history.status_code == 200
+        assert "Auction history" in history.text
+        assert 'href="/auction?league_id=00999"' in history.text
+        assert player.name in history.text
+        assert "$7" in history.text
         assert 'id="sale-form"' in regular.text
         assert 'class="auction-values-column"' in regular.text
         assert 'class="auction-values-top"' not in regular.text

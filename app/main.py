@@ -239,7 +239,7 @@ from scripts.import_auction_csv_as_draft import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260830.13"
+templates.env.globals["asset_version"] = "20260831.1"
 SESSION_SIGNING_SECRET = ""
 
 
@@ -1174,6 +1174,26 @@ def auctioneer_room(request: Request, db: Db, league_id: str | None = None) -> A
     context["auctioneer_view"] = True
     context["title"] = "Auctioneer view"
     return templates.TemplateResponse(request, "auctioneer.html", context)
+
+
+@app.get("/auction/history", response_class=HTMLResponse)
+def auction_history(request: Request, db: Db, league_id: str | None = None) -> Any:
+    context = _auction_page_context(db, league_id)
+    league = context.get("league")
+    context["title"] = "Auction history"
+    context["purchases"] = (
+        [
+            _purchase_json(db, purchase)
+            for purchase in db.scalars(
+                select(AuctionPurchase)
+                .where(AuctionPurchase.league_id == league.id)
+                .order_by(AuctionPurchase.purchase_order.desc())
+            ).all()
+        ]
+        if league
+        else []
+    )
+    return templates.TemplateResponse(request, "auction_history.html", context)
 
 
 @app.get("/keepers", response_class=HTMLResponse)
