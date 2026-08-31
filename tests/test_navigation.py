@@ -114,6 +114,10 @@ def test_auction_has_compact_money_cards_roster_viewer_and_auctioneer_page() -> 
     assert 'id="record-winning-bid-button"' in auction
     assert 'id="sale-dialog"' in auction
     assert ">Purchase</button>" in script
+    assert 'data-column-key="draftdesk:columns:auction-v6"' in auction
+    assert 'data-default-widths="82,68,230,88,105,118,110,88,102"' in auction
+    assert "table.dataset.defaultWidths" in script
+    assert "<th>Team</th>" in script
     assert "/auction/history?league_id=" in auction
     assert "purchases.slice(0,12)" in script
     assert 'class="purchase-menu"' in script
@@ -426,6 +430,7 @@ def test_auction_has_live_intelligence_personal_war_room_and_owner_insights() ->
     assert ".auction-support-grid" in css
     assert ".auction-recent-list" in css
     assert ".purchase-menu-options" in css
+    assert ".players table th:last-child,.players table td:last-child" in css
 
 
 def test_player_profile_has_contextual_back_button() -> None:
