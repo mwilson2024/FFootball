@@ -195,6 +195,38 @@ async function importRanking(event){event.preventDefault();try{const data=await 
 
 let draftStateData=null;let draftPlayers=[];let draftKnownCompleted=null;let draftSelectedPlayerId=null;let draftPersonalFranchiseId=null;let draftBootstrapRequest=0;let draftIntelligenceRequest=0;const leagueEventConnections={};
 function subscribeLeagueEvents(leagueId,key,handler,fallbackMs=60000,ignoredTypes=[]){const existing=leagueEventConnections[key];if(existing?.source)existing.source.close();if(existing?.timer)clearInterval(existing.timer);let debounce=null;const refresh=()=>{if(document.visibilityState!=='visible')return;clearTimeout(debounce);debounce=setTimeout(handler,120)},onLeagueUpdate=event=>{try{const payload=JSON.parse(event.data||'{}');if(ignoredTypes.includes(payload.type))return}catch{}refresh()};let source=null;if(window.EventSource){source=new EventSource(`/api/leagues/${encodeURIComponent(leagueId)}/events`);source.addEventListener('league-update',onLeagueUpdate)}const timer=window.setInterval(refresh,fallbackMs);leagueEventConnections[key]={source,timer};return leagueEventConnections[key]}
+function enhanceDraftWorkspace(){
+  const layout=document.querySelector('.draft-layout'),side=layout?.querySelector('.draft-side')
+  if(!layout||!side||side.classList.contains('draft-command-column'))return
+  layout.classList.add('draft-workspace');side.classList.add('draft-command-column')
+  const order=document.querySelector('#draft-order')?.closest('.panel'),radar=document.querySelector('#draft-queue')?.closest('.panel'),recent=document.querySelector('#draft-picks')?.closest('.panel')
+  order?.classList.add('draft-order-panel');recent?.classList.add('draft-recent-panel')
+  const roster=document.createElement('section');roster.id='draft-roster-panel';roster.className='panel draft-roster-panel';roster.innerHTML='<div class="panel-head"><div><p class="eyebrow">YOUR TEAM</p><h2 id="draft-roster-name">Roster</h2></div><span id="draft-roster-count" class="pill">0 players</span></div><div id="draft-roster-preview" class="draft-roster-preview"><p class="muted">Choose your team to load its roster.</p></div>'
+  side.prepend(roster)
+  if(radar){radar.classList.add('draft-radar-panel');radar.innerHTML='<div class="panel-head"><div><p class="eyebrow">PERSONAL WATCHLIST</p><h2>On your radar</h2></div></div><div class="draft-radar-grid"><article><h3>Targets</h3><ol id="draft-radar-targets" class="recent"></ol></article><article><h3>Queue</h3><ol id="draft-queue" class="recent"></ol></article><article><h3>Falling value</h3><ol id="draft-radar-value" class="recent"></ol></article></div>'}
+  if(order&&recent){side.insertBefore(recent,radar||null);side.insertBefore(order,recent)}
+  const queue=document.querySelector('#draft-queue'),metrics=document.querySelector('#war-room-metrics')
+  if(queue)new MutationObserver(()=>renderDraftRadarLanes()).observe(queue,{childList:true,subtree:true})
+  if(metrics)new MutationObserver(()=>renderDraftRosterPreview(draftStateData?.war_room)).observe(metrics,{childList:true,subtree:true})
+}
+function draftRadarItem(row,note=''){return `<li><a class="player-name-link" href="${profileHref(row)}"><strong>${escapeHtml(row.player_name)}</strong></a><small>${escapeHtml(row.position)}${note?` · ${escapeHtml(note)}`:''}</small></li>`}
+function renderDraftRadarLanes(){
+  const targets=document.querySelector('#draft-radar-targets'),value=document.querySelector('#draft-radar-value')
+  if(!targets||!value)return
+  const targetRows=draftPlayers.filter(row=>row.preference?.target).slice(0,8)
+  targets.innerHTML=targetRows.map(row=>draftRadarItem(row,`rank #${row.consensus_rank}`)).join('')||'<li>Mark players as targets from their player card.</li>'
+  const current=Number(draftStateData?.current_drafter?.overall_pick||0)
+  const values=draftPlayers.filter(row=>Number(row.adp)>0&&current>Number(row.adp)+4).sort((a,b)=>(current-Number(b.adp))-(current-Number(a.adp))||a.consensus_rank-b.consensus_rank).slice(0,8)
+  value.innerHTML=values.map(row=>draftRadarItem(row,`${Math.round(current-Number(row.adp))} picks past ADP`)).join('')||'<li>Falling values appear as the draft moves past their ADP.</li>'
+}
+function renderDraftRosterPreview(warRoom){
+  const name=document.querySelector('#draft-roster-name'),count=document.querySelector('#draft-roster-count'),target=document.querySelector('#draft-roster-preview')
+  if(!name||!count||!target)return
+  if(!warRoom?.configured){name.textContent='Roster';count.textContent='Not selected';target.innerHTML='<p class="muted">Choose your MFL franchise to see your live roster.</p>';return}
+  const roster=warRoom.roster||[];name.textContent=warRoom.franchise_name;count.textContent=`${warRoom.roster_count}/${warRoom.roster_size}`
+  target.innerHTML=roster.length?roster.map(row=>`<a class="draft-roster-player player-name-link" href="/player/${encodeURIComponent(row.player_id)}?league_id=${encodeURIComponent(SELECTED_LEAGUE_ID)}"><strong>${escapeHtml(row.player_name)}</strong><span>${escapeHtml(row.position)} · ${escapeHtml(row.nfl_team||'FA')} · Bye ${row.bye_week??'—'}</span></a>`).join(''):'<p class="muted">No players selected yet.</p>'
+}
+if(document.querySelector('.draft-layout'))enhanceDraftWorkspace()
 function draftSoundEnabled(){return localStorage.getItem('draftdesk:draft-sound')!=='off'}
 function updateDraftSoundButton(){const button=document.querySelector('#draft-sound');if(!button)return;const enabled=draftSoundEnabled();button.textContent=enabled?'Sound on':'Sound off';button.setAttribute('aria-pressed',String(enabled))}
 function toggleDraftSound(){localStorage.setItem('draftdesk:draft-sound',draftSoundEnabled()?'off':'on');updateDraftSoundButton();if(draftSoundEnabled())playDraftSound()}
