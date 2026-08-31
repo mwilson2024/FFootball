@@ -437,6 +437,10 @@ def test_auction_has_live_intelligence_personal_war_room_and_owner_insights() ->
     assert ".auction-values-column{display:flex;height:100%" in css
     assert "grid-template-columns:minmax(300px,.65fr) minmax(0,1.75fr)" in css
     assert "grid-template-columns:repeat(5,minmax(0,1fr))" in css
+    assert "activity.classList.toggle('current-nominator'" in script
+    assert "activity.classList.toggle('next-nominator'" in script
+    assert ".auction-activity-strip.current-nominator" in css
+    assert ".auction-activity-strip.next-nominator" in css
 
 
 def test_full_auction_history_has_live_search() -> None:
