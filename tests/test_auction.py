@@ -13,6 +13,7 @@ from app.auction import (
     redo,
     reset_auction,
     reset_nomination_cursor,
+    save_nomination_style,
     set_nomination_order,
     undo,
     update_purchase,
@@ -85,6 +86,21 @@ def test_nomination_order_can_be_arranged_and_advances_as_a_snake(seeded):
     advanced = nomination_state(seeded, "00999")
     assert advanced["current_franchise_name"] == "Alpha"
     assert advanced["round"] == 1
+
+
+def test_straight_nomination_order_restarts_left_to_right_each_round(seeded):
+    configured = save_nomination_style(seeded, "00999", "straight", actor="admin")
+    assert configured["order_style"] == "straight"
+
+    add_purchase(seeded, sale(player="0001234", franchise="0001", amount="1"))
+    advance_nomination(seeded, "00999", actor="admin")
+    add_purchase(seeded, sale(player="99", franchise="0002", amount="1"))
+    advance_nomination(seeded, "00999", actor="admin")
+
+    second_round = nomination_state(seeded, "00999")
+    assert second_round["round"] == 2
+    assert second_round["direction"] == "forward"
+    assert second_round["current_franchise_id"] == "0001"
 
 
 def test_full_franchise_is_marked_complete_and_skipped_for_nominations(seeded):

@@ -63,20 +63,25 @@ def _matchup_label(quality: float, known: bool) -> str:
 
 
 def bye_week_advice(
-    db: Session, league_id: str, week: int, player_id: str | None = None
+    db: Session,
+    league_id: str,
+    week: int,
+    player_id: str | None = None,
+    franchise_id: str | None = None,
 ) -> dict[str, Any]:
     league = db.scalar(select(League).where(League.id == league_id).order_by(League.season.desc()))
     if league is None:
         raise ValueError("League not found")
     setting = league_setting(db, league_id)
+    selected_franchise_id = franchise_id or setting.franchise_id
     franchise = (
         db.scalar(
             select(Franchise).where(
                 Franchise.league_id == league_id,
-                Franchise.id == setting.franchise_id,
+                Franchise.id == selected_franchise_id,
             )
         )
-        if setting.franchise_id
+        if selected_franchise_id
         else None
     )
     base = {

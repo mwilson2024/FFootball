@@ -12,14 +12,14 @@ from app.settings_store import runtime_settings, save_commissioner_imports
 from app.sources import initialize_sources
 from app.user_context import reset_active_username, set_active_username
 from app.users import (
-    auction_rob_mode,
+    auction_workflow_mode,
     auction_stage_enabled,
     avoided_teams,
     bootstrap_user,
     effective_auction_strategy,
     effective_source_settings,
     reset_source_settings,
-    save_auction_rob_mode,
+    save_auction_workflow_mode,
     save_auction_stage,
     save_avoided_teams,
     save_mfl_memberships,
@@ -120,8 +120,10 @@ def test_wilsonmw_is_admin_and_balanced_strategy_is_default(seeded: Session) -> 
     assert strategy["priority_order"] != ["WR", "QB", "RB", "TE", "DEF"]
 
 
-def test_rob_mode_defaults_on_and_can_be_changed(seeded: Session) -> None:
-    assert auction_rob_mode(seeded) is True
+def test_auction_workflow_defaults_to_admin_and_persists_per_league(seeded: Session) -> None:
+    assert auction_workflow_mode(seeded, "00999") == "admin_only"
+    assert save_auction_workflow_mode(seeded, "00999", "owner_purchase") == "owner_purchase"
+    assert auction_workflow_mode(seeded, "00999") == "owner_purchase"
 
 
 def test_auction_stage_is_closed_by_default_and_persists_per_league(seeded: Session) -> None:
@@ -130,13 +132,6 @@ def test_auction_stage_is_closed_by_default_and_persists_per_league(seeded: Sess
     assert auction_stage_enabled(seeded, "00999") is True
     assert save_auction_stage(seeded, "00999", False) is False
     assert auction_stage_enabled(seeded, "00999") is False
-
-    assert save_auction_rob_mode(seeded, False) is False
-    assert auction_rob_mode(seeded) is False
-
-    assert save_auction_rob_mode(seeded, True) is True
-    assert auction_rob_mode(seeded) is True
-
 
 def test_commissioner_import_toggle_persists_true_and_false(seeded: Session) -> None:
     assert save_commissioner_imports(seeded, False).mfl_enable_imports is False

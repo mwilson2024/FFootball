@@ -106,6 +106,30 @@ def test_bye_advisor_requests_team_selection_when_missing(seeded: Session) -> No
     assert result["conflicts"] == []
 
 
+def test_bye_advisor_can_use_an_explicit_roster_from_the_draft_viewer(
+    seeded: Session,
+) -> None:
+    rostered = seeded.get(Player, "99")
+    assert rostered is not None
+    rostered.bye_week = 5
+    seeded.add(
+        RosterAssignment(
+            league_id="00999",
+            franchise_id="0001",
+            player_id="99",
+            status="ROSTER",
+        )
+    )
+    _ranking(seeded, "99", 1)
+    seeded.commit()
+
+    result = bye_week_advice(seeded, "00999", 5, franchise_id="0001")
+
+    assert result["configured"] is True
+    assert result["franchise"] == {"id": "0001", "name": "Alpha"}
+    assert result["week_summary"][4]["bye_count"] == 1
+
+
 def test_bye_advisor_can_compare_one_selected_roster_player(seeded: Session) -> None:
     initialize_sources(seeded)
     seeded.add_all(

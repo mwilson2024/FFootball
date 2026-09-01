@@ -218,7 +218,13 @@ def test_nomination_controls_live_in_admin_and_budget_boxes_show_turns() -> None
     assert 'id="admin-nomination-panel"' in settings
     assert "Randomize teams" in settings
     assert "Reset auction" in settings
-    assert "Rob mode" in settings
+    assert "Rob mode" not in settings
+    assert "Auction Admin only" in settings
+    assert "Owner purchase entry" in settings
+    assert "Nominate here, bid in person" in settings
+    assert "Full online auction" in settings
+    assert 'id="admin-auction-order-snake"' in settings
+    assert 'id="admin-auction-order-straight"' in settings
     assert 'id="admin-user-list"' in settings
     assert 'draggable="true"' in script
     assert "setNominationPosition" in script
@@ -230,14 +236,14 @@ def test_nomination_controls_live_in_admin_and_budget_boxes_show_turns() -> None
     assert "changeAuctionPurchasePlayer" in script
     assert "Finished':`max" in script
     assert 'id="sale-access-note"' in auction
-    assert "Rob mode is on" in script
+    assert "Rob mode is on" not in script
     assert 'id="admin-auction-stage-toggle"' in settings
     assert 'id="admin-auction-live-toggle"' in settings
-    assert 'id="interactive-auction-toggle"' in settings
-    assert 'id="admin-auction-handoff"' in settings
+    assert 'id="interactive-auction-toggle"' not in settings
+    assert 'id="admin-auction-handoff"' not in settings
     assert 'id="auction-owner-handoff"' not in auction
     assert "Switch to owner bidding" not in auction
-    assert "Use live nominations and bidding" in settings
+    assert "Use live nominations and bidding" not in settings
     assert 'id="interactive-auction-panel"' in auction
     assert "renderInteractiveAuction" in script
     assert "nominateInteractivePlayer" in script
@@ -347,6 +353,27 @@ def test_draft_room_has_personal_war_room_and_live_intelligence() -> None:
     assert 'id="war-room-team-page"' in draft
     assert 'id="war-room-targets-button"' in draft
     assert 'id="draft-recommendations"' in draft
+    assert '>Recommendations</button>' in draft
+    assert "Best choices now" not in draft
+    assert 'id="recommendation-context-card"' in draft
+    assert "toggleRecommendationContext" in script
+    assert (
+        draft.index('id="recommendations-title"')
+        < draft.index('id="draft-franchise"')
+        < draft.index('id="recommendations" class="recommendations"')
+    )
+    assert "renderDraftRosterPreview(state.war_room||previous?.war_room||null)" in script
+    assert "renderDraftRosterPreview(result.war_room)" in script
+    assert "Full draft order" in script
+    assert "openFullDraftOrder" in script
+    assert 'draft-order-dialog' in script
+    assert "Bye Advisor" in script
+    assert "openDraftRosterByeAdvisor" in script
+    assert 'roster-bye-dialog' in script
+    assert 'roster-bye-frame' in script
+    assert "openRosterByeAdvisorCard(SELECTED_LEAGUE_ID" in script
+    assert "franchise_id:franchiseId" in script
+    assert "compact-name" in script
     assert 'id="draft-position"' in draft
     assert 'id="draft-tier"' in draft
     assert 'id="war-room-positions"' in draft
@@ -402,6 +429,8 @@ def test_auction_has_live_intelligence_personal_war_room_and_owner_insights() ->
     assert 'id="budget-grid"' in auction
     assert 'id="auction-current-roster"' in auction
     assert 'id="auction-current-roster-content"' in auction
+    assert "Bye Advisor" in auction
+    assert "openAuctionRosterByeAdvisor" in script
     assert 'id="auction-user-budget"' in auction
     assert 'class="auction-center-status"' in auction
     assert "Opposing owner intelligence" in auction

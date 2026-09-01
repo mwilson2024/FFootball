@@ -26,6 +26,37 @@ class AuctionValidationError(ValueError):
     pass
 
 
+def _nomination_style_key(league_id: str) -> str:
+    return f"auction_nomination_style:{league_id}"
+
+
+def nomination_style(db: Session, league_id: str) -> str:
+    setting = db.get(AppSetting, _nomination_style_key(league_id))
+    return setting.value if setting and setting.value in {"snake", "straight"} else "snake"
+
+
+def save_nomination_style(
+    db: Session, league_id: str, style: str, *, actor: str | None = None
+) -> dict[str, Any]:
+    if style not in {"snake", "straight"}:
+        raise AuctionValidationError("Nomination order must be snake or straight")
+    state = _nomination_state_row(db, league_id)
+    key = _nomination_style_key(league_id)
+    setting = db.get(AppSetting, key)
+    if setting is None:
+        setting = AppSetting(key=key, value=style)
+        db.add(setting)
+    else:
+        setting.value = style
+    setting.updated_at = datetime.now(UTC)
+    state.cursor = 0
+    state.updated_by = actor
+    state.updated_at = datetime.now(UTC)
+    _set_nomination_purchase_baseline(db, league_id)
+    db.commit()
+    return nomination_state(db, league_id)
+
+
 def _nomination_baseline_key(league_id: str) -> str:
     return f"auction_nomination_baseline:{league_id}"
 
@@ -97,21 +128,23 @@ def _nomination_state_row(db: Session, league_id: str) -> AuctionNominationState
     return state
 
 
-def _snake_slot(order: list[str], cursor: int) -> tuple[str | None, int, str]:
+def _nomination_slot(
+    order: list[str], cursor: int, style: str
+) -> tuple[str | None, int, str]:
     if not order:
         return None, 0, "forward"
     round_index, offset = divmod(max(0, cursor), len(order))
-    direction = "forward" if round_index % 2 == 0 else "reverse"
+    direction = "forward" if style == "straight" or round_index % 2 == 0 else "reverse"
     index = offset if direction == "forward" else len(order) - 1 - offset
     return order[index], round_index + 1, direction
 
 
-def _next_open_snake_slot(
-    order: list[str], cursor: int, completed: set[str]
+def _next_open_nomination_slot(
+    order: list[str], cursor: int, completed: set[str], style: str
 ) -> tuple[str | None, int, str, int]:
     start = max(0, cursor)
     for candidate in range(start, start + max(1, len(order) * 2)):
-        franchise_id, round_number, direction = _snake_slot(order, candidate)
+        franchise_id, round_number, direction = _nomination_slot(order, candidate, style)
         if franchise_id is not None and franchise_id not in completed:
             return franchise_id, round_number, direction, candidate
     return None, 0, "forward", start
@@ -161,6 +194,7 @@ def _reconciled_nomination_position(
         )
     )
     cursor = 0
+    style = nomination_style(db, league_id)
     for purchase in purchases:
         if purchase.id in baseline_ids and purchase.player_id not in synchronized_player_ids:
             roster_counts[purchase.franchise_id] = roster_counts.get(purchase.franchise_id, 0) + 1
@@ -168,14 +202,16 @@ def _reconciled_nomination_position(
         if purchase.id in baseline_ids:
             continue
         completed = _completed_from_counts(franchises, roster_counts)
-        current_id, _, _, current_cursor = _next_open_snake_slot(order, cursor, completed)
+        current_id, _, _, current_cursor = _next_open_nomination_slot(
+            order, cursor, completed, style
+        )
         if current_id is None:
             break
         if purchase.player_id not in synchronized_player_ids:
             roster_counts[purchase.franchise_id] = roster_counts.get(purchase.franchise_id, 0) + 1
         cursor = current_cursor + 1
     completed = _completed_from_counts(franchises, roster_counts)
-    _, _, _, current_cursor = _next_open_snake_slot(order, cursor, completed)
+    _, _, _, current_cursor = _next_open_nomination_slot(order, cursor, completed, style)
     return current_cursor, completed
 
 
@@ -218,15 +254,16 @@ def nomination_state(db: Session, league_id: str) -> dict[str, Any]:
     state = _nomination_state_row(db, league_id)
     order = [str(item) for item in (state.order_json or [])]
     reconciled_cursor, completed = _reconciled_nomination_position(db, league_id, order)
-    current_id, round_number, direction, current_cursor = _next_open_snake_slot(
-        order, reconciled_cursor, completed
+    style = nomination_style(db, league_id)
+    current_id, round_number, direction, current_cursor = _next_open_nomination_slot(
+        order, reconciled_cursor, completed, style
     )
     if current_cursor != state.cursor:
         state.cursor = current_cursor
         state.updated_at = datetime.now(UTC)
         db.commit()
     next_id, next_round, next_direction, _ = (
-        _next_open_snake_slot(order, current_cursor + 1, completed)
+        _next_open_nomination_slot(order, current_cursor + 1, completed, style)
         if current_id is not None
         else (None, 0, "forward", current_cursor)
     )
@@ -247,6 +284,7 @@ def nomination_state(db: Session, league_id: str) -> dict[str, Any]:
         "cursor": state.cursor,
         "round": round_number,
         "direction": direction,
+        "order_style": style,
         "current_franchise_id": current_id,
         "current_franchise_name": names.get(current_id) if current_id else None,
         "next_franchise_id": next_id,

@@ -48,8 +48,14 @@ def save_draft_poll_interval(db: Session, league_id: str, seconds: int) -> int:
     return seconds
 
 DEFAULT_AUCTION_STRATEGY = "balanced"
-ROB_MODE_SETTING_KEY = "auction_rob_mode"
 AUCTION_STAGE_SETTING_PREFIX = "auction_stage:"
+AUCTION_WORKFLOW_SETTING_PREFIX = "auction_workflow:"
+AUCTION_WORKFLOW_MODES = {
+    "admin_only",
+    "owner_purchase",
+    "offline_nomination",
+    "site_bidding",
+}
 DRAFT_MODE_SETTING_PREFIX = "draft_mode:"
 DRAFT_MODES = {"companion", "local"}
 AUCTION_STRATEGIES: dict[str, dict[str, Any]] = {
@@ -210,23 +216,27 @@ def is_current_admin(db: Session) -> bool:
     return current_account(db).is_admin
 
 
-def auction_rob_mode(db: Session) -> bool:
-    """Return whether auction purchases are restricted to administrators."""
-    setting = db.get(AppSetting, ROB_MODE_SETTING_KEY)
-    if setting is None:
-        return True
-    return setting.value.strip().lower() not in {"0", "false", "off", "no"}
+def auction_workflow_mode(db: Session, league_id: str) -> str:
+    """Return the shared purchase/nomination workflow for one auction league."""
+    setting = db.get(AppSetting, f"{AUCTION_WORKFLOW_SETTING_PREFIX}{league_id}")
+    if setting is None or setting.value not in AUCTION_WORKFLOW_MODES:
+        return "admin_only"
+    return setting.value
 
 
-def save_auction_rob_mode(db: Session, enabled: bool) -> bool:
-    setting = db.get(AppSetting, ROB_MODE_SETTING_KEY)
+def save_auction_workflow_mode(db: Session, league_id: str, mode: str) -> str:
+    if mode not in AUCTION_WORKFLOW_MODES:
+        raise ValueError("Unknown auction workflow")
+    key = f"{AUCTION_WORKFLOW_SETTING_PREFIX}{league_id}"
+    setting = db.get(AppSetting, key)
     if setting is None:
-        setting = AppSetting(key=ROB_MODE_SETTING_KEY, value="true")
+        setting = AppSetting(key=key, value=mode)
         db.add(setting)
-    setting.value = "true" if enabled else "false"
+    else:
+        setting.value = mode
     setting.updated_at = datetime.now(UTC)
     db.commit()
-    return enabled
+    return mode
 
 
 def auction_stage_enabled(db: Session, league_id: str) -> bool:

@@ -50,9 +50,11 @@ from app.auction import (
     delete_purchase,
     franchise_budget,
     nomination_state,
+    nomination_style,
     redo,
     reset_auction,
     reset_nomination_cursor,
+    save_nomination_style,
     set_nomination_order,
     shuffle_nomination_order,
     undo,
@@ -149,8 +151,9 @@ from app.schemas import (
     AssistantRequest,
     AuctionLiveUpdate,
     AuctionNominationOrderUpdate,
-    AuctionRobModeUpdate,
+    AuctionNominationStyleUpdate,
     AuctionStageUpdate,
+    AuctionWorkflowUpdate,
     AvoidedTeamsUpdate,
     CommissionerImportsUpdate,
     DraftModeUpdate,
@@ -211,7 +214,7 @@ from app.users import (
     AUCTION_STRATEGIES,
     DRAFT_POLL_INTERVALS,
     NFL_TEAMS,
-    auction_rob_mode,
+    auction_workflow_mode,
     auction_stage_enabled,
     authorized_league_ids,
     avoided_teams,
@@ -225,7 +228,7 @@ from app.users import (
     mfl_memberships_for_user,
     record_login,
     reset_source_settings,
-    save_auction_rob_mode,
+    save_auction_workflow_mode,
     save_auction_stage,
     save_avoided_teams,
     save_draft_mode,
@@ -242,7 +245,7 @@ from scripts.import_auction_csv_as_draft import (
 
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
-templates.env.globals["asset_version"] = "20260831.21"
+templates.env.globals["asset_version"] = "20260901.7"
 SESSION_SIGNING_SECRET = ""
 
 
@@ -350,11 +353,10 @@ async def secure_session(request: Request, call_next: Any) -> Response:
     finally:
         reset_active_league_ids(league_context_token)
         reset_active_username(context_token)
-    quick_player_embed = (
-        request.url.path.startswith("/player/")
-        and request.query_params.get("quick") == "1"
+    same_origin_quick_embed = request.query_params.get("quick") == "1" and (
+        request.url.path.startswith("/player/") or request.url.path == "/bye-advisor"
     )
-    frame_ancestors = "'self'" if quick_player_embed else "'none'"
+    frame_ancestors = "'self'" if same_origin_quick_embed else "'none'"
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; "
         "script-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; "
@@ -363,7 +365,9 @@ async def secure_session(request: Request, call_next: Any) -> Response:
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
     response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "SAMEORIGIN" if quick_player_embed else "DENY"
+    response.headers["X-Frame-Options"] = (
+        "SAMEORIGIN" if same_origin_quick_embed else "DENY"
+    )
     if request.url.path.startswith("/static/"):
         response.headers["Cache-Control"] = "no-cache, max-age=0, must-revalidate"
     if settings.app_env.lower() in {"production", "prod"}:
@@ -598,6 +602,9 @@ def _money_string(value: Decimal | None) -> str | None:
 def _interactive_auction_json(db: Session, league_id: str) -> dict[str, Any]:
     league = _league_or_404(db, league_id)
     state = _interactive_auction(db, league_id)
+    workflow = auction_workflow_mode(db, league_id)
+    nominations_enabled = workflow in {"offline_nomination", "site_bidding"}
+    site_bidding = workflow == "site_bidding"
     live = _auction_live(db, league_id)
     nomination = nomination_state(db, league_id)
     user_franchise_id = _current_user_franchise_id(db, league)
@@ -622,27 +629,31 @@ def _interactive_auction_json(db: Session, league_id: str) -> dict[str, Any]:
         )
     active = state.status == "open" and player is not None
     can_nominate = bool(
-        state.enabled
+        nominations_enabled
         and live.is_live
         and not active
         and user_franchise_id
         and user_franchise_id == nomination.get("current_franchise_id")
     )
-    can_bid = bool(state.enabled and live.is_live and active and user_franchise_id)
+    can_bid = bool(site_bidding and live.is_live and active and user_franchise_id)
     reason = None
-    if state.enabled and not live.is_live:
+    if nominations_enabled and not live.is_live:
         reason = "The admin must start the live auction"
-    elif state.enabled and not user_franchise_id:
+    elif nominations_enabled and not user_franchise_id:
         reason = "Select your MFL franchise under My Account"
     elif (
-        state.enabled and not active and user_franchise_id != nomination.get("current_franchise_id")
+        nominations_enabled
+        and not active
+        and user_franchise_id != nomination.get("current_franchise_id")
     ):
         reason = (
             f"Waiting for {nomination.get('current_franchise_name') or 'the next team'} to nominate"
         )
     minimum_next = Decimal(state.current_bid or 0) + Decimal(league.minimum_bid) if active else None
     return {
-        "enabled": state.enabled,
+        "enabled": nominations_enabled,
+        "workflow_mode": workflow,
+        "uses_site_bidding": site_bidding,
         "status": state.status,
         "active": active,
         "revision": state.revision,
@@ -1073,12 +1084,15 @@ def links_page(request: Request, db: Db) -> Any:
 
 
 @app.get("/bye-advisor", response_class=HTMLResponse)
-def bye_advisor_page(request: Request, db: Db, league_id: str | None = None) -> Any:
-    return templates.TemplateResponse(
-        request,
-        "bye_advisor.html",
-        _page_context(db, "Bye Week Advisor", league_id),
-    )
+def bye_advisor_page(
+    request: Request,
+    db: Db,
+    league_id: str | None = None,
+    franchise_id: str | None = None,
+) -> Any:
+    context = _page_context(db, "Bye Week Advisor", league_id)
+    context["bye_franchise_id"] = franchise_id
+    return templates.TemplateResponse(request, "bye_advisor.html", context)
 
 
 @app.get("/power-rankings", response_class=HTMLResponse)
@@ -1148,20 +1162,27 @@ def _auction_page_context(db: Session, league_id: str | None = None) -> dict[str
     context = _page_context(db, "Auction room", selected)
     context["league"] = selected_league
     context["auction_leagues"] = auction_leagues
-    context["rob_mode"] = auction_rob_mode(db)
+    workflow = auction_workflow_mode(db, selected) if selected else "admin_only"
+    context["auction_workflow_mode"] = workflow
     live = _auction_live(db, selected) if selected else None
     staged = auction_stage_enabled(db, selected) if selected else False
-    interactive = _interactive_auction(db, selected).enabled if selected else False
+    interactive = workflow in {"offline_nomination", "site_bidding"}
     context["interactive_bidding"] = interactive
     current_user_franchise_id = (
         _current_user_franchise_id(db, selected_league) if selected_league else None
     )
     context["current_user_franchise_id"] = current_user_franchise_id
-    context["can_record_purchase"] = (
-        bool(live and live.is_live) and (context["is_admin"] or not context["rob_mode"])
-    ) or (staged and context["is_admin"])
-    if interactive:
-        context["can_record_purchase"] = False
+    context["can_record_purchase"] = bool(
+        (staged and context["is_admin"])
+        or (
+            live
+            and live.is_live
+            and (
+                context["is_admin"]
+                or workflow in {"owner_purchase", "offline_nomination"}
+            )
+        )
+    ) and workflow != "site_bidding"
     context["can_record_own_purchase"] = bool(
         context["can_record_purchase"] and current_user_franchise_id
     )
@@ -1218,15 +1239,67 @@ def api_setup_status(db: Db) -> dict[str, object]:
 
 
 @app.get("/api/admin/auction-mode")
-def admin_auction_mode(db: Db) -> dict[str, bool]:
+def admin_auction_mode(league_id: str, db: Db) -> dict[str, Any]:
     _require_admin(db)
-    return {"rob_mode": auction_rob_mode(db)}
+    _league_or_404(db, league_id)
+    return {
+        "league_id": league_id,
+        "mode": auction_workflow_mode(db, league_id),
+        "order_style": nomination_style(db, league_id),
+    }
 
 
 @app.put("/api/admin/auction-mode")
-def update_admin_auction_mode(payload: AuctionRobModeUpdate, db: Db) -> dict[str, bool]:
+def update_admin_auction_mode(
+    payload: AuctionWorkflowUpdate, league_id: str, db: Db
+) -> dict[str, Any]:
     _require_admin(db)
-    return {"rob_mode": save_auction_rob_mode(db, payload.enabled)}
+    _league_or_404(db, league_id)
+    before = auction_workflow_mode(db, league_id)
+    mode = save_auction_workflow_mode(db, league_id, payload.mode)
+    state = _interactive_auction(db, league_id)
+    state.enabled = mode in {"offline_nomination", "site_bidding"}
+    if before != mode and state.status == "open":
+        state.status = "idle"
+        state.player_id = None
+        state.nominating_franchise_id = None
+        state.high_bid_franchise_id = None
+        state.current_bid = None
+        state.nominated_by = None
+        state.opened_at = None
+    state.revision += 1
+    state.updated_at = datetime.now(UTC)
+    db.commit()
+    _bump_auction(db, league_id)
+    result = admin_auction_mode(league_id, db)
+    _audit_mutation(
+        db,
+        stream="auction-mode",
+        action="workflow_change",
+        league_id=league_id,
+        before={"mode": before},
+        after=result,
+    )
+    return result
+
+
+@app.put("/api/admin/auction-order-style")
+def update_admin_auction_order_style(
+    payload: AuctionNominationStyleUpdate, league_id: str, db: Db
+) -> dict[str, Any]:
+    _require_admin(db)
+    before = nomination_state(db, league_id)
+    result = save_nomination_style(db, league_id, payload.style, actor=active_username())
+    _bump_auction(db, league_id)
+    _audit_mutation(
+        db,
+        stream="auction-nominations",
+        action="style_change",
+        league_id=league_id,
+        before=before,
+        after=result,
+    )
+    return result
 
 
 def _commissioner_import_status(db: Session) -> dict[str, bool]:
@@ -2116,9 +2189,10 @@ def get_bye_week_advice(
     db: Db,
     week: int = Query(1, ge=1, le=18),
     player_id: str | None = None,
+    franchise_id: str | None = None,
 ) -> dict[str, Any]:
     _league_or_404(db, league_id)
-    return bye_week_advice(db, league_id, week, player_id)
+    return bye_week_advice(db, league_id, week, player_id, franchise_id)
 
 
 @app.get("/api/leagues/{league_id}/power-rankings")
@@ -3182,12 +3256,16 @@ def auction_state(db: Db, league_id: str | None = None) -> dict[str, Any]:
     live = _auction_live(db, selected)
     staged = auction_stage_enabled(db, selected)
     is_admin = is_current_admin(db)
-    rob_mode = auction_rob_mode(db)
+    workflow = auction_workflow_mode(db, selected)
     interactive = _interactive_auction_json(db, selected)
     current_user_franchise_id = _current_user_franchise_id(db, league)
-    can_record = (
-        (live.is_live and (is_admin or not rob_mode)) or (staged and is_admin)
-    ) and not interactive["enabled"]
+    can_record = bool(
+        (staged and is_admin)
+        or (
+            live.is_live
+            and (is_admin or workflow in {"owner_purchase", "offline_nomination"})
+        )
+    ) and workflow != "site_bidding"
     phase = "live" if live.is_live else "staging" if staged else "closed"
     budgets = [
         franchise_budget(db, league, franchise)
@@ -3220,7 +3298,7 @@ def auction_state(db: Db, league_id: str | None = None) -> dict[str, Any]:
         },
         "nomination": nomination_state(db, selected),
         "is_admin": is_admin,
-        "rob_mode": rob_mode,
+        "workflow_mode": workflow,
         "phase": phase,
         "can_record_purchase": can_record,
         "can_record_own_purchase": bool(can_record and current_user_franchise_id),
@@ -3278,6 +3356,7 @@ def update_admin_interactive_auction(
 ) -> dict[str, Any]:
     _require_admin(db)
     _league_or_404(db, league_id)
+    save_auction_workflow_mode(db, league_id, "site_bidding" if payload.enabled else "admin_only")
     state = _interactive_auction(db, league_id)
     state.enabled = payload.enabled
     state.revision += 1
@@ -3319,6 +3398,7 @@ def handoff_auction_to_live_bidding(league_id: str, db: Db) -> dict[str, Any]:
         "nomination": nomination_before,
     }
     save_auction_stage(db, league_id, True)
+    save_auction_workflow_mode(db, league_id, "site_bidding")
     live.is_live = True
     interactive.enabled = True
     interactive.revision += 1
@@ -3354,7 +3434,10 @@ def nominate_interactive_auction_player(
         .where(InteractiveAuctionState.league_id == payload.league_id)
         .with_for_update()
     ) or _interactive_auction(db, payload.league_id)
-    if not state.enabled or not _auction_live(db, payload.league_id).is_live:
+    workflow = auction_workflow_mode(db, payload.league_id)
+    if workflow not in {"offline_nomination", "site_bidding"} or not _auction_live(
+        db, payload.league_id
+    ).is_live:
         raise HTTPException(
             409,
             detail={"code": "interactive_auction_locked", "message": "Live bidding is not active"},
@@ -3392,9 +3475,11 @@ def nominate_interactive_auction_player(
     )
     if franchise is None:
         raise HTTPException(409, detail={"code": "franchise_missing", "message": "Team not found"})
-    budget = franchise_budget(db, league, franchise)
     opening_bid = Decimal(league.minimum_bid)
-    if budget["slots_remaining"] <= 0 or Decimal(budget["maximum_bid"]) < opening_bid:
+    budget = franchise_budget(db, league, franchise)
+    if workflow == "site_bidding" and (
+        budget["slots_remaining"] <= 0 or Decimal(budget["maximum_bid"]) < opening_bid
+    ):
         raise HTTPException(
             409,
             detail={"code": "cannot_nominate", "message": "Your team cannot make the opening bid"},
@@ -3403,21 +3488,22 @@ def nominate_interactive_auction_player(
     state.status = "open"
     state.player_id = payload.player_id
     state.nominating_franchise_id = user_franchise_id
-    state.high_bid_franchise_id = user_franchise_id
-    state.current_bid = opening_bid
+    state.high_bid_franchise_id = user_franchise_id if workflow == "site_bidding" else None
+    state.current_bid = opening_bid if workflow == "site_bidding" else None
     state.revision += 1
     state.nominated_by = active_username()
     state.opened_at = now
     state.updated_at = now
-    db.add(
-        InteractiveAuctionBid(
-            league_id=payload.league_id,
-            player_id=payload.player_id,
-            franchise_id=user_franchise_id,
-            username=active_username(),
-            amount=opening_bid,
+    if workflow == "site_bidding":
+        db.add(
+            InteractiveAuctionBid(
+                league_id=payload.league_id,
+                player_id=payload.player_id,
+                franchise_id=user_franchise_id,
+                username=active_username(),
+                amount=opening_bid,
+            )
         )
-    )
     db.commit()
     _bump_auction(db, payload.league_id)
     return _interactive_auction_json(db, payload.league_id)
@@ -3426,6 +3512,11 @@ def nominate_interactive_auction_player(
 @app.post("/api/auction/interactive/bids", status_code=201)
 def place_interactive_auction_bid(payload: InteractiveAuctionBidCreate, db: Db) -> dict[str, Any]:
     league = _league_or_404(db, payload.league_id)
+    if auction_workflow_mode(db, payload.league_id) != "site_bidding":
+        raise HTTPException(
+            409,
+            detail={"code": "site_bidding_disabled", "message": "Bidding is happening in person"},
+        )
     state = db.scalar(
         select(InteractiveAuctionState)
         .where(InteractiveAuctionState.league_id == payload.league_id)
@@ -3516,6 +3607,11 @@ def award_interactive_auction(
     league_id: str, background_tasks: BackgroundTasks, db: Db
 ) -> dict[str, Any]:
     _require_admin(db)
+    if auction_workflow_mode(db, league_id) != "site_bidding":
+        raise HTTPException(
+            409,
+            detail={"code": "site_bidding_disabled", "message": "Site bidding is not enabled"},
+        )
     state = _interactive_auction(db, league_id)
     if (
         not state.enabled
@@ -3685,7 +3781,9 @@ def reset_local_auction(db: Db, league_id: str | None = None) -> dict[str, Any]:
 def purchase(payload: PurchaseCreate, background_tasks: BackgroundTasks, db: Db) -> dict[str, Any]:
     live = _auction_live(db, payload.league_id)
     staged = auction_stage_enabled(db, payload.league_id)
-    if _interactive_auction(db, payload.league_id).enabled:
+    workflow = auction_workflow_mode(db, payload.league_id)
+    interactive = _interactive_auction(db, payload.league_id)
+    if workflow == "site_bidding":
         raise HTTPException(
             409,
             detail={
@@ -3704,7 +3802,7 @@ def purchase(payload: PurchaseCreate, background_tasks: BackgroundTasks, db: Db)
             },
         )
     is_admin = is_current_admin(db)
-    if not live.is_live or auction_rob_mode(db):
+    if not live.is_live or workflow == "admin_only":
         _require_admin(db)
     elif not is_admin:
         league = _league_or_404(db, payload.league_id)
@@ -3725,8 +3823,36 @@ def purchase(payload: PurchaseCreate, background_tasks: BackgroundTasks, db: Db)
                     "message": "You can only record winning bids for your linked MFL franchise",
                 },
             )
+    if workflow == "offline_nomination" and live.is_live:
+        if interactive.status != "open" or not interactive.player_id:
+            raise HTTPException(
+                409,
+                detail={
+                    "code": "nomination_required",
+                    "message": "The current owner must nominate a player before a winner records it",
+                },
+            )
+        if payload.player_id != interactive.player_id:
+            raise HTTPException(
+                409,
+                detail={
+                    "code": "nominated_player_mismatch",
+                    "message": "Record the player currently nominated for the in-person auction",
+                },
+            )
     result = add_purchase(db, payload)
     advance_nomination(db, payload.league_id, actor=active_username())
+    if workflow == "offline_nomination" and live.is_live:
+        interactive.status = "idle"
+        interactive.player_id = None
+        interactive.nominating_franchise_id = None
+        interactive.high_bid_franchise_id = None
+        interactive.current_bid = None
+        interactive.revision += 1
+        interactive.nominated_by = None
+        interactive.opened_at = None
+        interactive.updated_at = datetime.now(UTC)
+        db.commit()
     _bump_auction(db, payload.league_id)
     created = _purchase_json(db, result)
     _audit_mutation(

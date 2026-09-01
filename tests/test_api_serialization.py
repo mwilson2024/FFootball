@@ -272,7 +272,7 @@ def test_admin_can_reset_local_auction_and_nomination_state(seeded):
         app.dependency_overrides.clear()
 
 
-def test_rob_mode_controls_who_can_record_auction_purchases(seeded):
+def test_owner_purchase_mode_controls_who_can_record_auction_purchases(seeded):
     bootstrap_user(seeded, "tester", admin_usernames={"wilsonmw"})
     seeded.add(
         UserLeagueSetting(
@@ -324,9 +324,9 @@ def test_rob_mode_controls_who_can_record_auction_purchases(seeded):
                 json={"is_live": True},
             )
             mode = client.put(
-                "/api/admin/auction-mode",
+                "/api/admin/auction-mode?league_id=00999",
                 headers={"X-CSRF-Token": admin_session.csrf_token},
-                json={"enabled": False},
+                json={"mode": "owner_purchase"},
             )
             commissioner = client.put(
                 "/api/admin/commissioner-imports",
@@ -353,7 +353,8 @@ def test_rob_mode_controls_who_can_record_auction_purchases(seeded):
         assert blocked.json()["detail"]["code"] == "auction_closed"
         assert live.status_code == 200
         assert mode.status_code == 200
-        assert mode.json() == {"rob_mode": False}
+        assert mode.json()["mode"] == "owner_purchase"
+        assert mode.json()["order_style"] == "snake"
         assert commissioner.status_code == 200
         assert commissioner.json()["enabled"] is True
         assert allowed.status_code == 201

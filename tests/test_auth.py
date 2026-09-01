@@ -90,7 +90,7 @@ def test_railway_healthcheck_host_is_allowed_but_unknown_hosts_are_rejected():
         assert client.get("/health", headers={"Host": "untrusted.example"}).status_code == 400
 
 
-def test_only_quick_player_pages_allow_same_origin_framing():
+def test_only_supported_quick_cards_allow_same_origin_framing():
     with TestClient(app) as client:
         ordinary = client.get("/health")
         assert ordinary.headers["X-Frame-Options"] == "DENY"
@@ -103,3 +103,11 @@ def test_only_quick_player_pages_allow_same_origin_framing():
         embedded = client.get("/player/0001234?quick=1", follow_redirects=False)
         assert embedded.headers["X-Frame-Options"] == "SAMEORIGIN"
         assert "frame-ancestors 'self'" in embedded.headers["Content-Security-Policy"]
+
+        bye_card = client.get("/bye-advisor?quick=1", follow_redirects=False)
+        assert bye_card.headers["X-Frame-Options"] == "SAMEORIGIN"
+        assert "frame-ancestors 'self'" in bye_card.headers["Content-Security-Policy"]
+
+        ordinary_bye_page = client.get("/bye-advisor", follow_redirects=False)
+        assert ordinary_bye_page.headers["X-Frame-Options"] == "DENY"
+        assert "frame-ancestors 'none'" in ordinary_bye_page.headers["Content-Security-Policy"]

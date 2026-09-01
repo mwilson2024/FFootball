@@ -25,20 +25,24 @@
   </article>
   <article class="panel admin-tool-card">
     <p class="eyebrow">AUCTION SESSION</p>
-    <h2>Staging and live auction</h2>
+    <h2>Auction Admin</h2>
     <label>Manage auction league<select id="admin-auction-league" onchange="selectAdminAuctionLeague(this.value)"><option value="">Loading auction leagues…</option></select></label>
+    <fieldset class="auction-workflow-choice">
+      <legend>How purchases happen</legend>
+      <label class="admin-switch"><input id="admin-auction-mode-admin_only" name="admin-auction-mode" type="radio" value="admin_only" onchange="setAdminAuctionWorkflow(this.value)"><span><strong>1. Auction Admin only</strong><small>Only administrators add players to any team.</small></span></label>
+      <label class="admin-switch"><input id="admin-auction-mode-owner_purchase" name="admin-auction-mode" type="radio" value="owner_purchase" onchange="setAdminAuctionWorkflow(this.value)"><span><strong>2. Owner purchase entry</strong><small>Each owner records only the players won by their linked team.</small></span></label>
+      <label class="admin-switch"><input id="admin-auction-mode-offline_nomination" name="admin-auction-mode" type="radio" value="offline_nomination" onchange="setAdminAuctionWorkflow(this.value)"><span><strong>3. Nominate here, bid in person</strong><small>The owner up nominates on the site. Bidding happens in the room, then the winning owner records the purchase.</small></span></label>
+      <label class="admin-switch"><input id="admin-auction-mode-site_bidding" name="admin-auction-mode" type="radio" value="site_bidding" onchange="setAdminAuctionWorkflow(this.value)"><span><strong>4. Full online auction</strong><small>Nomination, bidding, and awarding the purchase all happen on DraftDesk.</small></span></label>
+    </fieldset>
+    <fieldset class="auction-order-choice">
+      <legend>Nomination order by round</legend>
+      <label><input id="admin-auction-order-snake" name="admin-auction-order" type="radio" value="snake" onchange="setAdminNominationStyle(this.value)"> Snake</label>
+      <label><input id="admin-auction-order-straight" name="admin-auction-order" type="radio" value="straight" onchange="setAdminNominationStyle(this.value)"> Straight</label>
+    </fieldset>
+    <p id="admin-auction-mode-status" class="muted" aria-live="polite"></p>
     <label class="admin-switch"><input id="admin-auction-stage-toggle" type="checkbox" onchange="setAdminAuctionStage(this.checked)"><span><strong>Open auction staging</strong><small>Admins can prepare and test purchases while members remain read-only.</small></span></label>
     <label class="admin-switch"><input id="admin-auction-live-toggle" type="checkbox" onchange="setAdminAuctionLive(this.checked)"><span><strong>Auction is live</strong><small>Unlocks purchases for eligible users. Going live automatically opens staging.</small></span></label>
-    <label class="admin-switch"><input id="interactive-auction-toggle" type="checkbox" onchange="setInteractiveAuction(this.checked)"><span><strong>Use live nominations and bidding</strong><small>Only the team currently up can nominate. Every signed-in owner can bid for their selected MFL franchise.</small></span></label>
-    <div class="admin-auction-handoff"><div><strong>Mid-auction handoff</strong><small>Keep every saved purchase, budget, and the next nomination turn while switching from admin entry to live owner bidding.</small></div><button id="admin-auction-handoff" class="primary" type="button" onclick="handoffAuctionToOwners()">Switch to live owner bidding</button></div>
     <p id="admin-auction-stage-status" class="muted" aria-live="polite">Loading auction status…</p>
-    <p id="interactive-auction-status" class="muted" aria-live="polite"></p>
-  </article>
-  <article class="panel admin-tool-card">
-    <p class="eyebrow">AUCTION ACCESS</p>
-    <h2>Rob mode</h2>
-    <label class="admin-switch"><input id="rob-mode-toggle" type="checkbox" onchange="setRobMode(this.checked)"><span><strong>Only admins can add players to teams</strong><small>Turn this off if every signed-in league member should be able to record a winning purchase. Corrections, resets, and MFL imports always remain admin-only.</small></span></label>
-    <p id="rob-mode-status" class="muted" aria-live="polite">Loading auction access…</p>
   </article>
   <article class="panel admin-tool-card">
     <p class="eyebrow">MFL COMMISSIONER</p>
@@ -53,7 +57,7 @@
     <div id="admin-user-list" class="admin-user-list" aria-live="polite">Loading users…</div>
   </article>
 </section>
-<section id="admin-nomination-panel" class="panel nomination-panel" hidden aria-labelledby="admin-nomination-heading"><div class="panel-head"><div><p class="eyebrow">AUCTION ADMIN</p><h2 id="admin-nomination-heading">Snake nomination order</h2></div><div class="toolbar"><button type="button" onclick="randomizeNominationOrder()">Randomize teams</button><button class="danger-button" type="button" onclick="resetAuctionAdmin()">Reset auction</button></div></div><p id="admin-nomination-status" class="nomination-status" aria-live="polite">Loading nomination order…</p><ol id="admin-nomination-board" class="nomination-board"></ol><p class="muted">Drag team cards into position or edit the number on a card. Randomizing or manually changing the order restarts nomination tracking at the first team. Reset auction removes locally recorded purchases, returns nominations to the first eligible team, and turns live mode off. Gold marks the current nominator, blue marks the next, and red means the roster is full.</p></section>
+<section id="admin-nomination-panel" class="panel nomination-panel" hidden aria-labelledby="admin-nomination-heading"><div class="panel-head"><div><p class="eyebrow">AUCTION ADMIN</p><h2 id="admin-nomination-heading">Nomination order</h2></div><div class="toolbar"><button type="button" onclick="randomizeNominationOrder()">Randomize teams</button><button class="danger-button" type="button" onclick="resetAuctionAdmin()">Reset auction</button></div></div><p id="admin-nomination-status" class="nomination-status" aria-live="polite">Loading nomination order…</p><ol id="admin-nomination-board" class="nomination-board"></ol><p class="muted">Drag team cards into position or edit the number on a card. Randomizing or manually changing the order restarts nomination tracking at the first team. Reset auction removes locally recorded purchases, returns nominations to the first eligible team, and turns live mode off. Gold marks the current nominator, blue marks the next, and red means the roster is full.</p></section>
 {% if is_admin %}
 <section id="admin-draft-connection" class="panel admin-draft-connection" aria-labelledby="admin-draft-connection-heading">
   <div class="panel-head"><div><p class="eyebrow">DRAFT-DAY HEALTH</p><h2 id="admin-draft-connection-heading">Draft connection status</h2><p id="admin-draft-connection-league" class="muted">Loading selected league…</p></div><span id="admin-draft-connection-badge" class="admin-connection-badge loading">Checking…</span></div>

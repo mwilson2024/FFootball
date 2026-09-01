@@ -15,3 +15,6 @@ exports/*.json
 !data/.gitkeep
 !exports/.gitkeep
 .env.example
+sshkey.txt
+sshkey.txt.pub
+NEXT_YEAR_NOTES.md

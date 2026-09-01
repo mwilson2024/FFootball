@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 
@@ -155,8 +156,12 @@ class MockDraftUpdate(BaseModel):
     enabled: bool
 
 
-class AuctionRobModeUpdate(BaseModel):
-    enabled: bool
+class AuctionWorkflowUpdate(BaseModel):
+    mode: Literal["admin_only", "owner_purchase", "offline_nomination", "site_bidding"]
+
+
+class AuctionNominationStyleUpdate(BaseModel):
+    style: Literal["snake", "straight"]
 
 
 class CommissionerImportsUpdate(BaseModel):
