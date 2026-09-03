@@ -205,7 +205,7 @@ function enhanceDraftWorkspace(){
   const order=document.querySelector('#draft-order')?.closest('.panel'),radar=document.querySelector('#draft-queue')?.closest('.panel'),recent=document.querySelector('#draft-picks')?.closest('.panel')
   order?.classList.add('draft-order-panel');recent?.classList.add('draft-recent-panel')
   if(order){const heading=order.querySelector('h2');if(heading){const head=document.createElement('div');head.className='panel-head draft-order-head';head.innerHTML='<h2>Draft order</h2><button type="button" class="small" onclick="openFullDraftOrder()">Full draft order</button>';heading.replaceWith(head)}}
-  const roster=document.createElement('section');roster.id='draft-roster-panel';roster.className='panel draft-roster-panel';roster.innerHTML='<div class="panel-head"><div><p class="eyebrow">TEAM ROSTER</p><h2>Roster viewer</h2><strong id="draft-roster-name" class="draft-roster-team">No team selected</strong></div><div class="toolbar draft-roster-actions"><button id="draft-roster-bye-button" type="button" class="small" onclick="openDraftRosterByeAdvisor()">Bye Advisor</button></div></div><label class="draft-roster-team-picker">View team<select id="draft-roster-team" aria-label="View draft roster by team" onchange="viewDraftRosterTeam(this.value)"><option value="">No team selected</option></select></label><div id="draft-roster-preview" class="draft-roster-preview"><p class="muted">Choose a team to load its roster.</p></div>'
+  const roster=document.createElement('section');roster.id='draft-roster-panel';roster.className='panel draft-roster-panel';roster.innerHTML='<div class="panel-head"><div><p class="eyebrow">TEAM ROSTER</p><strong id="draft-roster-name" class="draft-roster-team">No team selected</strong></div><div class="toolbar draft-roster-actions"><button id="draft-roster-depth-button" type="button" class="small" aria-haspopup="dialog" onclick="openDraftRosterDepthCharts()">Depth Charts</button><button id="draft-roster-bye-button" type="button" class="small" onclick="openDraftRosterByeAdvisor()">Bye Advisor</button></div></div><label class="draft-roster-team-picker">View team<select id="draft-roster-team" aria-label="View draft roster by team" onchange="viewDraftRosterTeam(this.value)"><option value="">No team selected</option></select></label><div id="draft-roster-preview" class="draft-roster-preview"><p class="muted">Choose a team to load its roster.</p></div>'
   side.prepend(roster)
   if(radar){radar.classList.add('draft-radar-panel');radar.innerHTML='<div class="panel-head"><div><p class="eyebrow">PERSONAL WATCHLIST</p><h2>On your radar</h2></div></div><div class="draft-radar-grid"><article><h3>Targets</h3><ol id="draft-radar-targets" class="recent"></ol></article><article><h3>Queue</h3><ol id="draft-queue" class="recent"></ol></article><article><h3>Falling value</h3><ol id="draft-radar-value" class="recent"></ol></article></div>'}
   if(order&&recent){side.insertBefore(recent,radar||null);side.insertBefore(order,recent)}
@@ -254,6 +254,19 @@ function renderDraftRosterPreview(warRoom){
 function viewDraftRosterTeam(franchiseId){const mainPicker=document.querySelector('#draft-franchise');if(mainPicker)mainPicker.value=franchiseId;viewDraftWarRoom(franchiseId)}
 function openRosterByeAdvisorCard(leagueId,franchiseId){if(!franchiseId)return toast('Choose a roster first',true);let dialog=document.querySelector('#roster-bye-dialog');if(!dialog){dialog=document.createElement('dialog');dialog.id='roster-bye-dialog';dialog.className='player-quick-dialog roster-bye-dialog';dialog.innerHTML='<button type="button" class="quick-card-close" aria-label="Close Bye Advisor" onclick="this.closest(\'dialog\').close()">×</button><iframe class="roster-bye-frame" title="Bye Advisor"></iframe>';document.body.append(dialog)}const query=new URLSearchParams({league_id:leagueId,franchise_id:franchiseId,quick:'1'});dialog.querySelector('iframe').src=`/bye-advisor?${query}`;if(!dialog.open)dialog.showModal()}
 function openDraftRosterByeAdvisor(){const warRoom=draftRosterWarRoom;openRosterByeAdvisorCard(SELECTED_LEAGUE_ID,warRoom?.configured?warRoom.franchise_id:'')}
+function openRosterDepthChartsCard(leagueId){
+  let dialog=document.querySelector('#roster-depth-dialog')
+  if(!dialog){
+    dialog=document.createElement('dialog');dialog.id='roster-depth-dialog';dialog.className='player-quick-dialog roster-bye-dialog';dialog.setAttribute('aria-label','Depth Charts')
+    dialog.innerHTML='<button type="button" class="quick-card-close" aria-label="Close Depth Charts" onclick="this.closest(\'dialog\').close()">×</button><iframe class="roster-bye-frame" title="Depth Charts"></iframe>'
+    document.body.append(dialog)
+  }
+  const query=new URLSearchParams({league_id:leagueId,quick:'1'}),src=`/depth-charts?${query}`,frame=dialog.querySelector('iframe')
+  if(frame.getAttribute('src')!==src)frame.src=src
+  if(!dialog.open)dialog.showModal()
+}
+function openDraftRosterDepthCharts(){openRosterDepthChartsCard(SELECTED_LEAGUE_ID)}
+function openAuctionRosterDepthCharts(){openRosterDepthChartsCard(AUCTION_LEAGUE_ID)}
 function openAuctionRosterByeAdvisor(){openRosterByeAdvisorCard(AUCTION_LEAGUE_ID,auctionRosterFranchiseId)}
 function openFullDraftOrder(){const dialog=document.querySelector('#draft-order-dialog');renderFullDraftOrder(true);dialog?.showModal();requestAnimationFrame(()=>followFullDraftOrder())}
 function followFullDraftOrder(){const table=document.querySelector('.draft-order-dialog-table'),current=table?.querySelector('tr.current');if(table&&current)table.scrollTop=Math.max(0,current.offsetTop-table.offsetTop-80)}

@@ -354,7 +354,8 @@ async def secure_session(request: Request, call_next: Any) -> Response:
         reset_active_league_ids(league_context_token)
         reset_active_username(context_token)
     same_origin_quick_embed = request.query_params.get("quick") == "1" and (
-        request.url.path.startswith("/player/") or request.url.path == "/bye-advisor"
+        request.url.path.startswith("/player/")
+        or request.url.path in {"/bye-advisor", "/depth-charts"}
     )
     frame_ancestors = "'self'" if same_origin_quick_embed else "'none'"
     response.headers["Content-Security-Policy"] = (

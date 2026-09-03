@@ -111,3 +111,17 @@ def test_only_supported_quick_cards_allow_same_origin_framing():
         ordinary_bye_page = client.get("/bye-advisor", follow_redirects=False)
         assert ordinary_bye_page.headers["X-Frame-Options"] == "DENY"
         assert "frame-ancestors 'none'" in ordinary_bye_page.headers["Content-Security-Policy"]
+
+        depth_card = client.get("/depth-charts?quick=1", follow_redirects=False)
+        assert depth_card.status_code == 200
+        assert depth_card.headers["X-Frame-Options"] == "SAMEORIGIN"
+        assert "frame-ancestors 'self'" in depth_card.headers["Content-Security-Policy"]
+        assert 'class="quick-embed"' in depth_card.text
+        assert 'id="depth-team"' in depth_card.text
+
+        ordinary_depth_page = client.get("/depth-charts", follow_redirects=False)
+        assert ordinary_depth_page.headers["X-Frame-Options"] == "DENY"
+        assert "frame-ancestors 'none'" in ordinary_depth_page.headers["Content-Security-Policy"]
+
+        unrelated_quick_page = client.get("/health?quick=1")
+        assert unrelated_quick_page.headers["X-Frame-Options"] == "DENY"

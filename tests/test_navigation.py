@@ -372,6 +372,22 @@ def test_draft_room_has_personal_war_room_and_live_intelligence() -> None:
     assert 'roster-bye-dialog' in script
     assert 'roster-bye-frame' in script
     assert "openRosterByeAdvisorCard(SELECTED_LEAGUE_ID" in script
+    assert "<h2>Roster viewer</h2>" not in script
+    assert script.index('id="draft-roster-depth-button"') < script.index(
+        'id="draft-roster-bye-button"'
+    )
+    assert 'onclick="openDraftRosterDepthCharts()">Depth Charts</button>' in script
+    assert "openDraftRosterDepthCharts(){openRosterDepthChartsCard(SELECTED_LEAGUE_ID)}" in script
+    depth_card = script.split("function openRosterDepthChartsCard(leagueId)", 1)[1].split(
+        "function openDraftRosterDepthCharts", 1
+    )[0]
+    assert "#roster-depth-dialog" in depth_card
+    assert "player-quick-dialog roster-bye-dialog" in depth_card
+    assert 'title="Depth Charts"' in depth_card
+    assert "league_id:leagueId,quick:'1'" in depth_card
+    assert "/depth-charts?${query}" in depth_card
+    assert "if(frame.getAttribute('src')!==src)frame.src=src" in depth_card
+    assert "dialog.showModal()" in depth_card
     assert "franchise_id:franchiseId" in script
     assert "compact-name" in script
     assert 'id="draft-position"' in draft
@@ -430,6 +446,11 @@ def test_auction_has_live_intelligence_personal_war_room_and_owner_insights() ->
     assert 'id="auction-current-roster"' in auction
     assert 'id="auction-current-roster-content"' in auction
     assert "Bye Advisor" in auction
+    assert "<h2>Roster viewer</h2>" not in auction
+    assert auction.index('onclick="openAuctionRosterDepthCharts()"') < auction.index(
+        'onclick="openAuctionRosterByeAdvisor()"'
+    )
+    assert "openAuctionRosterDepthCharts(){openRosterDepthChartsCard(AUCTION_LEAGUE_ID)}" in script
     assert "openAuctionRosterByeAdvisor" in script
     assert 'id="auction-user-budget"' in auction
     assert 'class="auction-center-status"' in auction
