@@ -112,11 +112,22 @@ def test_auction_has_compact_money_cards_roster_viewer_and_auctioneer_page() -> 
     assert 'id="auction-roster-team"' in auction
     assert 'step="1" inputmode="numeric"' in auction
     assert 'id="record-winning-bid-button"' in auction
+    assert 'onclick="openAuctionPrimaryAction()"' in auction
+    assert "{{ auction_primary_label }}" in auction
+    assert 'id="auction-action-heading"' in auction
+    assert "actionHeading.textContent=nominationMode?'Nominate':'Purchase'" in script
+    assert 'id="nomination-dialog"' in auction
+    assert 'id="nomination-form"' in auction
+    assert "auctionUsesNominations" in script
+    assert "nominateAuctionPlayer" in script
+    assert "openAuctionPrimaryAction" in script
+    assert "nominationMode?(nominated?'Nominated':'Nominate'):'Purchase'" in script
+    assert "document.querySelector('#nomination-form')?.addEventListener" in script
     assert 'id="sale-dialog"' in auction
     assert 'name="auction_player_lookup_{{ league.id }}"' in auction
     assert 'data-1p-ignore data-lpignore="true"' in auction
     assert auction.count('autocomplete="username"') == 2
-    assert ">Purchase</button>" in script
+    assert ":'Purchase'" in script
     assert 'data-column-key="draftdesk:columns:auction-v6"' in auction
     assert 'data-default-widths="82,68,230,88,105,118,110,88,102"' in auction
     assert "table.dataset.defaultWidths" in script

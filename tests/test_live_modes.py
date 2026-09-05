@@ -628,6 +628,17 @@ def test_in_person_nomination_requires_the_winner_to_record_the_nominated_player
                 headers={"X-CSRF-Token": admin_session.csrf_token},
                 json={"is_live": True},
             )
+            direct_admin_purchase = client.post(
+                "/api/auction/purchases",
+                headers={"X-CSRF-Token": admin_session.csrf_token},
+                json={
+                    "league_id": "00999",
+                    "franchise_id": "0001",
+                    "player_id": "0001234",
+                    "amount": "2",
+                    "status": "ROSTER",
+                },
+            )
 
             user_token, user_session = _session("tester")
             client.cookies.set(SESSION_COOKIE, user_token)
@@ -664,6 +675,8 @@ def test_in_person_nomination_requires_the_winner_to_record_the_nominated_player
             after = client.get("/api/auction/state?league_id=00999")
 
         assert mode.status_code == 200
+        assert direct_admin_purchase.status_code == 409
+        assert direct_admin_purchase.json()["detail"]["code"] == "nomination_required"
         assert nominated.status_code == 201
         assert nominated.json()["uses_site_bidding"] is False
         assert nominated.json()["current_bid"] is None

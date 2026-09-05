@@ -1169,6 +1169,21 @@ def _auction_page_context(db: Session, league_id: str | None = None) -> dict[str
     staged = auction_stage_enabled(db, selected) if selected else False
     interactive = workflow in {"offline_nomination", "site_bidding"}
     context["interactive_bidding"] = interactive
+    interactive_state = _interactive_auction(db, selected) if selected and interactive else None
+    active_nomination = bool(
+        interactive_state
+        and interactive_state.status == "open"
+        and interactive_state.player_id
+    )
+    context["auction_primary_label"] = (
+        "Record winning bid"
+        if workflow == "offline_nomination" and active_nomination
+        else "Bidding open"
+        if workflow == "site_bidding" and active_nomination
+        else "Nominate"
+        if interactive
+        else "Record winning bid"
+    )
     current_user_franchise_id = (
         _current_user_franchise_id(db, selected_league) if selected_league else None
     )
@@ -1184,6 +1199,14 @@ def _auction_page_context(db: Session, league_id: str | None = None) -> dict[str
             )
         )
     ) and workflow != "site_bidding"
+    if workflow == "offline_nomination" and selected:
+        context["can_record_purchase"] = bool(
+            live
+            and live.is_live
+            and interactive_state.status == "open"
+            and interactive_state.player_id
+            and context["can_record_purchase"]
+        )
     context["can_record_own_purchase"] = bool(
         context["can_record_purchase"] and current_user_franchise_id
     )
@@ -3267,6 +3290,8 @@ def auction_state(db: Db, league_id: str | None = None) -> dict[str, Any]:
             and (is_admin or workflow in {"owner_purchase", "offline_nomination"})
         )
     ) and workflow != "site_bidding"
+    if workflow == "offline_nomination":
+        can_record = bool(live.is_live and interactive["active"] and can_record)
     phase = "live" if live.is_live else "staging" if staged else "closed"
     budgets = [
         franchise_budget(db, league, franchise)
@@ -3824,7 +3849,7 @@ def purchase(payload: PurchaseCreate, background_tasks: BackgroundTasks, db: Db)
                     "message": "You can only record winning bids for your linked MFL franchise",
                 },
             )
-    if workflow == "offline_nomination" and live.is_live:
+    if workflow == "offline_nomination":
         if interactive.status != "open" or not interactive.player_id:
             raise HTTPException(
                 409,
